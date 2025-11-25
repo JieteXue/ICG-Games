@@ -74,12 +74,15 @@ Combinatorial-Games/
 2. **Install Dependencies**
    ```bash
    pip install -r requirements.txt
+  
    ```
    *Or manually install:*
    ```bash
    pip install pygame
+   # If use python3: pip3 install pygame
    ```
-
+  Make sure pygame has the same root as python
+  
 3. **Verify Project Structure**
    Ensure all files are in the correct locations as shown in the project structure above.
 
