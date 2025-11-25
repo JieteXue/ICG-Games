@@ -442,7 +442,7 @@ class CardGame:
             "minus": Button(control_x, control_y, number_button_width, number_button_height, "−", self.font_manager),
             "plus": Button(control_x + control_width - number_button_width, control_y, number_button_width, number_button_height, "+", self.font_manager),
             "confirm": Button(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager),
-            "restart": Button(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 330, 240, 60, "New Game", self.font_manager)
+            "restart": Button(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 270, 240, 60, "New Game", self.font_manager)
         }
         
         return buttons
