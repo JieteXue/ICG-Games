@@ -1,6 +1,7 @@
 import pygame
 import sys
 import random
+import Select_Difficulty
 
 # Initialize Pygame
 pygame.init()
@@ -40,17 +41,19 @@ class CardGame:
         
         self.positions = []
         self.selected_position = None
+        self.difficulty = None
         self.selected_count = 1
         self.game_over = False
         self.winner = None
         self.message = ""
-        
+
         self.initialize_game()
     
     def initialize_game(self):
         """Initialize game"""
         n = self.get_position_count()
         self.positions = self.random_list(n)
+        self.difficulty = self.get_difficulty()
         self.selected_position = None
         self.selected_count = 1
         self.game_over = False
@@ -64,6 +67,12 @@ class CardGame:
     def random_list(self, n):
         """Generate random card list"""
         return [random.randint(1, 8) for _ in range(n)]
+    
+    def get_difficulty(self):
+        """Get game difficulty"""
+        return Select_Difficulty.select_difficulty()
+
+        
     
     def judge_win(self, positions):
         """Determine if current position is winning"""
@@ -86,6 +95,7 @@ class CardGame:
             
             return True
         return False
+    
     
     def draw_card(self, x, y, count, is_selected=False):
         """Draw card stack"""
@@ -127,9 +137,7 @@ class CardGame:
         title = self.font_large.render("Take Cards", True, TEXT_COLOR)
         self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 20))
         
-        # Game instructions
-        instruction = self.font_small.render("Click on a position, use +/- buttons to take cards", True, TEXT_COLOR)
-        self.screen.blit(instruction, (SCREEN_WIDTH//2 - instruction.get_width()//2, 70))
+        
         
         # Current message
         message_color = WIN_COLOR if self.game_over and self.winner == "Player" else LOSE_COLOR if self.game_over else TEXT_COLOR
