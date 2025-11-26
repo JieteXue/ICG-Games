@@ -12,6 +12,7 @@
 - [ ] Game 4 test.
 - [ ] Game 5 test.
 - [ ] GUI
+- [ ] README file game introduction proofread.
 
 ## Progress
 

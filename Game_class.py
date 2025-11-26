@@ -4,7 +4,7 @@
 
 
 import random, copy
-class Game:
+class Universal_Game():
 
     #------------------initialization-------------------#
     def __init__(self, id, name, initial_setting, judge_win, movement_global, acted_situation, description=""):
