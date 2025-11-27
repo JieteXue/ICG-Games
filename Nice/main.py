@@ -14,7 +14,6 @@ sys.path.insert(0, src_path)
 print("🚀 Starting ICG Games...")
 
 try:
-    # 直接导入，不使用相对导入
     from ui.menus import MainMenu
     from core.game_registry import game_registry
     print("✅ Successfully imported core modules")
@@ -36,10 +35,23 @@ def register_games():
             max_players=2
         )
         print("✅ Card Nim game registered successfully")
+        
+        # 导入并注册Subtract Factor游戏
+        from games.subtract_factor.game import SubtractFactorGame
+        game_registry.register_game(
+            game_id="subtract_factor",
+            game_class=SubtractFactorGame,
+            name="Subtract Factor Game", 
+            description="Strategic number reduction using factor subtraction",
+            min_players=1,
+            max_players=2
+        )
+        print("✅ Subtract Factor game registered successfully")
+        
         return True
         
     except ImportError as e:
-        print(f"❌ Error registering Card Nim game: {e}")
+        print(f"❌ Error registering games: {e}")
         return False
 
 def main():

@@ -4,15 +4,11 @@ Card Nim Game - Main game class
 
 import pygame
 import sys
-
-# 修复导入 - 使用绝对导入
 from core.base_game import BaseGame
 from games.card_nim.logic import CardNimLogic
 from games.card_nim.ui import CardNimUI
 from ui.menus import GameModeSelector
 from utils.constants import CARD_GAME_FPS
-
-# 其余的CardNimGame代码保持不变...
 
 class CardNimInputHandler:
     """Handles input for Card Nim game"""
@@ -60,10 +56,10 @@ class CardNimInputHandler:
                         self.game_logic.selected_position_index = None
         
         # Check navigation buttons (always available)
-        if buttons["back"].is_clicked(event):
+        if "back" in buttons and buttons["back"].is_clicked(event):
             # Go back to previous screen (difficulty selection)
             return "back"
-        elif buttons["home"].is_clicked(event):
+        elif "home" in buttons and buttons["home"].is_clicked(event):
             # Go back to main menu
             return "home"
         
@@ -215,43 +211,48 @@ class CardNimGame(BaseGame):
                 self.ai_timer = 0
     
     def draw(self):
-        """Draw the game"""
+        """Draw the complete game interface"""
         try:
+            # Draw background
             self.ui.draw_background()
+            
+            # Draw game information
             self.ui.draw_game_info(self.logic)
             
             # Draw card positions
             self.position_rects = self.ui.draw_card_positions(
                 self.logic.positions, self.logic.selected_position_index)
             
-            # Draw navigation buttons (检查是否存在)
+            # Draw navigation buttons
             if "back" in self.buttons:
                 self.buttons["back"].draw(self.screen)
             if "home" in self.buttons:
                 self.buttons["home"].draw(self.screen)
             
             if not self.logic.game_over:
-                # Set button enabled states
-                buttons_enabled = (self.logic.game_mode == "PVP" or 
-                                 self.logic.current_player == "Player 1")
+                # Set button enabled states based on game mode and current player
+                if self.logic.game_mode == "PVE":
+                    # In PvE mode, only enable buttons during Player 1's turn
+                    buttons_enabled = (self.logic.current_player == "Player 1")
+                else:
+                    # In PvP mode, always enable buttons for both players
+                    buttons_enabled = True
                 
-                # 只绘制存在的按钮
-                for button_name in ["minus", "plus", "confirm"]:
-                    if button_name in self.buttons:
-                        self.buttons[button_name].enabled = buttons_enabled
+                for button in [self.buttons["minus"], self.buttons["plus"], self.buttons["confirm"]]:
+                    button.enabled = buttons_enabled
                 
                 self.ui.draw_control_panel(
                     self.buttons, self.logic.selected_count, self.logic.selected_position_index)
                 
                 # Draw control panel buttons
-                for button_name in ["minus", "plus", "confirm"]:
-                    if button_name in self.buttons:
-                        self.buttons[button_name].draw(self.screen)
+                for button in [self.buttons["minus"], self.buttons["plus"], self.buttons["confirm"]]:
+                    button.draw(self.screen)
                 
+                # Draw hints
                 self.ui.draw_hints()
             else:
-                if "restart" in self.buttons:
-                    self.buttons["restart"].draw(self.screen)
+                # Draw game over screen
+                self.buttons["restart"].draw(self.screen)
             
             pygame.display.flip()
             

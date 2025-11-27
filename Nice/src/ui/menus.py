@@ -6,7 +6,7 @@ import pygame
 import sys
 
 # 修复导入 - 使用绝对导入
-from ui.buttons import Button
+from ui.buttons import Button, InfoButton
 from utils.constants import *
 from utils.helpers import FontManager
 from core.game_registry import game_registry
@@ -21,6 +21,8 @@ class MainMenu:
         self.font_manager = FontManager(SCREEN_HEIGHT)
         self.font_manager.initialize_fonts()  # 显式初始化字体
         self.buttons = self.create_buttons()
+        self.info_button = InfoButton(SCREEN_WIDTH - 60, 20, 40, self.font_manager)
+        self.showing_info = False
         self.running = True
     
     def create_buttons(self):
@@ -82,11 +84,26 @@ class MainMenu:
         for button in self.buttons.values():
             button.update_hover(mouse_pos)
         
+        # Update info button hover state
+        self.info_button.update_hover(mouse_pos)
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
             
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                # Check info button first
+                if self.info_button.is_clicked(event):
+                    self.showing_info = not self.showing_info
+                    self.info_button.showing_tooltip = self.showing_info
+                    continue
+                
+                # If showing info, clicking anywhere else should close it
+                if self.showing_info:
+                    self.showing_info = False
+                    self.info_button.showing_tooltip = False
+                    continue
+                
                 # Check game buttons
                 available_games = game_registry.get_available_games()
                 for game_info in available_games:
@@ -138,9 +155,17 @@ class MainMenu:
         for button in self.buttons.values():
             button.draw(self.screen)
         
+        # Draw info button (右上角)
+        self.info_button.draw(self.screen)
+        
+        # Draw tooltip if showing info
+        if self.showing_info:
+            available_games = game_registry.get_available_games()
+            self.info_button.draw_tooltip(self.screen, available_games)
+        
         # Draw footer
         footer_text = self.font_manager.small.render(
-            "© 2024 ICG Games - Interactive Card Games Collection", 
+            "© 2025 ICG Games - Interactive Card Games Collection", 
             True, (150, 170, 190))
         self.screen.blit(footer_text, 
                         (SCREEN_WIDTH//2 - footer_text.get_width()//2, 
@@ -159,8 +184,6 @@ class MainMenu:
         
         pygame.quit()
         sys.exit()
-
-
 
 class GameModeSelector:
     """Game mode selection screen"""
