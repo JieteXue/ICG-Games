@@ -13,6 +13,8 @@ class SubtractFactorUI:
     def __init__(self, screen, font_manager):
         self.screen = screen
         self.font_manager = font_manager
+        self.scroll_offset = 0  # 滚动偏移量
+        self.visible_factor_count = 8  # 可见的因数数量
     
     def draw_background(self):
         """Draw the background with gradient effect"""
@@ -108,8 +110,8 @@ class SubtractFactorUI:
             pygame.draw.rect(self.screen, state_color, state_bg, 2, border_radius=6)
             self.screen.blit(state_text, (SCREEN_WIDTH//2 - state_text.get_width()//2, 158))
     
-    def draw_factor_selection(self, game_logic, factor_buttons):
-        """Draw factor selection area"""
+    def draw_factor_selection(self, game_logic, factor_buttons, scroll_buttons):
+        """Draw factor selection area with scrolling"""
         if not game_logic.valid_factors:
             return
         
@@ -120,20 +122,34 @@ class SubtractFactorUI:
         pygame.draw.rect(self.screen, (35, 45, 60), selection_bg, border_radius=15)
         pygame.draw.rect(self.screen, ACCENT_COLOR, selection_bg, 3, border_radius=15)
         
-        # Draw title
-        title_text = self.font_manager.medium.render("Select a Factor to Subtract:", True, TEXT_COLOR)
+        # Draw title with scroll info
+        total_factors = len(game_logic.valid_factors)
+        if total_factors > self.visible_factor_count:
+            scroll_info = f" ({self.scroll_offset + 1}-{min(self.scroll_offset + self.visible_factor_count, total_factors)} of {total_factors})"
+        else:
+            scroll_info = f" ({total_factors} factors)"
+            
+        title_text = self.font_manager.medium.render(f"Select a Factor to Subtract:{scroll_info}", True, TEXT_COLOR)
         self.screen.blit(title_text, (SCREEN_WIDTH//2 - title_text.get_width()//2, selection_y + 20))
         
-        # Draw factor buttons
+        # Draw scroll buttons if needed
+        if total_factors > self.visible_factor_count:
+            for button in scroll_buttons:
+                button.draw(self.screen)
+        
+        # Draw visible factor buttons
+        visible_factors = game_logic.valid_factors[self.scroll_offset:self.scroll_offset + self.visible_factor_count]
         for button in factor_buttons:
-            button.draw(self.screen)
+            if button.factor_value in visible_factors:
+                button.draw(self.screen)
         
         # Draw selected factor info
         if game_logic.selected_factor > 0:
             result = game_logic.current_value - game_logic.selected_factor
             result_color = LOSE_COLOR if result < game_logic.threshold_k else TEXT_COLOR
+            result_status = "LOSE!" if result < game_logic.threshold_k else f"{result}"
             result_text = self.font_manager.small.render(
-                f"Selected: {game_logic.selected_factor} → New value: {result}", 
+                f"Selected: {game_logic.selected_factor} → New value: {result_status}", 
                 True, result_color
             )
             self.screen.blit(result_text, (SCREEN_WIDTH//2 - result_text.get_width()//2, selection_y + 120))
@@ -163,9 +179,10 @@ class SubtractFactorUI:
         """Draw operation hints"""
         hint_y = 500
         hints = [
-            "Click on factors to select them, then press CONFIRM",
-            "Select a divisor d of current number where 1 ≤ d < current",
-            "If new value < threshold, you lose immediately!"
+            "Use LEFT/RIGHT to select factors, UP/DOWN to scroll",
+            "Click on factors or use CONFIRM to make move", 
+            "If new value < threshold, you lose immediately!",
+            "Use mouse wheel to scroll through factors"
         ]
         
         for i, hint in enumerate(hints):
@@ -195,24 +212,69 @@ class SubtractFactorUI:
         return buttons
     
     def create_factor_buttons(self, valid_factors, selected_factor):
-        """Create buttons for each valid factor"""
+        """Create buttons for each valid factor with scrolling support"""
         buttons = []
         button_width = 60
         button_height = 40
         spacing = 10
         
-        # Calculate starting position to center the buttons
-        total_width = len(valid_factors) * (button_width + spacing) - spacing
-        start_x = (SCREEN_WIDTH - total_width) // 2
+        # 计算可见的因数数量
+        visible_count = min(len(valid_factors), self.visible_factor_count)
+        
+        # 计算起始位置 - 总是居中显示可见的按钮
+        total_visible_width = visible_count * (button_width + spacing) - spacing
+        start_x = (SCREEN_WIDTH - total_visible_width) // 2
         y_position = 260
         
-        for i, factor in enumerate(valid_factors):
+        # 获取当前可见的因数范围
+        visible_factors = valid_factors[self.scroll_offset:self.scroll_offset + self.visible_factor_count]
+        
+        # 为可见的因数创建按钮
+        for i, factor in enumerate(visible_factors):
             x = start_x + i * (button_width + spacing)
             button = FactorButton(x, y_position, button_width, button_height, str(factor), self.font_manager)
+            button.factor_value = factor
             button.selected = (factor == selected_factor)
             buttons.append(button)
         
         return buttons
+    
+    def create_scroll_buttons(self, total_factors):
+        """Create scroll buttons for factor navigation"""
+        buttons = []
+        
+        if total_factors > self.visible_factor_count:
+            # Left scroll button
+            left_button = ScrollButton(80, 260, 40, 40, "<", self.font_manager)
+            left_button.enabled = (self.scroll_offset > 0)
+            buttons.append(left_button)
+            
+            # Right scroll button
+            right_button = ScrollButton(SCREEN_WIDTH - 120, 260, 40, 40, ">", self.font_manager)
+            right_button.enabled = (self.scroll_offset + self.visible_factor_count < total_factors)
+            buttons.append(right_button)
+        
+        return buttons
+    
+    def scroll_left(self, total_factors):
+        """Scroll factors to the left"""
+        if self.scroll_offset > 0:
+            self.scroll_offset -= 1
+    
+    def scroll_right(self, total_factors):
+        """Scroll factors to the right"""
+        if self.scroll_offset + self.visible_factor_count < total_factors:
+            self.scroll_offset += 1
+    
+    def handle_mouse_wheel(self, event, total_factors):
+        """Handle mouse wheel scrolling"""
+        if event.type == pygame.MOUSEWHEEL:
+            if event.y > 0:  # Scroll up/left
+                self.scroll_left(total_factors)
+            elif event.y < 0:  # Scroll down/right
+                self.scroll_right(total_factors)
+            return True
+        return False
 
 class FactorButton:
     """Specialized button for factor selection"""
@@ -224,6 +286,7 @@ class FactorButton:
         self.hovered = False
         self.selected = False
         self.enabled = True
+        self.factor_value = 0
     
     def draw(self, surface):
         """Draw the factor button"""
@@ -256,6 +319,53 @@ class FactorButton:
         surface.blit(shadow_surface, shadow_rect)
         
         surface.blit(text_surface, text_rect)
+    
+    def update_hover(self, mouse_pos):
+        """Update hover state"""
+        self.hovered = self.rect.collidepoint(mouse_pos) and self.enabled
+    
+    def is_clicked(self, event):
+        """Check if button was clicked"""
+        return (event.type == pygame.MOUSEBUTTONDOWN and 
+                event.button == 1 and 
+                self.hovered and 
+                self.enabled)
+
+class ScrollButton:
+    """Button for scrolling through factors"""
+    
+    def __init__(self, x, y, width, height, text, font_manager):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.font_manager = font_manager
+        self.hovered = False
+        self.enabled = True
+    
+    def draw(self, surface):
+        """Draw the scroll button"""
+        # Draw shadow
+        shadow_rect = self.rect.move(2, 2)
+        pygame.draw.rect(surface, SHADOW_COLOR, shadow_rect, border_radius=8)
+        
+        # Draw button
+        color = BUTTON_HOVER_COLOR if self.hovered and self.enabled else BUTTON_COLOR
+        if not self.enabled:
+            color = (80, 80, 100)  # Disabled color
+        
+        pygame.draw.rect(surface, color, self.rect, border_radius=8)
+        
+        # Draw border
+        border_color = ACCENT_COLOR if self.hovered and self.enabled else (100, 140, 200)
+        if not self.enabled:
+            border_color = (60, 60, 80)
+        pygame.draw.rect(surface, border_color, self.rect, 2, border_radius=8)
+        
+        # Draw arrow
+        arrow_color = (255, 255, 255) if self.enabled else (150, 150, 150)
+        arrow_font = pygame.font.SysFont('Arial', 24, bold=True)
+        arrow_text = arrow_font.render(self.text, True, arrow_color)
+        arrow_rect = arrow_text.get_rect(center=self.rect.center)
+        surface.blit(arrow_text, arrow_rect)
     
     def update_hover(self, mouse_pos):
         """Update hover state"""
