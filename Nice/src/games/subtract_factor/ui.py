@@ -50,8 +50,8 @@ class SubtractFactorUI:
         mode_info = self.font_manager.small.render(mode_text, True, ACCENT_COLOR)
         params_info = self.font_manager.small.render(params_text, True, ACCENT_COLOR)
         
-        self.screen.blit(mode_info, (20, 120))
-        self.screen.blit(params_info, (20, 145))
+        self.screen.blit(mode_info, (20, 145))
+        # self.screen.blit(params_info, (20, 145))
         
         # Current player info with highlight
         player_colors = {
@@ -74,8 +74,8 @@ class SubtractFactorUI:
         self.screen.blit(player_text, (SCREEN_WIDTH - player_text.get_width() - 30, 50))
         
         # Current value display
-        value_text = self.font_manager.large.render(f"Current Value: {game_logic.current_value}", True, HIGHLIGHT_COLOR)
-        self.screen.blit(value_text, (SCREEN_WIDTH//2 - value_text.get_width()//2, 80))
+        value_text = self.font_manager.large.render(f"Current Value: {game_logic.current_value} | Threshold: {game_logic.threshold_k}", True, HIGHLIGHT_COLOR)
+        self.screen.blit(value_text, (SCREEN_WIDTH//2 - value_text.get_width()//2, 60))
         
         # Current message with background - with text wrapping
         message_color = (WIN_COLOR if game_logic.game_over and game_logic.winner == "Player 1" 
@@ -161,23 +161,23 @@ class SubtractFactorUI:
         control_x = (SCREEN_WIDTH - control_width) // 2
         
         # Draw control panel background
-        control_bg = pygame.Rect(control_x - 20, control_y - 20, control_width + 40, 120)
+        control_bg = pygame.Rect(control_x - 20, control_y + 20, control_width + 40, 170)
         pygame.draw.rect(self.screen, (35, 45, 60), control_bg, border_radius=15)
         pygame.draw.rect(self.screen, ACCENT_COLOR, control_bg, 3, border_radius=15)
         
         # Draw selected factor display
         factor_display = str(game_logic.selected_factor) if game_logic.selected_factor > 0 else "-"
         factor_text = self.font_manager.large.render(factor_display, True, TEXT_COLOR)
-        factor_bg = pygame.Rect(control_x + control_width//2 - 35, control_y-5, 70, 60)
+        factor_bg = pygame.Rect(control_x + control_width//2 - 35, control_y+40, 70, 60)
         pygame.draw.rect(self.screen, (40, 60, 80), factor_bg, border_radius=12)
         pygame.draw.rect(self.screen, ACCENT_COLOR, factor_bg, 3, border_radius=12)
         self.screen.blit(factor_text, 
                         (control_x + control_width//2 - factor_text.get_width()//2, 
-                         control_y + 25 - factor_text.get_height()//2))
+                         control_y + 70 - factor_text.get_height()//2))
     
     def draw_hints(self):
         """Draw operation hints"""
-        hint_y = 500
+        hint_y = 600
         hints = [
             "Use LEFT/RIGHT to select factors, UP/DOWN to scroll",
             "Click on factors or use CONFIRM to make move", 
@@ -201,10 +201,10 @@ class SubtractFactorUI:
         nav_button_size = 50
         
         buttons = {
-            "minus": Button(control_x, control_y, number_button_width, number_button_height, "−", self.font_manager),
-            "plus": Button(control_x + control_width - number_button_width, control_y, number_button_width, number_button_height, "+", self.font_manager),
-            "confirm": Button(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager),
-            "restart": Button(SCREEN_WIDTH//2 - 120, 450, 240, 60, "New Game", self.font_manager),
+            "minus": Button(control_x, control_y + 55, number_button_width, number_button_height, "−", self.font_manager),
+            "plus": Button(control_x + control_width - number_button_width, control_y +55 , number_button_width, number_button_height, "+", self.font_manager),
+            "confirm": Button(control_x + 100, control_y + 120, 200, 50, "Confirm Move", self.font_manager),
+            "restart": Button(SCREEN_WIDTH//2 - 120, 550, 240, 60, "New Game", self.font_manager),
             "back": Button(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back'),
             "home": Button(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home')
         }
