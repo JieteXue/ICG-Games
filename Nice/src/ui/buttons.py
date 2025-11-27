@@ -7,13 +7,16 @@ from utils.constants import *
 
 class Button:
     """Represents a clickable button"""
-    def __init__(self, x, y, width, height, text, font_manager, icon=None):
+    def __init__(self, x, y, width, height, text, font_manager, icon=None, tooltip=""):
         self.rect = pygame.Rect(x, y, width, height)
         self.text = text
         self.font_manager = font_manager
         self.hovered = False
         self.enabled = True
         self.icon = icon
+        self.tooltip = tooltip  # 添加提示文本
+        self.tooltip_timer = 0  # 提示显示计时器
+        self.show_tooltip = False  # 是否显示提示
     
     def draw(self, surface):
         """Draw the button on the surface with enhanced styling"""
@@ -42,6 +45,48 @@ class Button:
             self._draw_icon(surface)
         else:
             self._draw_text(surface)
+        
+        # 绘制提示（如果悬停时间足够长）
+        if self.hovered and self.tooltip and self.enabled:
+            self.tooltip_timer += 1
+            if self.tooltip_timer > 20:  # 悬停0.5秒后显示提示
+                self._draw_tooltip(surface)
+        else:
+            self.tooltip_timer = 0
+    
+    def _draw_tooltip(self, surface):
+        """绘制提示"""
+        if not self.tooltip:
+            return
+            
+        # 创建提示文本
+        tooltip_font = pygame.font.SysFont('Arial', 14)
+        tooltip_text = tooltip_font.render(self.tooltip, True, (255, 255, 255))
+        tooltip_rect = tooltip_text.get_rect()
+        
+        # 计算提示位置（在按钮上方）
+        tooltip_x = self.rect.centerx - tooltip_rect.width // 2
+        tooltip_y = self.rect.top - tooltip_rect.height - 8
+        
+        # 绘制提示背景
+        tooltip_bg = pygame.Rect(
+            tooltip_x - 6, tooltip_y - 4,
+            tooltip_rect.width + 12, tooltip_rect.height + 8
+        )
+        pygame.draw.rect(surface, (40, 40, 60), tooltip_bg, border_radius=6)
+        pygame.draw.rect(surface, ACCENT_COLOR, tooltip_bg, 1, border_radius=6)
+        
+        # 绘制提示文本
+        surface.blit(tooltip_text, (tooltip_x, tooltip_y))
+        
+        # 绘制小三角形指向按钮
+        points = [
+            (self.rect.centerx, self.rect.top - 2),
+            (self.rect.centerx - 6, self.rect.top - 8),
+            (self.rect.centerx + 6, self.rect.top - 8)
+        ]
+        pygame.draw.polygon(surface, (40, 40, 60), points)
+        pygame.draw.polygon(surface, ACCENT_COLOR, points, 1)
     
     def _draw_icon(self, surface):
         """Draw button icon"""

@@ -180,12 +180,12 @@ class CardNimUI:
         nav_button_size = 50
         
         buttons = {
-            "minus": Button(control_x, control_y, number_button_width, number_button_height, "−", self.font_manager),
-            "plus": Button(control_x + control_width - number_button_width, control_y, number_button_width, number_button_height, "+", self.font_manager),
-            "confirm": Button(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager),
-            "restart": Button(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 250, 240, 60, "New Game", self.font_manager),
-            "back": Button(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back'),
-            "home": Button(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home')
+            "minus": Button(control_x, control_y, number_button_width, number_button_height, "−", self.font_manager, tooltip="Decrease card count"),
+            "plus": Button(control_x + control_width - number_button_width, control_y, number_button_width, number_button_height, "+", self.font_manager, tooltip="Increase card count"),
+            "confirm": Button(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager, tooltip="Make move with selected cards"),
+            "restart": Button(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 250, 240, 60, "New Game", self.font_manager, tooltip="Start a new game"),
+            "back": Button(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back', tooltip="Back to mode selection"),
+            "home": Button(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu")
         }
         
         return buttons
