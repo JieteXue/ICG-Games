@@ -45,3 +45,11 @@
 > 1. New game: game 5: Subtract Factor
 > 2. An test GUI for game 3
 > 3. Restructure
+
+#### Nov 27, 2025
+> 1. Restructure
+> 2. Menu and game3 UI
+
+#### Nov 28, 2025
+> 1. New game: take coins 
+> 2. Add double click function in new game

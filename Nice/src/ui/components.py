@@ -3,7 +3,7 @@ Additional UI components
 """
 
 import pygame
-from src.utils.constants import *
+from utils.constants import *
 
 class CardPosition:
     """Represents a card position with a stack of cards"""

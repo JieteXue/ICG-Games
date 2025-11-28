@@ -4,21 +4,28 @@ Card Nim Game - Main game class
 
 import pygame
 import sys
-
-# 修复导入 - 使用绝对导入
 from core.base_game import BaseGame
 from games.card_nim.logic import CardNimLogic
 from games.card_nim.ui import CardNimUI
 from ui.menus import GameModeSelector
 from utils.constants import CARD_GAME_FPS
-
-# 其余的CardNimGame代码保持不变...
+from utils.key_repeat import KeyRepeatManager  # 添加导入
 
 class CardNimInputHandler:
     """Handles input for Card Nim game"""
     
     def __init__(self, game_logic):
         self.game_logic = game_logic
+        self.key_repeat_manager = KeyRepeatManager()
+    
+    def _create_key_callbacks(self):
+        """创建按键回调字典"""
+        return {
+            pygame.K_LEFT: self._select_previous_position,
+            pygame.K_RIGHT: self._select_next_position,
+            pygame.K_UP: self._increase_count,
+            pygame.K_DOWN: self._decrease_count
+        }
     
     def handle_mouse_click(self, event, position_rects, buttons):
         """Handle mouse click events"""
@@ -28,6 +35,7 @@ class CardNimInputHandler:
             # Check restart button
             if buttons["restart"].is_clicked(event):
                 self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
+                self.key_repeat_manager._reset_state()
         else:
             # Check if current player can interact
             can_interact = False
@@ -48,22 +56,23 @@ class CardNimInputHandler:
                 # Check number buttons (only if a position is selected)
                 if self.game_logic.selected_position_index is not None:
                     if buttons["minus"].is_clicked(event) and self.game_logic.selected_count > 1:
-                        self.game_logic.selected_count -= 1
+                        self._decrease_count()
                     elif (buttons["plus"].is_clicked(event) and 
                           self.game_logic.selected_count < self.game_logic.positions[self.game_logic.selected_position_index]):
-                        self.game_logic.selected_count += 1
+                        self._increase_count()
                 
                 # Check confirm button (only if a position is selected)
                 if (buttons["confirm"].is_clicked(event) and 
                     self.game_logic.selected_position_index is not None):
                     if self.game_logic.make_move(self.game_logic.selected_position_index, self.game_logic.selected_count):
                         self.game_logic.selected_position_index = None
+                        self.key_repeat_manager._reset_state()
         
         # Check navigation buttons (always available)
-        if buttons["back"].is_clicked(event):
+        if "back" in buttons and buttons["back"].is_clicked(event):
             # Go back to previous screen (difficulty selection)
             return "back"
-        elif buttons["home"].is_clicked(event):
+        elif "home" in buttons and buttons["home"].is_clicked(event):
             # Go back to main menu
             return "home"
         
@@ -84,21 +93,27 @@ class CardNimInputHandler:
             can_interact = True
         
         if can_interact:
-            if self.game_logic.selected_position_index is not None:
-                # Number adjustment with up/down arrows
-                if event.key == pygame.K_UP and self.game_logic.selected_count < self.game_logic.positions[self.game_logic.selected_position_index]:
-                    self.game_logic.selected_count += 1
-                elif event.key == pygame.K_DOWN and self.game_logic.selected_count > 1:
-                    self.game_logic.selected_count -= 1
-                elif event.key == pygame.K_RETURN:
-                    if self.game_logic.make_move(self.game_logic.selected_position_index, self.game_logic.selected_count):
-                        self.game_logic.selected_position_index = None
+            callbacks = self._create_key_callbacks()
             
-            # Position selection with left/right arrows
-            if event.key == pygame.K_LEFT:
-                self._select_previous_position()
-            elif event.key == pygame.K_RIGHT:
-                self._select_next_position()
+            # 处理方向键（带重复）
+            self.key_repeat_manager.handle_key_event(event, callbacks)
+            
+            # 处理回车键（不需要重复）
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                if (self.game_logic.selected_position_index is not None and
+                    self.game_logic.make_move(self.game_logic.selected_position_index, 
+                                            self.game_logic.selected_count)):
+                    self.game_logic.selected_position_index = None
+                    self.key_repeat_manager._reset_state()
+    
+    def update_key_repeat(self):
+        """更新按键重复状态"""
+        if (not self.game_logic.game_over and
+            ((self.game_logic.game_mode == "PVP") or 
+             (self.game_logic.game_mode == "PVE" and self.game_logic.current_player == "Player 1"))):
+            
+            callbacks = self._create_key_callbacks()
+            self.key_repeat_manager.update(callbacks)
     
     def _select_previous_position(self):
         """Select the previous available position"""
@@ -135,6 +150,18 @@ class CardNimInputHandler:
                     self.game_logic.select_position(new_position)
                     self.game_logic.selected_count = min(self.game_logic.selected_count, self.game_logic.positions[new_position])
                     break
+    
+    def _increase_count(self):
+        """增加数量"""
+        if (self.game_logic.selected_position_index is not None and
+            self.game_logic.selected_count < self.game_logic.positions[self.game_logic.selected_position_index]):
+            self.game_logic.selected_count += 1
+    
+    def _decrease_count(self):
+        """减少数量"""
+        if (self.game_logic.selected_position_index is not None and
+            self.game_logic.selected_count > 1):
+            self.game_logic.selected_count -= 1
 
 class CardNimGame(BaseGame):
     """Card Taking Game implementation"""
@@ -155,7 +182,6 @@ class CardNimGame(BaseGame):
         self.buttons = self.ui.create_buttons()
         self.position_rects = []
         self.ai_timer = 0
-        self.clock = pygame.time.Clock()
     
     def initialize_game_settings(self):
         """Initialize game mode and difficulty"""
@@ -196,7 +222,7 @@ class CardNimGame(BaseGame):
                     # Return to main menu
                     return False
             
-            elif event.type == pygame.KEYDOWN:
+            elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
                 self.input_handler.handle_keyboard(event)
         
         return True
@@ -215,43 +241,48 @@ class CardNimGame(BaseGame):
                 self.ai_timer = 0
     
     def draw(self):
-        """Draw the game"""
+        """Draw the complete game interface"""
         try:
+            # Draw background
             self.ui.draw_background()
+            
+            # Draw game information
             self.ui.draw_game_info(self.logic)
             
             # Draw card positions
             self.position_rects = self.ui.draw_card_positions(
                 self.logic.positions, self.logic.selected_position_index)
             
-            # Draw navigation buttons (检查是否存在)
+            # Draw navigation buttons
             if "back" in self.buttons:
                 self.buttons["back"].draw(self.screen)
             if "home" in self.buttons:
                 self.buttons["home"].draw(self.screen)
             
             if not self.logic.game_over:
-                # Set button enabled states
-                buttons_enabled = (self.logic.game_mode == "PVP" or 
-                                 self.logic.current_player == "Player 1")
+                # Set button enabled states based on game mode and current player
+                if self.logic.game_mode == "PVE":
+                    # In PvE mode, only enable buttons during Player 1's turn
+                    buttons_enabled = (self.logic.current_player == "Player 1")
+                else:
+                    # In PvP mode, always enable buttons for both players
+                    buttons_enabled = True
                 
-                # 只绘制存在的按钮
-                for button_name in ["minus", "plus", "confirm"]:
-                    if button_name in self.buttons:
-                        self.buttons[button_name].enabled = buttons_enabled
+                for button in [self.buttons["minus"], self.buttons["plus"], self.buttons["confirm"]]:
+                    button.enabled = buttons_enabled
                 
                 self.ui.draw_control_panel(
                     self.buttons, self.logic.selected_count, self.logic.selected_position_index)
                 
                 # Draw control panel buttons
-                for button_name in ["minus", "plus", "confirm"]:
-                    if button_name in self.buttons:
-                        self.buttons[button_name].draw(self.screen)
+                for button in [self.buttons["minus"], self.buttons["plus"], self.buttons["confirm"]]:
+                    button.draw(self.screen)
                 
+                # Draw hints
                 self.ui.draw_hints()
             else:
-                if "restart" in self.buttons:
-                    self.buttons["restart"].draw(self.screen)
+                # Draw game over screen
+                self.buttons["restart"].draw(self.screen)
             
             pygame.display.flip()
             
@@ -278,5 +309,10 @@ class CardNimGame(BaseGame):
             if not self.handle_events():
                 break
             self.update()
+            
+            # 自动更新按键重复状态
+            if self.key_repeat_enabled:
+                self.update_key_repeat()
+                
             self.draw()
             self.clock.tick(CARD_GAME_FPS)

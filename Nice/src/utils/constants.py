@@ -38,7 +38,7 @@ DIFFICULTY_POSITION_RANGES = {
 }
 
 DIFFICULTY_RANDOM_RATES = {
-    1: 0.1, 
+    1: 0.5, 
     2: 0.3, 
     3: 0.1, 
     4: 0.05
