@@ -1,12 +1,12 @@
+# [file name]: utils/key_repeat.py
 """
-通用按键重复管理器
-为所有游戏提供一致的按键重复行为
+通用按键重复管理器 - 添加双击支持
 """
 
 import pygame
 
 class KeyRepeatManager:
-    """管理按键重复行为的通用类"""
+    """管理按键重复行为和双击检测的通用类"""
     
     def __init__(self):
         self.key_repeat_timer = 0
@@ -18,6 +18,11 @@ class KeyRepeatManager:
             pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN,
             pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d  # 添加WASD支持
         }
+        
+        # 双击支持
+        self.last_click_time = 0
+        self.double_click_delay = 500  # 双击延迟（毫秒）
+        self.last_click_position = None
     
     def handle_key_event(self, event, callback_dict):
         """
@@ -39,6 +44,37 @@ class KeyRepeatManager:
         elif event.type == pygame.KEYUP:
             if event.key in self.enabled_keys and event.key == self.last_key:
                 self._reset_state()
+    
+    def handle_mouse_click(self, event, position, callback_dict):
+        """
+        处理鼠标点击事件，支持双击
+        
+        Args:
+            event: pygame鼠标事件
+            position: 点击位置标识（如位置索引）
+            callback_dict: 回调函数字典
+                {'single_click': single_callback, 'double_click': double_callback}
+        """
+        if (event.type == pygame.MOUSEBUTTONDOWN and 
+            event.button == 1 and 
+            'single_click' in callback_dict):
+            
+            current_time = pygame.time.get_ticks()
+            
+            # 检查是否为双击（相同位置且在时间窗口内）
+            is_double_click = (current_time - self.last_click_time < self.double_click_delay and 
+                             position == self.last_click_position)
+            
+            if is_double_click and 'double_click' in callback_dict:
+                # 执行双击回调
+                callback_dict['double_click']()
+                self.last_click_time = 0  # 重置双击计时器
+                self.last_click_position = None
+            else:
+                # 执行单点击回调
+                callback_dict['single_click']()
+                self.last_click_time = current_time
+                self.last_click_position = position
     
     def update(self, callback_dict):
         """

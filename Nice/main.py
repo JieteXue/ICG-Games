@@ -47,8 +47,21 @@ def register_games():
             max_players=2
         )
         print("✅ Subtract Factor game registered successfully")
+
+        # 导入并注册Take Coins游戏
+        from games.take_coins.game import TakeCoinsGame
+        game_registry.register_game(
+            game_id="take_coins",
+            game_class=TakeCoinsGame,
+            name="Take Coins Game",
+            description="Strategic coin manipulation game on a line",
+            min_players=1,
+            max_players=2
+        )
+        print("✅ Take Coins game registered successfully")
         
         return True
+        
         
     except ImportError as e:
         print(f"❌ Error registering games: {e}")
