@@ -49,3 +49,7 @@
 #### Nov 27, 2025
 > 1. Restructure
 > 2. Menu and game3 UI
+
+#### Nov 28, 2025
+> 1. New game: take coins 
+> 2. Add double click function in new game
