@@ -12,6 +12,7 @@
 - [ ] Game 4 test.
 - [ ] Game 5 test.
 - [ ] GUI
+- [ ] README file game introduction proofread.
 
 ## Progress
 
@@ -44,6 +45,10 @@
 > 1. New game: game 5: Subtract Factor
 > 2. An test GUI for game 3
 > 3. Restructure
+
+#### Nov 27, 2025
+> 1. Restructure
+> 2. Menu and game3 UI
 #### Nov 28, 2025
 > 1. New game: game 4: Jiete's laser defense
 > 2. A test GUI for game 4
