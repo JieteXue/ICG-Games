@@ -185,8 +185,10 @@ class SubtractFactorLogic:
                 return True
         return False
     
+    # 在 SubtractFactorLogic 类的 initialize_game 方法中修改：
+    
     def initialize_game(self, game_mode, difficulty=None):
-        """Initialize a new game with larger numbers"""
+        """Initialize a new game - ensure player starts in winning position in PvE"""
         self.game_mode = game_mode
         self.difficulty = difficulty
         
@@ -204,28 +206,54 @@ class SubtractFactorLogic:
             }
             min_n, max_n = difficulty_ranges.get(difficulty, (150, 250))
         
-        self.initial_n = random.randint(min_n, max_n)
+        max_attempts = 100  # 防止无限循环
+        attempt_count = 0
         
-        # 调整阈值范围，确保游戏有足够的回合
-        min_k = max(10, int(math.sqrt(self.initial_n) * 1.5))  # 提高最小阈值
-        max_k = min(self.initial_n - 20, int(self.initial_n * 0.7))  # 降低最大阈值
-        
-        # 确保min_k不大于max_k
-        if min_k > max_k:
-            min_k = max(10, self.initial_n // 3)
-            max_k = min(self.initial_n - 10, self.initial_n // 2)
-        
-        self.threshold_k = random.randint(min_k, max_k)
-        
-        self.current_value = self.initial_n
-        self.selected_factor = 1
-        self.game_over = False
-        self.winner = None
-        self.current_player = "Player 1"
-        
-        # 计算必胜位置
-        self.calculate_winning_positions()
-        self.update_valid_factors()
+        while attempt_count < max_attempts:
+            attempt_count += 1
+            self.initial_n = random.randint(min_n, max_n)
+            
+            # 调整阈值范围，确保游戏有足够的回合
+            min_k = max(10, int(math.sqrt(self.initial_n) * 1.5))  # 提高最小阈值
+            max_k = min(self.initial_n - 20, int(self.initial_n * 0.7))  # 降低最大阈值
+            
+            # 确保min_k不大于max_k
+            if min_k > max_k:
+                min_k = max(10, self.initial_n // 3)
+                max_k = min(self.initial_n - 10, self.initial_n // 2)
+            
+            self.threshold_k = random.randint(min_k, max_k)
+            
+            self.current_value = self.initial_n
+            self.selected_factor = 1
+            self.game_over = False
+            self.winner = None
+            self.current_player = "Player 1"
+            
+            # 计算必胜位置
+            self.calculate_winning_positions()
+            self.update_valid_factors()
+            
+            if self.game_mode == "PVE":
+                # 检查是否为玩家胜利局面
+                is_winning_position = self.judge_win()
+                if is_winning_position:
+                    break  # 找到玩家胜利局面
+            else:
+                break  # PvP模式不关心初始胜负
+            
+        # 如果没找到玩家胜利局面，使用第一个有效配置
+        if attempt_count >= max_attempts:
+            self.initial_n = random.randint(min_n, max_n)
+            min_k = max(10, int(math.sqrt(self.initial_n) * 1.5))
+            max_k = min(self.initial_n - 20, int(self.initial_n * 0.7))
+            if min_k > max_k:
+                min_k = max(10, self.initial_n // 3)
+                max_k = min(self.initial_n - 10, self.initial_n // 2)
+            self.threshold_k = random.randint(min_k, max_k)
+            self.current_value = self.initial_n
+            self.calculate_winning_positions()
+            self.update_valid_factors()
         
         if self.game_mode == "PVE":
             self.auto_player = SubtractFactorAutoPlayer(
@@ -240,7 +268,7 @@ class SubtractFactorLogic:
             mode_info = f" (Player vs AI - {difficulty_names[self.difficulty-1]})"
         
         position_state = "winning" if self.judge_win() else "losing"
-        self.message = f"Game Started! n={self.initial_n}, k={self.threshold_k}. {self.current_player} is in a {position_state} position.{mode_info}"
+        self.message = f"Game Started! n={self.initial_n}, k={self.threshold_k}. You are in a {position_state} position.{mode_info}"
     
     def make_move(self, factor):
         """Execute a move and return success status"""

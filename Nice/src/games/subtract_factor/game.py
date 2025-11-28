@@ -29,7 +29,7 @@ class SubtractFactorInputHandler:
         }
     
     def handle_mouse_click(self, event, factor_buttons, scroll_buttons, control_buttons):
-        """Handle mouse click events"""
+        """Handle mouse click events with double-click support"""
         mouse_pos = pygame.mouse.get_pos()
         
         if self.game_logic.game_over:
@@ -50,16 +50,21 @@ class SubtractFactorInputHandler:
                 # Check scroll buttons first
                 for button in scroll_buttons:
                     if button.is_clicked(event):
-                        if button.text == "◀":
+                        if button.text == "<":
                             self.ui.scroll_left(len(self.game_logic.valid_factors))
                         else:
                             self.ui.scroll_right(len(self.game_logic.valid_factors))
                         return None
                 
-                # Check factor selection
+                # Check factor selection with double-click support
                 for button in factor_buttons:
                     if button.is_clicked(event):
-                        self.game_logic.select_factor(button.factor_value)
+                        # 使用通用的双击管理器
+                        callbacks = {
+                            'single_click': lambda: self._handle_single_click(button.factor_value),
+                            'double_click': lambda: self._handle_double_click(button.factor_value)
+                        }
+                        self.key_repeat_manager.handle_mouse_click(event, button.factor_value, callbacks)
                         break
                 
                 # Check control buttons
@@ -85,6 +90,20 @@ class SubtractFactorInputHandler:
             return "home"
         
         return None
+    
+    def _handle_single_click(self, factor_value):
+        """处理单点击"""
+        self.game_logic.select_factor(factor_value)
+    
+    def _handle_double_click(self, factor_value):
+        """处理双击"""
+        if self.game_logic.select_factor(factor_value):
+            if (self.game_logic.selected_factor is not None and
+                self.game_logic.selected_factor in self.game_logic.valid_factors):
+                if self.game_logic.make_move(self.game_logic.selected_factor):
+                    self.game_logic.selected_factor = 1
+                    self.ui.scroll_offset = 0
+                    self.key_repeat_manager._reset_state()
     
     def handle_keyboard(self, event):
         """Handle keyboard events"""

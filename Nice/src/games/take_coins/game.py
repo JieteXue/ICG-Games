@@ -19,8 +19,7 @@ class TakeCoinsInputHandler:
         self.game_logic = game_logic
         self.ui = ui
         self.key_repeat_manager = KeyRepeatManager()
-        self.last_click_time = 0  
-        self.double_click_delay = 500  
+
     
     def _create_key_callbacks(self):
         """创建按键回调字典"""
@@ -34,7 +33,6 @@ class TakeCoinsInputHandler:
     def handle_mouse_click(self, event, position_buttons, scroll_buttons, control_buttons):
         """Handle mouse click events with double-click support"""
         mouse_pos = pygame.mouse.get_pos()
-        current_time = pygame.time.get_ticks()
         
         # Check scroll buttons first
         for button in scroll_buttons:
@@ -82,19 +80,12 @@ class TakeCoinsInputHandler:
                             event.button == 1 and 
                             button_rect.collidepoint(mouse_pos)):
                             
-                            # 检查是否为双击
-                            is_double_click = (current_time - self.last_click_time < self.double_click_delay and 
-                                             button.position_index == self.game_logic.selected_position)
-                            
-                            if self.game_logic.select_position(button.position_index):
-                                # 如果是双击且位置有效，立即执行移动
-                                if is_double_click and self.game_logic.selected_position in self.game_logic.valid_positions:
-                                    if self.game_logic.make_move():
-                                        self.key_repeat_manager._reset_state()
-                                        self.last_click_time = 0  # 重置双击计时器
-                                else:
-                                    # 单点击，只选择位置
-                                    self.last_click_time = current_time
+                            # 使用通用的双击管理器
+                            callbacks = {
+                                'single_click': lambda: self._handle_single_click(button.position_index),
+                                'double_click': lambda: self._handle_double_click(button.position_index)
+                            }
+                            self.key_repeat_manager.handle_mouse_click(event, button.position_index, callbacks)
                             break
                 
                 # Check confirm button
@@ -103,7 +94,6 @@ class TakeCoinsInputHandler:
                     self.game_logic.selected_position in self.game_logic.valid_positions):
                     if self.game_logic.make_move():
                         self.key_repeat_manager._reset_state()
-                        self.last_click_time = 0  # 重置双击计时器
         
         # Check navigation buttons
         if "back" in control_buttons and control_buttons["back"].is_clicked(event):
@@ -112,6 +102,18 @@ class TakeCoinsInputHandler:
             return "home"
         
         return None
+    
+    def _handle_single_click(self, position_index):
+        """处理单点击"""
+        self.game_logic.select_position(position_index)
+    
+    def _handle_double_click(self, position_index):
+        """处理双击"""
+        if self.game_logic.select_position(position_index):
+            if (self.game_logic.selected_position is not None and
+                self.game_logic.selected_position in self.game_logic.valid_positions):
+                if self.game_logic.make_move():
+                    self.key_repeat_manager._reset_state()
     
     def handle_keyboard(self, event):
         """Handle keyboard events"""
