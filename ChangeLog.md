@@ -44,3 +44,7 @@
 > 1. New game: game 5: Subtract Factor
 > 2. An test GUI for game 3
 > 3. Restructure
+#### Nov 28, 2025
+> 1. New game: game 4: Jiete's laser defense
+> 2. A test GUI for game 4
+> 3. Ni Ta Ge De

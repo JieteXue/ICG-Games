@@ -5,7 +5,7 @@ from typing import List, Tuple, Optional
 
 pygame.init()
 
-# 颜色定义 - 科技风格色调
+
 COLORS = {
     'background': (25, 35, 45),      # 深蓝色背景
     'panel': (20, 25, 50),           # 面板深蓝
