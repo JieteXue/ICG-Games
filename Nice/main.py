@@ -24,6 +24,27 @@ except ImportError as e:
 def register_games():
     """注册所有可用游戏"""
     try:
+        # 添加调试信息
+        print("🔍 Checking Python path...")
+        import sys
+        print(f"Python path: {sys.path}")
+        
+        # 检查模块是否存在
+        print("🔍 Checking if modules exist...")
+        try:
+            from games.dawson_kayles import game
+            print("✅ games.dawson_kayles.game module found")
+        except ImportError as e:
+            print(f"❌ Cannot import games.dawson_kayles.game: {e}")
+        
+        # 检查具体类是否存在
+        try:
+            from games.dawson_kayles.game import DawsonKaylesGame
+            print("✅ DawsonKaylesGame class found")
+        except ImportError as e:
+            print(f"❌ Cannot import DawsonKaylesGame: {e}")
+            import traceback
+            traceback.print_exc()
         # 导入并注册Card Nim游戏
         from games.card_nim.game import CardNimGame
         game_registry.register_game(
@@ -47,6 +68,18 @@ def register_games():
             max_players=2
         )
         print("✅ Subtract Factor game registered successfully")
+        
+        # Installment and registry of Dawson-Kayles game
+        from games.dawson_kayles.game import DawsonKaylesGame
+        game_registry.register_game(
+            game_id="dawson_kayles",
+            game_class=DawsonKaylesGame,
+            name="Laser Defense - Dawson-Kayles",
+            description="Strategic tower connection game using Dawson-Kayles rules",
+            min_players=1,
+            max_players=2
+        )
+        print("✅ Dawson-Kayles game registered successfully")
         
         return True
         
