@@ -2,6 +2,7 @@
 UI Button components
 """
 
+import math
 import pygame
 from utils.constants import *
 
@@ -122,6 +123,16 @@ class Button:
             i_text = i_font.render("i", True, icon_color)
             i_rect = i_text.get_rect(center=self.rect.center)
             surface.blit(i_text, i_rect)
+
+        elif self.icon == 'refresh':
+            # 直接显示文字 "Refresh"
+            icon_color = (255, 255, 255) if self.enabled else (150, 150, 150)
+            
+            # 使用小字体显示刷新文字
+            refresh_font = pygame.font.SysFont('Arial', 12, bold=True)
+            refresh_text = refresh_font.render("Refresh", True, icon_color)
+            refresh_rect = refresh_text.get_rect(center=self.rect.center)
+            surface.blit(refresh_text, refresh_rect)
     
     def _draw_text(self, surface):
         """Draw button text"""

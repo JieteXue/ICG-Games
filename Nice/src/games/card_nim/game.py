@@ -182,6 +182,8 @@ class CardNimGame(BaseGame):
         self.buttons = self.ui.create_buttons()
         self.position_rects = []
         self.ai_timer = 0
+
+        self.key_repeat_manager = KeyRepeatManager()
     
     def initialize_game_settings(self):
         """Initialize game mode and difficulty"""
@@ -204,16 +206,23 @@ class CardNimGame(BaseGame):
     def handle_events(self):
         """Handle game events"""
         mouse_pos = pygame.mouse.get_pos()
-        
+
         # Update button hover states
         for button in self.buttons.values():
             button.update_hover(mouse_pos)
-        
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
-            
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                # Check refresh button first
+                if "refresh" in self.buttons and self.buttons["refresh"].is_clicked(event):
+                    self.logic.initialize_game(self.logic.game_mode, self.logic.difficulty)
+                    if hasattr(self, 'key_repeat_manager'):
+                        self.key_repeat_manager._reset_state()
+                    return True
+
                 result = self.input_handler.handle_mouse_click(event, self.position_rects, self.buttons)
                 if result == "back":
                     # Reinitialize game settings
@@ -221,10 +230,10 @@ class CardNimGame(BaseGame):
                 elif result == "home":
                     # Return to main menu
                     return False
-            
+
             elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
                 self.input_handler.handle_keyboard(event)
-        
+
         return True
     
     def update(self):
@@ -253,11 +262,13 @@ class CardNimGame(BaseGame):
             self.position_rects = self.ui.draw_card_positions(
                 self.logic.positions, self.logic.selected_position_index)
             
-            # Draw navigation buttons
+            # Draw navigation buttons (包括刷新按钮)
             if "back" in self.buttons:
                 self.buttons["back"].draw(self.screen)
             if "home" in self.buttons:
                 self.buttons["home"].draw(self.screen)
+            if "refresh" in self.buttons:  # 添加刷新按钮绘制
+                self.buttons["refresh"].draw(self.screen)
             
             if not self.logic.game_over:
                 # Set button enabled states based on game mode and current player
