@@ -24,7 +24,19 @@ except ImportError as e:
 def register_games():
     """注册所有可用游戏"""
     try:
-        # 导入并注册Card Nim游戏
+         # Installation and registry of Take Coins game
+        from games.take_coins.game import TakeCoinsGame
+        game_registry.register_game(
+            game_id="take_coins",
+            game_class=TakeCoinsGame,
+            name="Take Coins Game",
+            description="Strategic coin manipulation game on a line",
+            min_players=1,
+            max_players=2
+        )
+        print("✅ Take Coins game registered successfully")
+
+        # Installation and registry of Card Nim game
         from games.card_nim.game import CardNimGame
         game_registry.register_game(
             game_id="card_nim",
@@ -36,7 +48,19 @@ def register_games():
         )
         print("✅ Card Nim game registered successfully")
         
-        # 导入并注册Subtract Factor游戏
+         # Installation and registry of Dawson-Kayles game
+        from games.dawson_kayles.game import DawsonKaylesGame
+        game_registry.register_game(
+            game_id="dawson_kayles",
+            game_class=DawsonKaylesGame,
+            name="Laser Connection Game",
+            description="Strategic tower connection game using Dawson-Kayles rules",
+            min_players=1,
+            max_players=2
+        )
+        print("✅ Dawson-Kayles game registered successfully")
+
+        # Installation and registry of Subtract Factor game
         from games.subtract_factor.game import SubtractFactorGame
         game_registry.register_game(
             game_id="subtract_factor",
@@ -48,18 +72,6 @@ def register_games():
         )
         print("✅ Subtract Factor game registered successfully")
 
-        # 导入并注册Take Coins游戏
-        from games.take_coins.game import TakeCoinsGame
-        game_registry.register_game(
-            game_id="take_coins",
-            game_class=TakeCoinsGame,
-            name="Take Coins Game",
-            description="Strategic coin manipulation game on a line",
-            min_players=1,
-            max_players=2
-        )
-        print("✅ Take Coins game registered successfully")
-        
         return True
         
         
