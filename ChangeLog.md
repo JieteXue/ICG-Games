@@ -58,4 +58,5 @@
 
 #### Dec 1-2,2025
 > 1. Merge Jiete's contributions to Xuan Yang's branch
-> 2.
+> 2. Created a new branch called 玛德给我气笑了
+> 3. Renovation of the menu
