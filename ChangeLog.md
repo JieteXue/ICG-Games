@@ -55,3 +55,7 @@
 
 #### Nov 29, 2025
 > 1. Add refresh button for taking cards
+
+#### Dec 1-2,2025
+> 1. Merge Jiete's contributions to Xuan Yang's branch
+> 2.
