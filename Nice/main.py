@@ -24,28 +24,19 @@ except ImportError as e:
 def register_games():
     """注册所有可用游戏"""
     try:
-        # 添加调试信息
-        print("🔍 Checking Python path...")
-        import sys
-        print(f"Python path: {sys.path}")
-        
-        # 检查模块是否存在
-        print("🔍 Checking if modules exist...")
-        try:
-            from games.dawson_kayles import game
-            print("✅ games.dawson_kayles.game module found")
-        except ImportError as e:
-            print(f"❌ Cannot import games.dawson_kayles.game: {e}")
-        
-        # 检查具体类是否存在
-        try:
-            from games.dawson_kayles.game import DawsonKaylesGame
-            print("✅ DawsonKaylesGame class found")
-        except ImportError as e:
-            print(f"❌ Cannot import DawsonKaylesGame: {e}")
-            import traceback
-            traceback.print_exc()
-        # 导入并注册Card Nim游戏
+        # Installation and registry of Take Coins game
+        from games.take_coins.game import TakeCoinsGame
+        game_registry.register_game(
+            game_id="take_coins",
+            game_class=TakeCoinsGame,
+            name="Take Coins Game",
+            description="Strategic coin manipulation game on a line",
+            min_players=1,
+            max_players=2
+        )
+        print("✅ Take Coins game registered successfully")
+
+        # Installation and registry of Card Nim game
         from games.card_nim.game import CardNimGame
         game_registry.register_game(
             game_id="card_nim",
@@ -57,19 +48,7 @@ def register_games():
         )
         print("✅ Card Nim game registered successfully")
         
-        # 导入并注册Subtract Factor游戏
-        from games.subtract_factor.game import SubtractFactorGame
-        game_registry.register_game(
-            game_id="subtract_factor",
-            game_class=SubtractFactorGame,
-            name="Subtract Factor Game", 
-            description="Strategic number reduction using factor subtraction",
-            min_players=1,
-            max_players=2
-        )
-        print("✅ Subtract Factor game registered successfully")
-        
-        # Installment and registry of Dawson-Kayles game
+         # Installation and registry of Dawson-Kayles game
         from games.dawson_kayles.game import DawsonKaylesGame
         game_registry.register_game(
             game_id="dawson_kayles",
@@ -80,7 +59,19 @@ def register_games():
             max_players=2
         )
         print("✅ Dawson-Kayles game registered successfully")
-        
+
+        # Installation and registry of Subtract Factor game
+        from games.subtract_factor.game import SubtractFactorGame
+        game_registry.register_game(
+            game_id="subtract_factor",
+            game_class=SubtractFactorGame,
+            name="Subtract Factor Game", 
+            description="Strategic number reduction using factor subtraction",
+            min_players=1,
+            max_players=2
+        )
+        print("✅ Subtract Factor game registered successfully")
+
         return True
         
     except ImportError as e:
