@@ -18,11 +18,13 @@ class DawsonKaylesLogic:
         self.message = ""
         self.game_mode = None
         self.difficulty = None
+        self.winning_cache = {}  # 缓存胜负状态
     
     def initialize_game(self, game_mode, difficulty=None):
         """Initialize a new game"""
         self.game_mode = game_mode
         self.difficulty = difficulty
+        self.winning_cache = {}  # 清空缓存
         
         # 随机生成8-20个炮塔
         self.num_towers = random.randint(8, 20)
@@ -33,7 +35,8 @@ class DawsonKaylesLogic:
         self.winner = None
         
         if self.game_mode == "PVE":
-            self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn."
+            difficulty_names = ["Easy", "Normal", "Hard", "Insane"]
+            self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn. Difficulty: {difficulty_names[self.difficulty-1]}"
         else:
             self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn."
     
@@ -60,8 +63,15 @@ class DawsonKaylesLogic:
         # 检查游戏是否结束
         if not self.get_available_moves():
             self.game_over = True
-            self.winner = 3 - self.current_player  # 对方获胜
-            self.message = f"Game Over! Player {self.winner} wins! No more moves available."
+            # 修改胜负规则：最后完成配对的玩家获胜
+            self.winner = self.current_player  # 当前玩家获胜
+            if self.game_mode == "PVE":
+                if self.winner == 1:
+                    self.message = f"Game Over! Player 1 wins! No more moves available."
+                else:
+                    self.message = f"Game Over! AI wins! No more moves available."
+            else:
+                self.message = f"Game Over! Player {self.winner} wins! No more moves available."
         else:
             # 切换玩家
             self.current_player = 3 - self.current_player
@@ -88,6 +98,42 @@ class DawsonKaylesLogic:
         move = random.choice(available_moves)
         return self.make_move(move)
     
+    def judge_win(self):
+        """判断当前局面对于当前玩家是否为必胜局面"""
+        return self._judge_win_state(tuple(self.towers))
+    
+    def _judge_win_state(self, towers_tuple):
+        """递归判断给定状态是否为必胜（对于当前要行动的玩家）"""
+        if towers_tuple in self.winning_cache:
+            return self.winning_cache[towers_tuple]
+        
+        # 获取所有可用移动
+        available_moves = []
+        for i in range(len(towers_tuple) - 1):
+            if towers_tuple[i] == 1 and towers_tuple[i + 1] == 1:
+                available_moves.append(i)
+        
+        # 如果没有可用移动，则必败（无法行动）
+        if not available_moves:
+            self.winning_cache[towers_tuple] = False
+            return False
+        
+        # 尝试每一个移动
+        for move in available_moves:
+            # 执行这个移动
+            new_towers = list(towers_tuple)
+            new_towers[move] = 0
+            new_towers[move + 1] = 0
+            new_towers_tuple = tuple(new_towers)
+            # 如果对手在移动后的状态下必败，那么当前状态必胜
+            if not self._judge_win_state(new_towers_tuple):
+                self.winning_cache[towers_tuple] = True
+                return True
+        
+        # 如果所有移动都不能让对手必败，则当前状态必败
+        self.winning_cache[towers_tuple] = False
+        return False
+    
     def get_game_state(self):
         """返回游戏状态信息"""
         return {
@@ -98,5 +144,6 @@ class DawsonKaylesLogic:
             'game_over': self.game_over,
             'winner': self.winner,
             'available_moves': self.get_available_moves(),
-            'message': self.message
+            'message': self.message,
+            'winning_position': self.judge_win()
         }

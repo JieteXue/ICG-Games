@@ -204,11 +204,11 @@ class MainMenu:
         title_shadow = self.font_manager.large.render("ICG GAMES", True, SHADOW_COLOR)
         subtitle_shadow = self.font_manager.medium.render("Interactive Card Games", True, SHADOW_COLOR)
         
-        self.screen.blit(title_shadow, (SCREEN_WIDTH//2 - title.get_width()//2 + 3, 103))
-        self.screen.blit(subtitle_shadow, (SCREEN_WIDTH//2 - subtitle.get_width()//2 + 2, 163))
+        self.screen.blit(title_shadow, (SCREEN_WIDTH//2 - title.get_width()//2 + 3, 53))
+        self.screen.blit(subtitle_shadow, (SCREEN_WIDTH//2 - subtitle.get_width()//2 + 2, 113))
         
-        self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 100))
-        self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 160))
+        self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 50))
+        self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 110))
     
     def handle_events(self):
         """Handle menu events"""

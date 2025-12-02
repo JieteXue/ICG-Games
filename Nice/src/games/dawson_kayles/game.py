@@ -9,7 +9,6 @@ from games.dawson_kayles.logic import DawsonKaylesLogic
 from games.dawson_kayles.ui import DawsonKaylesUI
 from ui.menus import GameModeSelector
 from utils.constants import CARD_GAME_FPS
-from utils.key_repeat import KeyRepeatManager
 
 class DawsonKaylesInputHandler:
     """Dawson-Kayles游戏输入处理器"""
@@ -17,21 +16,21 @@ class DawsonKaylesInputHandler:
     def __init__(self, game_logic, ui):
         self.game_logic = game_logic
         self.ui = ui
-        self.key_repeat_manager = KeyRepeatManager()
     
-    def handle_mouse_click(self, event, tower_buttons, control_buttons):
+    def handle_mouse_click(self, event, tower_buttons, control_buttons, game_over_buttons=None):
         """处理鼠标点击事件"""
         mouse_pos = pygame.mouse.get_pos()
         
         if self.game_logic.game_over:
-            # 检查重新开始按钮
-            if control_buttons["restart"].is_clicked(event):
-                self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
-                self.ui.scroll_offset = 0
-                self.ui.selected_tower = None
-                return None
+            # 游戏结束，只处理重新开始和导航按钮
+            if game_over_buttons and "restart" in game_over_buttons:
+                if game_over_buttons["restart"].is_clicked(event):
+                    self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
+                    self.ui.scroll_offset = 0
+                    self.ui.selected_tower = None
+                    return None
         else:
-            # 检查是否可以交互
+            # 游戏进行中，检查是否可以交互
             can_interact = False
             if self.game_logic.game_mode == "PVP":
                 can_interact = True
@@ -80,11 +79,6 @@ class DawsonKaylesInputHandler:
                 self.ui.scroll_left(self.game_logic.num_towers)
             elif event.key == pygame.K_RIGHT:
                 self.ui.scroll_right(self.game_logic.num_towers)
-    
-    def update_key_repeat(self):
-        """更新按键重复状态"""
-        # 当前版本暂不需要按键重复
-        pass
 
 class DawsonKaylesGame(BaseGame):
     """Dawson-Kayles游戏实现"""
@@ -103,6 +97,7 @@ class DawsonKaylesGame(BaseGame):
         
         # 创建UI组件
         self.control_buttons = self.ui.create_control_buttons()
+        self.game_over_buttons = {}
         self.tower_buttons = []
         self.ai_timer = 0
     
@@ -132,6 +127,9 @@ class DawsonKaylesGame(BaseGame):
         for button in self.control_buttons.values():
             button.update_hover(mouse_pos)
         
+        for button in self.game_over_buttons.values():
+            button.update_hover(mouse_pos)
+        
         for button in self.tower_buttons:
             button.update_hover(mouse_pos)
         
@@ -141,13 +139,14 @@ class DawsonKaylesGame(BaseGame):
             
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 result = self.input_handler.handle_mouse_click(
-                    event, self.tower_buttons, self.control_buttons
+                    event, self.tower_buttons, self.control_buttons, self.game_over_buttons
                 )
                 if result == "back":
                     # 重新初始化游戏设置
                     self.initialize_game_settings()
                     self.ui.scroll_offset = 0
                     self.ui.selected_tower = None
+                    self.game_over_buttons = {}
                 elif result == "home":
                     # 返回主菜单
                     return False
@@ -165,6 +164,10 @@ class DawsonKaylesGame(BaseGame):
         """更新游戏状态"""
         # 更新炮塔按钮
         self.tower_buttons = self.ui.create_tower_buttons(self.logic.num_towers)
+        
+        # 如果游戏结束，创建游戏结束按钮
+        if self.logic.game_over and not self.game_over_buttons:
+            self.game_over_buttons = self.ui.create_game_over_buttons()
         
         # AI的回合（仅在PvE模式）
         if (self.logic.game_mode == "PVE" and 
@@ -195,9 +198,6 @@ class DawsonKaylesGame(BaseGame):
             # 绘制炮塔和激光
             self.ui.draw_towers_and_lasers(self.logic, self.tower_buttons)
             
-            # 绘制控制面板
-            self.ui.draw_control_panel(self.control_buttons, self.logic)
-            
             # 绘制滚动条
             self.ui.draw_scrollbar(self.logic.num_towers)
             
@@ -207,9 +207,13 @@ class DawsonKaylesGame(BaseGame):
             if "home" in self.control_buttons:
                 self.control_buttons["home"].draw(self.screen)
             
-            # 绘制重新开始按钮（游戏结束时）
-            if self.logic.game_over:
-                self.control_buttons["restart"].draw(self.screen)
+            # 绘制操作提示（游戏进行中）
+            if not self.logic.game_over:
+                self.ui.draw_hints()
+            else:
+                # 游戏结束，绘制重新开始按钮
+                for button in self.game_over_buttons.values():
+                    button.draw(self.screen)
             
             pygame.display.flip()
             
@@ -227,7 +231,8 @@ class DawsonKaylesGame(BaseGame):
             'game_over': self.logic.game_over,
             'winner': f"Player {self.logic.winner}" if self.logic.winner else None,
             'towers_remaining': sum(self.logic.towers),
-            'available_moves': len(self.logic.get_available_moves())
+            'available_moves': len(self.logic.get_available_moves()),
+            'winning_position': self.logic.judge_win()
         }
     
     def run(self):
