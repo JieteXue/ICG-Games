@@ -1,0 +1,10 @@
+*.log
+*.aux
+*.out
+*.gz
+*.toc
+*.DS_Store
+*.pyc
+*.venv
+.vscode/
+.DS_Store
