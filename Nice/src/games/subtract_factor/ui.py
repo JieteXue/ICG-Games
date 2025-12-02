@@ -67,11 +67,11 @@ class SubtractFactorUI:
         )
         
         # Draw player info with background
-        player_bg = pygame.Rect(SCREEN_WIDTH - player_text.get_width() - 40, 143, 
+        player_bg = pygame.Rect(SCREEN_WIDTH - player_text.get_width() - 40, 45, 
                               player_text.get_width() + 20, player_text.get_height() + 10)
         pygame.draw.rect(self.screen, (40, 50, 65), player_bg, border_radius=8)
         pygame.draw.rect(self.screen, player_color, player_bg, 2, border_radius=8)
-        self.screen.blit(player_text, (SCREEN_WIDTH - player_text.get_width() - 30, 148))
+        self.screen.blit(player_text, (SCREEN_WIDTH - player_text.get_width() - 30, 50))
         
         # Current value display
         value_text = self.font_manager.large.render(f"Current Value: {game_logic.current_value} | Threshold: {game_logic.threshold_k}", True, HIGHLIGHT_COLOR)

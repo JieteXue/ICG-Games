@@ -65,11 +65,11 @@ class CardNimUI:
         )
         
         # Draw player info with background
-        player_bg = pygame.Rect(SCREEN_WIDTH - player_text.get_width() - 40, 135, 
+        player_bg = pygame.Rect(SCREEN_WIDTH - player_text.get_width() - 40, 45, 
                               player_text.get_width() + 20, player_text.get_height() + 10)
         pygame.draw.rect(self.screen, (40, 50, 65), player_bg, border_radius=8)
         pygame.draw.rect(self.screen, player_color, player_bg, 2, border_radius=8)
-        self.screen.blit(player_text, (SCREEN_WIDTH - player_text.get_width() - 30, 140))
+        self.screen.blit(player_text, (SCREEN_WIDTH - player_text.get_width() - 30, 50))
         
         # Current message with background - with text wrapping
         message_color = (WIN_COLOR if game_logic.game_over and game_logic.winner == "Player 1" 
@@ -185,8 +185,7 @@ class CardNimUI:
             "confirm": Button(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager, tooltip="Make move with selected cards"),
             "restart": Button(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 250, 240, 60, "New Game", self.font_manager, tooltip="Start a new game"),
             "back": Button(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back', tooltip="Back to mode selection"),
-            "home": Button(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu"),
-            "refresh": Button(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game")
+            "home": Button(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu")
         }
         
         return buttons

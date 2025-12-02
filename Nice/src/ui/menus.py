@@ -11,99 +11,6 @@ from utils.constants import *
 from utils.helpers import FontManager
 from core.game_registry import game_registry
 
-class SquareButton(Button):
-    """Specialized square button for game selection grid"""
-    
-    def __init__(self, x, y, width, height, text, font_manager, icon=None, tooltip="", enabled=True):
-        # 确保按钮是方形的
-        super().__init__(x, y, width, height, text, font_manager, icon, tooltip)
-        self.enabled = enabled
-    
-    def draw(self, surface):
-        """Override draw method for square button styling"""
-        # 确保字体已初始化
-        self.font_manager.ensure_initialized()
-        
-        # Draw shadow
-        shadow_rect = self.rect.move(4, 4)
-        pygame.draw.rect(surface, SHADOW_COLOR, shadow_rect, border_radius=15)
-        
-        # 不同的颜色样式
-        if not self.enabled:
-            # 禁用按钮 - 灰色样式
-            color = (100, 100, 120)
-            border_color = (80, 80, 100)
-            text_color = (150, 150, 150)
-        elif self.hovered:
-            # 悬停状态 - 高亮蓝色
-            color = (100, 150, 220)
-            border_color = ACCENT_COLOR
-            text_color = (255, 255, 255)
-        else:
-            # 正常状态 - 深蓝色
-            color = (60, 100, 160)
-            border_color = (80, 130, 200)
-            text_color = (220, 230, 240)
-        
-        # Draw button with rounded corners
-        pygame.draw.rect(surface, color, self.rect, border_radius=15)
-        pygame.draw.rect(surface, border_color, self.rect, 3, border_radius=15)
-        
-        # Draw text with wrapping for long names
-        words = self.text.split(' ')
-        lines = []
-        current_line = []
-        
-        # 简单的文本换行逻辑
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            test_width = self.font_manager.medium.size(test_line)[0]
-            
-            if test_width <= self.rect.width - 20:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
-        
-        if current_line:
-            lines.append(' '.join(current_line))
-        
-        # 绘制文本行
-        total_text_height = len(lines) * 25
-        start_y = self.rect.centery - total_text_height // 2
-        
-        for i, line in enumerate(lines):
-            text_surface = self.font_manager.medium.render(line, True, text_color)
-            text_rect = text_surface.get_rect(center=(self.rect.centerx, start_y + i * 25))
-            
-            # Text shadow for enabled buttons
-            if self.enabled:
-                shadow_surface = self.font_manager.medium.render(line, True, (0, 0, 0, 100))
-                shadow_rect = text_rect.move(1, 1)
-                surface.blit(shadow_surface, shadow_rect)
-            
-            surface.blit(text_surface, text_rect)
-        
-        # 绘制提示（如果悬停时间足够长）
-        if self.hovered and self.tooltip and self.enabled:
-            self.tooltip_timer += 1
-            if self.tooltip_timer > 20:
-                self._draw_tooltip(surface)
-        else:
-            self.tooltip_timer = 0
-    
-    def update_hover(self, mouse_pos):
-        """Update hover state based on mouse position"""
-        self.hovered = self.rect.collidepoint(mouse_pos)
-    
-    def is_clicked(self, event):
-        """Check if button was clicked (only if enabled)"""
-        return (event.type == pygame.MOUSEBUTTONDOWN and 
-                event.button == 1 and 
-                self.hovered and 
-                self.enabled)
-
 class MainMenu:
     """Main menu class"""
     def __init__(self):
@@ -119,70 +26,30 @@ class MainMenu:
         self.running = True
     
     def create_buttons(self):
-        """Create menu buttons - 6 square buttons in 2 rows, 3 columns"""
-        # 方形按钮尺寸
-        button_size = 170
-        button_spacing = 50
-        
-        # 计算网格总宽度和高度
-        grid_width = 3 * button_size + 2 * button_spacing
-        grid_height = 2 * button_size + button_spacing
-        
-        # 计算网格起始位置（居中）
-        grid_start_x = (SCREEN_WIDTH - grid_width) // 2
-        grid_start_y = 200
-        
-        # 定义6个按钮的信息
-        button_configs = [
-            {"id": "take_coins", "name": "Take Coins", "description": "Coin taking strategy game"},
-            {"id": "split_cards", "name": "Split Cards", "description": "Card splitting strategy game"},
-            {"id": "card_nim", "name": "Card Nim", "description": "Strategic card taking game using Nim theory"},
-            {"id": "dawson_kayles", "name": "Laser Defense", "description": "Strategic tower connection game"},
-            {"id": "subtract_factor", "name": "Subtract Factor", "description": "Strategic number reduction using factor subtraction"},
-            {"id": "coming_soon", "name": "Coming Soon", "description": "New game coming soon"}
-        ]
-        
-        # 获取实际注册的游戏
-        registered_games = {game['id']: game for game in game_registry.get_available_games()}
-        
+        """Create menu buttons"""
+        button_width = 300
+        button_height = 80
+        button_x = SCREEN_WIDTH // 2 - button_width // 2
+
+        # Get available games
+        available_games = game_registry.get_available_games()
+
         buttons = {}
-        
-        # 创建6个方形按钮
-        for i in range(6):
-            row = i // 3
-            col = i % 3
-            
-            x = grid_start_x + col * (button_size + button_spacing)
-            y = grid_start_y + row * (button_size + button_spacing)
-            
-            config = button_configs[i]
-            game_id = config["id"]
-            
-            if game_id == "coming_soon":
-                btn = SquareButton(x, y, button_size, button_size,
-                                  config["name"], self.font_manager,
-                                  tooltip=config["description"],
-                                  enabled=False)
-            elif game_id in registered_games:
-                game_info = registered_games[game_id]
-                btn = SquareButton(x, y, button_size, button_size,
-                                  game_info['name'], self.font_manager,
-                                  tooltip=game_info['description'])
-            else:
-                btn = SquareButton(x, y, button_size, button_size,
-                                  config["name"], self.font_manager,
-                                  tooltip="Game under development",
-                                  enabled=False)
-            
-            buttons[game_id] = btn
-        
-        # 添加退出按钮
-        quit_y = grid_start_y + grid_height + 30
-        quit_width = 200
-        quit_x = SCREEN_WIDTH // 2 - quit_width // 2
-        buttons["quit"] = Button(quit_x, quit_y, quit_width, 60, 
+        y_position = 250
+
+        # Create buttons for each game
+        for game_info in available_games:
+            buttons[game_info['id']] = Button(
+                button_x, y_position, button_width, button_height,
+                game_info['name'], self.font_manager,
+                tooltip=game_info['description']  # 使用游戏描述作为提示
+            )
+            y_position += 100
+
+        # Add quit button
+        buttons["quit"] = Button(button_x, y_position, button_width, button_height, 
                                 "Quit", self.font_manager, tooltip="Exit the game")
-        
+
         return buttons
     
     def draw_background(self):
@@ -238,20 +105,11 @@ class MainMenu:
                     self.info_button.showing_tooltip = False
                     continue
                 
-                # 预定义的游戏ID顺序
-                game_ids = ["take_coins", "split_cards", "card_nim", 
-                           "dawson_kayles", "subtract_factor", "coming_soon"]
-                
-                # Check game buttons in order
-                for game_id in game_ids:
-                    if game_id in self.buttons and self.buttons[game_id].is_clicked(event):
-                        # 检查按钮是否可用
-                        if hasattr(self.buttons[game_id], 'enabled') and not self.buttons[game_id].enabled:
-                            # 游戏未实现
-                            print(f"Game '{game_id}' is not available yet")
-                            # 可以在这里添加一个弹窗提示
-                        else:
-                            self.start_game(game_id)
+                # Check game buttons
+                available_games = game_registry.get_available_games()
+                for game_info in available_games:
+                    if self.buttons[game_info['id']].is_clicked(event):
+                        self.start_game(game_info['id'])
                         return True
                 
                 # Check quit button
