@@ -4,6 +4,7 @@ Menu components
 
 import pygame
 import sys
+import os
 
 # 修复导入 - 使用绝对导入
 from ui.buttons import Button, InfoButton
@@ -11,45 +12,154 @@ from utils.constants import *
 from utils.helpers import FontManager
 from core.game_registry import game_registry
 
-class SquareButton(Button):
-    """Specialized square button for game selection grid"""
+def create_rounded_surface(width, height, color, radius=15):
+    """创建圆角矩形的表面"""
+    surface = pygame.Surface((width, height), pygame.SRCALPHA)
     
-    def __init__(self, x, y, width, height, text, font_manager, icon=None, tooltip="", enabled=True):
-        # 确保按钮是方形的
-        super().__init__(x, y, width, height, text, font_manager, icon, tooltip)
+    # 绘制圆角矩形
+    pygame.draw.rect(surface, color, (0, 0, width, height), border_radius=radius)
+    
+    return surface
+
+def apply_rounded_corners(surface, radius=15):
+    """将表面裁剪为圆角矩形"""
+    if surface is None:
+        return None
+    
+    width, height = surface.get_size()
+    
+    # 创建圆角矩形蒙版
+    mask = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, width, height), border_radius=radius)
+    
+    # 创建新的表面并应用蒙版
+    rounded_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    rounded_surface.blit(surface, (0, 0))
+    rounded_surface.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+    
+    return rounded_surface
+
+class SquareButton(Button):
+    """Specialized square button with rounded icon for game selection grid"""
+    
+    def __init__(self, x, y, width, height, text, font_manager, icon_path=None, tooltip="", enabled=True):
+        super().__init__(x, y, width, height, text, font_manager, None, tooltip)
         self.enabled = enabled
+        self.icon_surface = None
+        self.corner_radius = 15  # 圆角半径，与按钮边框一致
+        
+        # 加载并缩放图标
+        if icon_path and os.path.exists(icon_path):
+            try:
+                icon = pygame.image.load(icon_path).convert_alpha()
+                # 缩放到按钮大小
+                scaled_icon = pygame.transform.smoothscale(icon, (width, height))
+                # 应用圆角
+                self.icon_surface = apply_rounded_corners(scaled_icon, self.corner_radius)
+            except Exception as e:
+                print(f"Warning: Could not load icon {icon_path}: {e}")
+                self.icon_surface = None
+        else:
+            # 如果没有图标，创建一个默认的圆角背景
+            self.icon_surface = create_rounded_surface(width, height, (40, 50, 70), self.corner_radius)
+            # 绘制默认图标
+            pygame.draw.circle(self.icon_surface, (80, 100, 140), (width//2, height//2), 40)
+            font = pygame.font.SysFont('Arial', 20)
+            text_surface = font.render("ICON", True, (180, 180, 200))
+            text_rect = text_surface.get_rect(center=(width//2, height//2))
+            self.icon_surface.blit(text_surface, text_rect)
     
     def draw(self, surface):
-        """Override draw method for square button styling"""
+        """Override draw method for square button with rounded icon styling"""
         # 确保字体已初始化
         self.font_manager.ensure_initialized()
         
         # Draw shadow
         shadow_rect = self.rect.move(4, 4)
-        pygame.draw.rect(surface, SHADOW_COLOR, shadow_rect, border_radius=15)
+        pygame.draw.rect(surface, SHADOW_COLOR, shadow_rect, border_radius=self.corner_radius)
         
-        # 不同的颜色样式
-        if not self.enabled:
-            # 禁用按钮 - 灰色样式
-            color = (100, 100, 120)
-            border_color = (80, 80, 100)
-            text_color = (150, 150, 150)
-        elif self.hovered:
-            # 悬停状态 - 高亮蓝色
-            color = (100, 150, 220)
-            border_color = ACCENT_COLOR
-            text_color = (255, 255, 255)
+        # 如果有图标，绘制图标
+        if self.icon_surface:
+            # 如果是禁用状态，创建灰色版本的图标
+            if not self.enabled:
+                # 创建灰色版本
+                gray_icon = self.icon_surface.copy()
+                # 使用填充方法创建灰度效果
+                gray_overlay = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+                gray_overlay.fill((100, 100, 100, 150))  # 半透明灰色覆盖
+                gray_icon.blit(gray_overlay, (0, 0))
+                surface.blit(gray_icon, self.rect)
+            else:
+                # 正常状态
+                surface.blit(self.icon_surface, self.rect)
+            
+            # 在图标上添加半透明覆盖层用于悬停效果
+            if self.hovered and self.enabled:
+                hover_overlay = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+                hover_overlay.fill((255, 255, 255, 40))  # 半透明白色覆盖
+                surface.blit(hover_overlay, self.rect)
         else:
-            # 正常状态 - 深蓝色
-            color = (60, 100, 160)
+            # 如果没有图标，使用原有的颜色样式
+            if not self.enabled:
+                # 禁用按钮 - 灰色样式
+                color = (100, 100, 120)
+                border_color = (80, 80, 100)
+            elif self.hovered:
+                # 悬停状态 - 高亮蓝色
+                color = (100, 150, 220)
+                border_color = ACCENT_COLOR
+            else:
+                # 正常状态 - 深蓝色
+                color = (60, 100, 160)
+                border_color = (80, 130, 200)
+            
+            # Draw button with rounded corners
+            pygame.draw.rect(surface, color, self.rect, border_radius=self.corner_radius)
+        
+        # 绘制边框
+        if not self.enabled:
+            border_color = (80, 80, 100)
+        elif self.hovered:
+            border_color = ACCENT_COLOR
+        else:
             border_color = (80, 130, 200)
-            text_color = (220, 230, 240)
         
-        # Draw button with rounded corners
-        pygame.draw.rect(surface, color, self.rect, border_radius=15)
-        pygame.draw.rect(surface, border_color, self.rect, 3, border_radius=15)
+        pygame.draw.rect(surface, border_color, self.rect, 3, border_radius=self.corner_radius)
         
-        # Draw text with wrapping for long names
+        # 在图标底部绘制游戏名称
+        # 创建圆角背景条（顶部圆角，底部直角）
+        text_bg_height = 40
+        text_bg_rect = pygame.Rect(
+            self.rect.left, 
+            self.rect.bottom - text_bg_height, 
+            self.rect.width, 
+            text_bg_height
+        )
+        
+        # 创建圆角背景条表面
+        text_bg_surface = pygame.Surface((text_bg_rect.width, text_bg_rect.height), pygame.SRCALPHA)
+        
+        # 绘制圆角矩形（仅顶部圆角）
+        pygame.draw.rect(text_bg_surface, (30, 40, 60, 180), 
+                        (0, 0, text_bg_rect.width, text_bg_rect.height),
+                        border_radius=self.corner_radius)
+        
+        # 覆盖底部使其变成直角
+        pygame.draw.rect(text_bg_surface, (30, 40, 60, 180),
+                        (0, self.corner_radius, text_bg_rect.width, 
+                         text_bg_rect.height - self.corner_radius))
+        
+        # 根据状态调整透明度
+        if not self.enabled:
+            text_bg_surface.set_alpha(180)
+        elif self.hovered:
+            text_bg_surface.set_alpha(220)
+        else:
+            text_bg_surface.set_alpha(180)
+        
+        surface.blit(text_bg_surface, text_bg_rect)
+        
+        # 绘制游戏名称（自动换行）
         words = self.text.split(' ')
         lines = []
         current_line = []
@@ -57,7 +167,7 @@ class SquareButton(Button):
         # 简单的文本换行逻辑
         for word in words:
             test_line = ' '.join(current_line + [word])
-            test_width = self.font_manager.medium.size(test_line)[0]
+            test_width = self.font_manager.small.size(test_line)[0]
             
             if test_width <= self.rect.width - 20:
                 current_line.append(word)
@@ -70,16 +180,19 @@ class SquareButton(Button):
             lines.append(' '.join(current_line))
         
         # 绘制文本行
-        total_text_height = len(lines) * 25
-        start_y = self.rect.centery - total_text_height // 2
+        total_text_height = len(lines) * 18
+        start_y = text_bg_rect.centery - total_text_height // 2 + 2
         
         for i, line in enumerate(lines):
-            text_surface = self.font_manager.medium.render(line, True, text_color)
-            text_rect = text_surface.get_rect(center=(self.rect.centerx, start_y + i * 25))
+            # 文本颜色
+            text_color = (255, 255, 255) if self.enabled else (180, 180, 180)
             
-            # Text shadow for enabled buttons
+            text_surface = self.font_manager.small.render(line, True, text_color)
+            text_rect = text_surface.get_rect(center=(self.rect.centerx, start_y + i * 18))
+            
+            # 为启用的按钮添加文本阴影
             if self.enabled:
-                shadow_surface = self.font_manager.medium.render(line, True, (0, 0, 0, 100))
+                shadow_surface = self.font_manager.small.render(line, True, (0, 0, 0, 150))
                 shadow_rect = text_rect.move(1, 1)
                 surface.blit(shadow_surface, shadow_rect)
             
@@ -132,14 +245,44 @@ class MainMenu:
         grid_start_x = (SCREEN_WIDTH - grid_width) // 2
         grid_start_y = 170
         
-        # 定义6个按钮的信息
+        # 定义6个按钮的信息和对应的图标
         button_configs = [
-            {"id": "take_coins", "name": "Take Coins", "description": "Coin taking strategy game"},
-            {"id": "split_cards", "name": "Split Cards", "description": "Card splitting strategy game"},
-            {"id": "card_nim", "name": "Card Nim", "description": "Strategic card taking game using Nim theory"},
-            {"id": "dawson_kayles", "name": "Laser Defense", "description": "Strategic tower connection game"},
-            {"id": "subtract_factor", "name": "Subtract Factor", "description": "Strategic number reduction using factor subtraction"},
-            {"id": "coming_soon", "name": "Coming Soon", "description": "New game coming soon"}
+            {
+                "id": "take_coins", 
+                "name": "Take Coins", 
+                "description": "Coin taking strategy game",
+                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G1ICON.jpg" #absolute import:C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon
+            },
+            {
+                "id": "split_cards", 
+                "name": "Split Cards", 
+                "description": "Card splitting strategy game",
+                "icon":  r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G2ICON.jpg"
+            },
+            {
+                "id": "card_nim", 
+                "name": "Card Nim", 
+                "description": "Strategic card taking game using Nim theory",
+                "icon":  r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G3ICON.jpg"
+            },
+            {
+                "id": "dawson_kayles", 
+                "name": "Laser Defense", 
+                "description": "Strategic tower connection game",
+                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G4ICON.jpg"
+            },
+            {
+                "id": "subtract_factor", 
+                "name": "Subtract Factor", 
+                "description": "Strategic number reduction using factor subtraction",
+                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G5ICON.jpg"
+            },
+            {
+                "id": "coming_soon", 
+                "name": "Coming Soon", 
+                "description": "New game coming soon",
+                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G6ICON.jpg"
+            }
         ]
         
         # 获取实际注册的游戏
@@ -157,20 +300,24 @@ class MainMenu:
             
             config = button_configs[i]
             game_id = config["id"]
+            icon_path = config["icon"]
             
             if game_id == "coming_soon":
                 btn = SquareButton(x, y, button_size, button_size,
                                   config["name"], self.font_manager,
+                                  icon_path=icon_path,
                                   tooltip=config["description"],
                                   enabled=False)
             elif game_id in registered_games:
                 game_info = registered_games[game_id]
                 btn = SquareButton(x, y, button_size, button_size,
                                   game_info['name'], self.font_manager,
+                                  icon_path=icon_path,
                                   tooltip=game_info['description'])
             else:
                 btn = SquareButton(x, y, button_size, button_size,
                                   config["name"], self.font_manager,
+                                  icon_path=icon_path,
                                   tooltip="Game under development",
                                   enabled=False)
             

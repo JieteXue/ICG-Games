@@ -1,0 +1,367 @@
+"""
+Split Cards Game - Main game class
+神秘魔术风格的卡牌分割游戏
+"""
+
+import pygame
+import sys
+from core.base_game import BaseGame
+from games.split_cards.logic import SplitCardsLogic
+from games.split_cards.ui import SplitCardsUI
+from ui.menus import GameModeSelector
+from utils.constants import CARD_GAME_FPS
+
+class SplitCardsInputHandler:
+    """Split Cards游戏输入处理器"""
+    
+    def __init__(self, game_logic, ui):
+        self.game_logic = game_logic
+        self.ui = ui
+    
+    def handle_mouse_click(self, event, card_piles, control_buttons, game_over_buttons=None):
+        """处理鼠标点击事件"""
+        mouse_pos = pygame.mouse.get_pos()
+        
+        if self.game_logic.game_over:
+            # 游戏结束，只处理重新开始和导航按钮
+            if game_over_buttons and "restart" in game_over_buttons:
+                if game_over_buttons["restart"].is_clicked(event):
+                    self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
+                    self.ui.reset_selection()
+                    return None
+        else:
+            # 游戏进行中，检查是否可以交互
+            can_interact = False
+            if self.game_logic.game_mode == "PVP":
+                can_interact = True
+            elif self.game_logic.game_mode == "PVE" and self.game_logic.current_player == 1:
+                can_interact = True
+            
+            if can_interact:
+                # 检查卡牌堆点击
+                for card_pile in card_piles:
+                    if card_pile.is_clicked(event):
+                        self.handle_card_pile_click(card_pile.pile_index)
+                        break
+                
+                # 检查动作按钮点击
+                if self.game_logic.selected_pile is not None:
+                    self.handle_action_buttons_click(event)
+        
+        # 检查控制按钮
+        button_result = self.handle_control_buttons_click(event, control_buttons)
+        if button_result:
+            return button_result
+        
+        # 检查游戏结束按钮
+        if game_over_buttons:
+            for button_name, button in game_over_buttons.items():
+                if button.is_clicked(event):
+                    if button_name == "restart":
+                        self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
+                        self.ui.reset_selection()
+                    return None
+        
+        return None
+    
+    def handle_card_pile_click(self, pile_index):
+        """处理卡牌堆点击"""
+        if pile_index < len(self.game_logic.cards):
+            # 如果已经选中了同一个牌堆，取消选择
+            if self.game_logic.selected_pile == pile_index:
+                self.game_logic.selected_pile = None
+                self.game_logic.selected_action = None
+            else:
+                # 选择新的牌堆
+                self.game_logic.selected_pile = pile_index
+                self.game_logic.selected_action = None
+            
+            # 更新UI选择状态
+            self.ui.update_selection(self.game_logic)
+    
+    def handle_action_buttons_click(self, event):
+        """处理动作按钮点击"""
+        if self.game_logic.selected_pile is None:
+            return
+        
+        pile_index = self.game_logic.selected_pile
+        pile_size = self.game_logic.cards[pile_index]
+        
+        # 检查是否点击了拿牌数量按钮
+        max_take = min(pile_size, self.game_logic.k)
+        for take_count in range(1, max_take + 1):
+            # 计算按钮区域（简化逻辑）
+            btn_x = 120 + (take_count - 1) * 60
+            btn_y = 450  # 假设的Y位置
+            btn_width = 50
+            btn_height = 40
+            
+            btn_rect = pygame.Rect(btn_x, btn_y, btn_width, btn_height)
+            if btn_rect.collidepoint(event.pos):
+                self.game_logic.selected_action = 'take'
+                self.game_logic.selected_take_count = take_count
+                self.ui.update_selection(self.game_logic)
+                return
+        
+        # 检查是否点击了分割按钮
+        if pile_size >= 2:
+            split_options = min(pile_size - 1, 4)
+            for i in range(split_options):
+                split_point = i + 1
+                btn_x = 120 + i * 80
+                btn_y = 490  # 假设的Y位置
+                btn_width = 70
+                btn_height = 40
+                
+                btn_rect = pygame.Rect(btn_x, btn_y, btn_width, btn_height)
+                if btn_rect.collidepoint(event.pos):
+                    self.game_logic.selected_action = 'split'
+                    self.game_logic.selected_split_point = split_point
+                    self.ui.update_selection(self.game_logic)
+                    return
+    
+    def handle_control_buttons_click(self, event, control_buttons):
+        """处理控制按钮点击"""
+        for button_name, button in control_buttons.items():
+            if button.is_clicked(event):
+                if button_name == 'back':
+                    return 'back'
+                elif button_name == 'home':
+                    return 'home'
+                elif button_name == 'confirm':
+                    self.handle_confirm_action()
+                elif button_name == 'cancel':
+                    self.game_logic.selected_pile = None
+                    self.game_logic.selected_action = None
+                    self.ui.update_selection(self.game_logic)
+        
+        return None
+    
+    def handle_confirm_action(self):
+        """确认动作"""
+        if self.game_logic.selected_pile is None or self.game_logic.selected_action is None:
+            return
+        
+        move_info = None
+        
+        if self.game_logic.selected_action == 'take':
+            move_info = {
+                'type': 'take',
+                'pile_index': self.game_logic.selected_pile,
+                'take_count': self.game_logic.selected_take_count,
+                'description': f"Take {self.game_logic.selected_take_count} card{'s' if self.game_logic.selected_take_count > 1 else ''} from pile {self.game_logic.selected_pile + 1}"
+            }
+        elif self.game_logic.selected_action == 'split':
+            move_info = {
+                'type': 'split',
+                'pile_index': self.game_logic.selected_pile,
+                'split_point': self.game_logic.selected_split_point,
+                'description': f"Split pile {self.game_logic.selected_pile + 1} into {self.game_logic.selected_split_point} and {self.game_logic.cards[self.game_logic.selected_pile] - self.game_logic.selected_split_point} cards"
+            }
+        
+        if move_info and self.game_logic.make_move(move_info):
+            # 添加魔法效果
+            if self.game_logic.selected_action == 'take':
+                # 从牌堆到屏幕顶部的效果
+                start_x = 120 + (self.game_logic.selected_take_count - 1) * 60 + 25
+                start_y = 450 + 20
+                end_x = SCREEN_WIDTH // 2
+                end_y = 100
+                self.ui.add_magic_effect((start_x, start_y), (end_x, end_y), "beam")
+            elif self.game_logic.selected_action == 'split':
+                # 分割效果
+                start_x = 120 + (self.game_logic.selected_split_point - 1) * 80 + 35
+                start_y = 490 + 20
+                end_x = SCREEN_WIDTH // 2
+                end_y = 150
+                self.ui.add_magic_effect((start_x, start_y), (end_x, end_y), "sparkle")
+            
+            # 重置选择
+            self.game_logic.selected_pile = None
+            self.game_logic.selected_action = None
+            self.ui.update_selection(self.game_logic)
+    
+    def handle_keyboard(self, event):
+        """处理键盘事件"""
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                # 取消选择
+                self.game_logic.selected_pile = None
+                self.game_logic.selected_action = None
+                self.ui.update_selection(self.game_logic)
+            elif event.key == pygame.K_RETURN and self.game_logic.selected_action:
+                # 确认动作
+                self.handle_confirm_action()
+
+class SplitCardsGame(BaseGame):
+    """Split Cards游戏实现"""
+    
+    def __init__(self, screen, font_manager):
+        super().__init__(screen, font_manager)
+        self.logic = SplitCardsLogic()
+        self.ui = SplitCardsUI(screen, font_manager)
+        self.input_handler = SplitCardsInputHandler(self.logic, self.ui)
+        
+        # 确保字体已初始化
+        self.font_manager.initialize_fonts()
+        
+        # 初始化游戏设置
+        self.initialize_game_settings()
+        
+        # 创建UI组件
+        self.control_buttons = {}
+        self.game_over_buttons = {}
+        self.card_piles = []
+        self.ai_timer = 0
+    
+    def initialize_game_settings(self):
+        """初始化游戏模式和难度"""
+        try:
+            # 使用游戏模式选择器
+            selector = GameModeSelector(self.screen, self.font_manager)
+            game_mode = selector.get_game_mode()
+            
+            if game_mode == "PVE":
+                difficulty = selector.get_difficulty()
+                self.logic.initialize_game("PVE", difficulty)
+            else:
+                self.logic.initialize_game("PVP")
+                
+        except Exception as e:
+            print(f"Error initializing game settings: {e}")
+            # 后备初始化
+            self.logic.initialize_game("PVE", 2)
+    
+    def handle_events(self):
+        """处理游戏事件"""
+        mouse_pos = pygame.mouse.get_pos()
+        
+        # 更新按钮悬停状态
+        for button in self.control_buttons.values():
+            button.update_hover(mouse_pos)
+        
+        for button in self.game_over_buttons.values():
+            button.update_hover(mouse_pos)
+        
+        # 更新卡牌堆悬停状态
+        for card_pile in self.card_piles:
+            card_pile.update_hover(mouse_pos)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                result = self.input_handler.handle_mouse_click(
+                    event, self.card_piles, self.control_buttons, self.game_over_buttons
+                )
+                if result == "back":
+                    # 重新初始化游戏设置
+                    self.initialize_game_settings()
+                    self.ui.reset_selection()
+                    self.game_over_buttons = {}
+                elif result == "home":
+                    # 返回主菜单
+                    return False
+            
+            elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
+                self.input_handler.handle_keyboard(event)
+        
+        return True
+    
+    def update(self):
+        """更新游戏状态"""
+        # 更新卡牌堆
+        self.card_piles = self.ui.create_card_piles(self.logic)
+        
+        # 更新控制按钮
+        self.control_buttons = self.ui.draw_control_buttons()
+        
+        # 如果游戏结束，创建游戏结束按钮
+        if self.logic.game_over and not self.game_over_buttons:
+            self.game_over_buttons = {
+                "restart": Button(SCREEN_WIDTH//2 - 120, 550, 240, 60, "New Magic Duel", 
+                                self.font_manager, tooltip="Start a new magical duel")
+            }
+        
+        # AI的回合（仅在PvE模式）
+        if (self.logic.game_mode == "PVE" and 
+            self.logic.current_player == 2 and 
+            not self.logic.game_over):
+            
+            self.ai_timer += 1
+            # 添加延迟使AI移动可见
+            if self.ai_timer > 45:
+                if self.logic.ai_make_move():
+                    # 添加AI移动的魔法效果
+                    self.ui.add_magic_effect(
+                        (SCREEN_WIDTH // 2, 100),
+                        (SCREEN_WIDTH // 2, 250),
+                        "sparkle"
+                    )
+                self.ai_timer = 0
+                self.logic.selected_pile = None
+                self.logic.selected_action = None
+                self.ui.update_selection(self.logic)
+    
+    def draw(self):
+        """绘制完整的游戏界面"""
+        try:
+            # 绘制背景
+            self.ui.draw_background()
+            
+            # 绘制游戏信息
+            self.ui.draw_game_info(self.logic)
+            
+            # 绘制卡牌堆
+            self.ui.draw_card_piles(self.card_piles)
+            
+            # 绘制魔法效果
+            self.ui.draw_magic_effects()
+            
+            # 绘制动作按钮（如果选中了牌堆）
+            if self.logic.selected_pile is not None and not self.logic.game_over:
+                self.ui.draw_action_buttons(self.logic)
+            
+            # 绘制控制按钮
+            for button in self.control_buttons.values():
+                button.draw(self.screen)
+            
+            # 绘制操作提示（游戏进行中）
+            if not self.logic.game_over:
+                self.ui.draw_hints()
+            else:
+                # 游戏结束，绘制重新开始按钮
+                for button in self.game_over_buttons.values():
+                    button.draw(self.screen)
+            
+            pygame.display.flip()
+            
+        except Exception as e:
+            print(f"Error in draw: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def get_game_info(self):
+        """返回游戏信息"""
+        return {
+            'name': 'Magic Cards Split',
+            'description': 'Strategic card splitting game with magical theme',
+            'current_player': f"Player {self.logic.current_player}" if self.logic.current_player == 1 else "AI",
+            'game_over': self.logic.game_over,
+            'winner': f"Player {self.logic.winner}" if self.logic.winner else None,
+            'total_cards': sum(self.logic.cards),
+            'piles_count': len(self.logic.cards),
+            'available_moves': len(self.logic.get_available_moves()),
+            'winning_position': self.logic.judge_win()
+        }
+    
+    def run(self):
+        """运行主游戏循环"""
+        self.running = True
+        while self.running:
+            if not self.handle_events():
+                break
+            self.update()
+            self.draw()
+            self.clock.tick(CARD_GAME_FPS)
