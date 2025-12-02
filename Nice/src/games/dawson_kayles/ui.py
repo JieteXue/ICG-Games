@@ -18,28 +18,41 @@ class TowerButton:
         self.selected = False
         self.enabled = True
     
-    def draw(self, surface, is_active, is_highlighted):
-        """绘制炮塔"""
-        # 炮塔基座
-        base_color = (100, 120, 180)  # 炮塔基座颜色
-        if not is_active:
-            base_color = (60, 80, 120)  # 未激活的炮塔
+    def draw(self, surface, tower_state, player_owner=None, is_highlighted=False):
+        """
+        绘制炮塔
         
+        Args:
+            surface: 绘制表面
+            tower_state: 炮塔状态 (0=不可用, 1=可用)
+            player_owner: 炮塔所有者 (1=玩家1, 2=玩家2/AI, None=未连接)
+            is_highlighted: 是否高亮显示
+        """
+        # 根据炮塔状态和所有者选择颜色
+        if tower_state == 0:  # 不可用
+            if player_owner == 1:
+                base_color = (0, 180, 0)      # 玩家1 - 深绿色
+                top_color = (0, 255, 100)     # 玩家1 - 亮绿色
+            elif player_owner == 2:
+                base_color = (220, 120, 0)    # 玩家2/AI - 深橙色
+                top_color = (255, 180, 50)    # 玩家2/AI - 亮橙色
+            else:
+                base_color = (80, 80, 100)    # 默认禁用颜色
+                top_color = (100, 100, 120)
+        else:  # 可用
+            base_color = (100, 120, 180)      # 可用炮塔基座
+            top_color = (0, 200, 255)         # 激活炮塔 - 亮蓝色
+        
+        # 绘制炮塔基座
         pygame.draw.rect(surface, base_color, self.rect, border_radius=8)
         
         # 炮塔顶部（雷达/发射器）
         top_radius = self.rect.width // 3
         top_center = (self.rect.centerx, self.rect.top + top_radius + 5)
-        
-        if is_active:
-            top_color = (0, 200, 255)  # 激活炮塔 - 亮蓝色
-        else:
-            top_color = (60, 80, 120)  # 未激活炮塔
-        
         pygame.draw.circle(surface, top_color, top_center, top_radius, 2)
         
-        # 如果激活，绘制发光效果
-        if is_active:
+        # 如果可用，绘制发光效果
+        if tower_state == 1:
             glow_radius = top_radius + 3
             glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(glow_surf, (*top_color[:3], 50), (glow_radius, glow_radius), glow_radius)
@@ -49,8 +62,8 @@ class TowerButton:
         id_text = self.font_manager.small.render(str(self.tower_id), True, TEXT_COLOR)
         surface.blit(id_text, (self.rect.centerx - 5, self.rect.bottom - 25))
         
-        # 高亮显示
-        if is_highlighted and is_active:
+        # 高亮显示可用移动
+        if is_highlighted and tower_state == 1:
             highlight_rect = self.rect.inflate(10, 10)
             pygame.draw.rect(surface, HIGHLIGHT_COLOR, highlight_rect, 3, border_radius=10)
     
@@ -75,6 +88,16 @@ class DawsonKaylesUI:
         self.visible_tower_count = 10  # 可见的炮塔数量
         self.selected_tower = None
         self.highlighted_towers = set()
+        # 计算内容总宽度和屏幕宽度
+        self.content_width = 0
+        self.screen_width = SCREEN_WIDTH
+        self.screen_height = SCREEN_HEIGHT
+    
+    def update_content_width(self, num_towers):
+        """更新内容总宽度"""
+        tower_width = 60
+        spacing = 20
+        self.content_width = num_towers * (tower_width + spacing) - spacing + 100
     
     def draw_background(self):
         """绘制科技风格背景"""
@@ -143,40 +166,71 @@ class DawsonKaylesUI:
             
             self.screen.blit(message_text, (SCREEN_WIDTH//2 - message_text.get_width()//2, 93 + i * 25))
     
-    def draw_towers(self, game_logic, tower_buttons):
+    def draw_towers_and_lasers(self, game_logic, tower_buttons):
         """绘制炮塔和激光"""
-        # 先绘制所有激光
-        for start_idx, end_idx, player in game_logic.lasers:
-            self._draw_laser(start_idx, end_idx, player, tower_buttons)
+        # 先绘制激光
+        self._draw_all_lasers(game_logic, tower_buttons)
         
-        # 然后绘制所有炮塔
+        # 然后绘制炮塔
         for button in tower_buttons:
-            is_active = game_logic.towers[button.tower_id] == 1
+            # 确定炮塔的所有者
+            owner = self._get_tower_owner(game_logic, button.tower_id)
+            
+            # 确定炮塔是否高亮
             is_highlighted = button.tower_id in self.highlighted_towers
-            button.draw(self.screen, is_active, is_highlighted)
+            
+            # 绘制炮塔
+            button.draw(self.screen, game_logic.towers[button.tower_id], owner, is_highlighted)
     
-    def _draw_laser(self, start_idx, end_idx, player, tower_buttons):
-        """绘制激光连接"""
-        if start_idx >= len(tower_buttons) or end_idx >= len(tower_buttons):
-            return
+    def _get_tower_owner(self, game_logic, tower_id):
+        """获取炮塔的所有者"""
+        for start_idx, end_idx, player in game_logic.lasers:
+            if start_idx == tower_id or end_idx == tower_id:
+                return player
+        return None
+    
+    def _draw_all_lasers(self, game_logic, tower_buttons):
+        """绘制所有激光连接"""
+        # 创建炮塔位置映射
+        tower_positions = {}
+        for button in tower_buttons:
+            tower_positions[button.tower_id] = button.rect
         
-        start_button = tower_buttons[start_idx]
-        end_button = tower_buttons[end_idx]
+        # 绘制每条激光
+        for start_idx, end_idx, player in game_logic.lasers:
+            if start_idx in tower_positions and end_idx in tower_positions:
+                self._draw_laser(tower_positions[start_idx], tower_positions[end_idx], player)
+    
+    def _draw_laser(self, start_rect, end_rect, player):
+        """绘制单个激光连接"""
+        # 激光连接点（从炮塔顶部）
+        start_x = start_rect.centerx
+        start_y = start_rect.top + 15  # 从炮塔顶部稍微向下一点
+        end_x = end_rect.centerx
+        end_y = end_rect.top + 15
         
-        start_x = start_button.rect.centerx
-        start_y = start_button.rect.centery
-        end_x = end_button.rect.centerx
-        end_y = end_button.rect.centery
-        
+        # 激光颜色
         laser_color = (0, 255, 200) if player == 1 else (255, 100, 0)  # 玩家1青蓝，玩家2橙色
         
-        # 绘制激光光束
-        pygame.draw.line(self.screen, laser_color, (start_x, start_y), (end_x, end_y), 4)
+        # 绘制粗激光光束（8像素宽）
+        pygame.draw.line(self.screen, laser_color, (start_x, start_y), (end_x, end_y), 8)
         
-        # 添加激光发光效果
-        glow_surf = pygame.Surface((abs(end_x - start_x) + 10, 10), pygame.SRCALPHA)
-        pygame.draw.line(glow_surf, (*laser_color[:3], 80), (5, 5), (glow_surf.get_width() - 5, 5), 8)
-        self.screen.blit(glow_surf, (min(start_x, end_x) - 5, start_y - 5))
+        # 添加激光发光效果（更宽）
+        glow_width = max(abs(end_x - start_x), 10) + 30
+        glow_surf = pygame.Surface((glow_width, 20), pygame.SRCALPHA)
+        pygame.draw.line(glow_surf, (*laser_color[:3], 100), (15, 10), (glow_width - 15, 10), 12)
+        
+        # 计算旋转角度
+        angle = pygame.math.Vector2(end_x - start_x, end_y - start_y).angle_to((1, 0))
+        
+        # 旋转和放置发光效果
+        rotated_glow = pygame.transform.rotate(glow_surf, -angle)
+        glow_rect = rotated_glow.get_rect(center=((start_x + end_x) // 2, (start_y + end_y) // 2))
+        self.screen.blit(rotated_glow, glow_rect)
+        
+        # 添加激光端点效果
+        pygame.draw.circle(self.screen, laser_color, (start_x, start_y), 6)
+        pygame.draw.circle(self.screen, laser_color, (end_x, end_y), 6)
     
     def draw_control_panel(self, control_buttons, game_logic):
         """绘制控制面板"""
@@ -212,8 +266,15 @@ class DawsonKaylesUI:
                         (scrollbar_x, scrollbar_y, scrollbar_width, 15), border_radius=7)
         
         # 计算滑块位置和大小
-        slider_width = max(30, scrollbar_width * self.visible_tower_count / total_towers)
-        slider_x = scrollbar_x + (self.scroll_offset / (total_towers - self.visible_tower_count)) * (scrollbar_width - slider_width)
+        visible_ratio = self.visible_tower_count / total_towers
+        slider_width = max(30, scrollbar_width * visible_ratio)
+        max_scroll = total_towers - self.visible_tower_count
+        
+        if max_scroll > 0:
+            scroll_ratio = self.scroll_offset / max_scroll
+            slider_x = scrollbar_x + scroll_ratio * (scrollbar_width - slider_width)
+        else:
+            slider_x = scrollbar_x
         
         # 绘制滑块
         pygame.draw.rect(self.screen, ACCENT_COLOR, 
@@ -221,24 +282,25 @@ class DawsonKaylesUI:
     
     def create_tower_buttons(self, num_towers):
         """创建炮塔按钮"""
+        self.update_content_width(num_towers)
+        
         buttons = []
         tower_width = 60
         tower_height = 100
         spacing = 20
         
-        # 计算起始位置
-        total_width = min(num_towers, self.visible_tower_count) * (tower_width + spacing) - spacing
-        start_x = (SCREEN_WIDTH - total_width) // 2
+        # 计算起始位置（考虑滚动偏移）
+        start_x = 50 - self.scroll_offset * (tower_width + spacing)
         y_position = 250
         
-        # 创建可见范围内的炮塔按钮
-        start_index = self.scroll_offset
-        end_index = min(self.scroll_offset + self.visible_tower_count, num_towers)
-        
-        for i in range(start_index, end_index):
-            x = start_x + (i - start_index) * (tower_width + spacing)
-            button = TowerButton(x, y_position, tower_width, tower_height, i, self.font_manager)
-            buttons.append(button)
+        # 创建当前可见范围内的炮塔按钮
+        for i in range(num_towers):
+            x = start_x + i * (tower_width + spacing)
+            
+            # 只创建在屏幕范围内的按钮
+            if -tower_width < x < SCREEN_WIDTH:
+                button = TowerButton(x, y_position, tower_width, tower_height, i, self.font_manager)
+                buttons.append(button)
         
         return buttons
     
@@ -269,9 +331,10 @@ class DawsonKaylesUI:
         if event.type == pygame.MOUSEWHEEL:
             if event.y > 0:  # 向上滚动，向左移动
                 self.scroll_left(total_towers)
+                return True
             elif event.y < 0:  # 向下滚动，向右移动
                 self.scroll_right(total_towers)
-            return True
+                return True
         return False
     
     def update_highlighted_towers(self, available_moves, selected_tower):

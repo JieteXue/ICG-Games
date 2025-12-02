@@ -193,7 +193,7 @@ class DawsonKaylesGame(BaseGame):
             self.ui.draw_game_info(self.logic)
             
             # 绘制炮塔和激光
-            self.ui.draw_towers(self.logic, self.tower_buttons)
+            self.ui.draw_towers_and_lasers(self.logic, self.tower_buttons)
             
             # 绘制控制面板
             self.ui.draw_control_panel(self.control_buttons, self.logic)
