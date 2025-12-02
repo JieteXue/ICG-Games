@@ -130,7 +130,7 @@ class MainMenu:
         
         # 计算网格起始位置（居中）
         grid_start_x = (SCREEN_WIDTH - grid_width) // 2
-        grid_start_y = 200
+        grid_start_y = 170
         
         # 定义6个按钮的信息
         button_configs = [
