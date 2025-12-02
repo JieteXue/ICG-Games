@@ -12,6 +12,9 @@
 - [ ] Game 5 test.
 - [ ] GUI
 - [ ] README file game introduction proofread.
+- [ ] tips for players (foresee) and situation view (optional)
+- [ ] refresh key
+- [ ] back button at choosing stage.
 
 ## Progress
 
