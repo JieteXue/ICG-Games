@@ -5,7 +5,7 @@ Split Cards Game Logic
 
 import random
 import math
-from typing import List, Tuple, Optional, Dict
+from typing import List, Dict, Tuple, Optional
 
 class SplitCardsLogic:
     """Split Cards游戏逻辑"""
@@ -23,6 +23,8 @@ class SplitCardsLogic:
         self.move_history = []  # 移动历史记录
         self.selected_pile = None  # 选中的牌堆索引
         self.selected_action = None  # 选中的动作类型 ('take' 或 'split')
+        # 移除selected_take_count和selected_split_point属性，使用字典存储临时选择
+        self._temp_selection = {}  # 临时存储选择参数
     
     def initialize_game(self, game_mode: str, difficulty: Optional[int] = None):
         """初始化新游戏"""
@@ -39,6 +41,7 @@ class SplitCardsLogic:
         self.move_history = []
         self.selected_pile = None
         self.selected_action = None
+        self._temp_selection = {}
         
         # 根据模式设置消息
         if game_mode == "PVE":
@@ -76,6 +79,16 @@ class SplitCardsLogic:
                     })
         
         return moves
+    
+    def set_selection(self, pile_index: Optional[int] = None, action: Optional[str] = None, **kwargs):
+        """设置选择参数"""
+        self.selected_pile = pile_index
+        self.selected_action = action
+        self._temp_selection = kwargs
+    
+    def get_selection_param(self, key: str, default=None):
+        """获取选择参数"""
+        return self._temp_selection.get(key, default)
     
     def make_move(self, move_info: Dict) -> bool:
         """执行移动"""

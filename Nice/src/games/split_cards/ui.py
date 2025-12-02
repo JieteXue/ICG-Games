@@ -14,14 +14,14 @@ from utils.helpers import wrap_text
 class MagicCard:
     """魔法卡牌组件"""
     
-    def __init__(self, x: int, y: int, card_count: int, pile_index: int, font_manager):
+    def __init__(self, x: int, y: int, card_count: int, pile_index: int, font_manager, is_selected=False):
         self.x = x
         self.y = y
         self.card_count = card_count
         self.pile_index = pile_index
         self.font_manager = font_manager
         self.hovered = False
-        self.selected = False
+        self.selected = is_selected  # 添加选中状态参数
         self.sparkle_timer = 0
         self.glow_intensity = 0
         self.glow_direction = 1
@@ -35,7 +35,7 @@ class MagicCard:
         self.colors = {
             'normal': (80, 40, 120),      # 深紫色
             'highlight': (120, 60, 180),   # 亮紫色
-            'selected': (160, 80, 220),    # 选中紫色
+            'selected': (200, 100, 255),   # 选中紫色 - 更亮
             'glow': (180, 100, 255, 50),   # 发光效果
             'border': (200, 140, 255),     # 边框
             'text': (220, 180, 255)        # 文字
@@ -71,9 +71,14 @@ class MagicCard:
         )
         pygame.draw.rect(surface, (20, 10, 40), shadow_rect, border_radius=12)
         
-        # 确定卡牌颜色
+        # 确定卡牌颜色 - 优先显示选中状态
         if self.selected:
             base_color = self.colors['selected']
+            # 选中状态有更强的发光效果
+            glow_surf = pygame.Surface((self.width + 30, self.height + 30), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*self.colors['selected'][:3], 80), 
+                            (15, 15, self.width, self.height), border_radius=12)
+            surface.blit(glow_surf, (draw_x - 15, draw_y - 15))
         elif self.hovered:
             base_color = self.colors['highlight']
         else:
@@ -83,32 +88,49 @@ class MagicCard:
         card_rect = pygame.Rect(draw_x, draw_y, self.width, self.height)
         pygame.draw.rect(surface, base_color, card_rect, border_radius=12)
         
-        # 绘制发光边框
-        if self.selected or self.hovered:
-            border_width = 3
-            pygame.draw.rect(surface, self.colors['border'], card_rect, border_width, border_radius=12)
-            
-            # 绘制发光效果
-            glow_surf = pygame.Surface((self.width + 20, self.height + 20), pygame.SRCALPHA)
-            glow_alpha = int(100 * self.glow_intensity)
-            pygame.draw.rect(glow_surf, (*self.colors['glow'][:3], glow_alpha), 
-                            (10, 10, self.width, self.height), border_radius=12)
-            surface.blit(glow_surf, (draw_x - 10, draw_y - 10))
+        # 绘制边框 - 选中状态有更粗的边框
+        border_width = 4 if self.selected else 3
+        border_color = self.colors['border']
+        if self.selected:
+            border_color = (255, 200, 255)  # 选中状态使用更亮的边框
+        pygame.draw.rect(surface, border_color, card_rect, border_width, border_radius=12)
         
-        # 绘制卡牌数量（堆叠效果）
-        max_visible = min(self.card_count, 5)
-        for i in range(max_visible):
-            offset_x = random.randint(-3, 3) if i > 0 else 0
-            offset_y = i * 3
+        # 绘制发光效果（非选中状态也有，但更弱）
+        if not self.selected and (self.hovered or self.card_count > 0):
+            glow_alpha = int(50 * self.glow_intensity)
+            glow_surf = pygame.Surface((self.width + 10, self.height + 10), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*self.colors['glow'][:3], glow_alpha), 
+                            (5, 5, self.width, self.height), border_radius=12)
+            surface.blit(glow_surf, (draw_x - 5, draw_y - 5))
+        
+        # 绘制卡牌数量（堆叠效果）- 如果牌数为0，不绘制卡牌堆叠
+        if self.card_count > 0:
+            max_visible = min(self.card_count, 5)
+            for i in range(max_visible):
+                offset_x = random.randint(-3, 3) if i > 0 else 0
+                offset_y = i * 3
+                
+                # 绘制单个卡牌轮廓
+                single_card_rect = pygame.Rect(
+                    draw_x + offset_x,
+                    draw_y + offset_y,
+                    self.width,
+                    self.height
+                )
+                pygame.draw.rect(surface, (40, 20, 80), single_card_rect, 1, border_radius=12)
+        else:
+            # 牌堆为空，绘制一个空的卡牌轮廓
+            empty_color = (60, 40, 80, 150)  # 半透明的空牌堆颜色
+            empty_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            pygame.draw.rect(empty_surf, empty_color, (0, 0, self.width, self.height), border_radius=12)
+            pygame.draw.rect(empty_surf, (100, 80, 120), (0, 0, self.width, self.height), 2, border_radius=12)
+            surface.blit(empty_surf, (draw_x, draw_y))
             
-            # 绘制单个卡牌轮廓
-            single_card_rect = pygame.Rect(
-                draw_x + offset_x,
-                draw_y + offset_y,
-                self.width,
-                self.height
-            )
-            pygame.draw.rect(surface, (40, 20, 80), single_card_rect, 1, border_radius=12)
+            # 绘制"空"字
+            empty_text = self.font_manager.small.render("Empty", True, (150, 120, 180))
+            empty_rect = empty_text.get_rect(center=(self.x, self.y))
+            surface.blit(empty_text, empty_rect)
+            return  # 空的牌堆不需要绘制数量和闪光效果
         
         # 绘制牌堆编号
         pile_text = self.font_manager.small.render(f"Pile {self.pile_index + 1}", True, self.colors['text'])
@@ -125,7 +147,7 @@ class MagicCard:
         surface.blit(count_text, (self.x - count_text.get_width()//2, self.y - count_text.get_height()//2))
         
         # 绘制闪光效果
-        if self.sparkle_timer < 15:
+        if self.sparkle_timer < 15 and self.card_count > 0:
             sparkle_size = 4
             sparkle_x = draw_x + random.randint(10, self.width - 10)
             sparkle_y = draw_y + random.randint(10, self.height - 10)
@@ -418,13 +440,12 @@ class SplitCardsUI:
             
             if not effect.active:
                 self.magic_effects.remove(effect)
-    
     def draw_action_buttons(self, game_logic):
         """绘制动作按钮（拿牌/分割）"""
-        if self.selected_pile is None:
+        if self.selected_pile is None or game_logic.selected_pile is None:
             return
         
-        selected_pile_size = game_logic.cards[self.selected_pile]
+        selected_pile_size = game_logic.cards[game_logic.selected_pile]
         
         # 动作面板背景
         action_panel_y = 400
@@ -434,8 +455,12 @@ class SplitCardsUI:
         pygame.draw.rect(self.screen, self.colors['accent'], panel_rect, 2, border_radius=15)
         
         # 面板标题
-        panel_title = self.font_manager.medium.render(f"Actions for Pile {self.selected_pile + 1}", True, self.colors['title'])
+        panel_title = self.font_manager.medium.render(f"Actions for Pile {game_logic.selected_pile + 1}", True, self.colors['title'])
         self.screen.blit(panel_title, (SCREEN_WIDTH//2 - panel_title.get_width()//2, action_panel_y + 10))
+        
+        # 获取当前选择的参数
+        selected_take_count = game_logic.get_selection_param('take_count')
+        selected_split_point = game_logic.get_selection_param('split_point')
         
         # 拿牌动作按钮
         take_y = action_panel_y + 50
@@ -451,20 +476,31 @@ class SplitCardsUI:
             btn_width = 50
             btn_height = 40
             
-            # 按钮状态
-            is_selected = (self.selected_action == 'take' and 
-                          game_logic.selected_action == 'take' and 
-                          hasattr(game_logic, 'selected_take_count') and 
-                          game_logic.selected_take_count == take_count)
+            # 按钮状态 - 检查是否被选中
+            is_selected = (game_logic.selected_action == 'take' and selected_take_count == take_count)
             
             # 绘制按钮
             btn_rect = pygame.Rect(btn_x, btn_y, btn_width, btn_height)
-            btn_color = self.colors['player1'] if is_selected else (60, 50, 100)
+            
+            # 选中状态使用特殊颜色
+            if is_selected:
+                btn_color = self.colors['player1']
+                border_color = (255, 255, 200)
+            else:
+                btn_color = (60, 50, 100)
+                border_color = self.colors['accent']
+            
             pygame.draw.rect(self.screen, btn_color, btn_rect, border_radius=8)
-            pygame.draw.rect(self.screen, self.colors['accent'], btn_rect, 2, border_radius=8)
+            pygame.draw.rect(self.screen, border_color, btn_rect, 3 if is_selected else 2, border_radius=8)
             
             # 按钮文本
             count_text = self.font_manager.medium.render(str(take_count), True, TEXT_COLOR)
+            if is_selected:
+                # 选中状态文本加粗效果
+                count_shadow = self.font_manager.medium.render(str(take_count), True, (0, 0, 0, 100))
+                self.screen.blit(count_shadow, (btn_x + btn_width//2 - count_text.get_width()//2 + 1, 
+                                              btn_y + btn_height//2 - count_text.get_height()//2 + 1))
+            
             self.screen.blit(count_text, (btn_x + btn_width//2 - count_text.get_width()//2, 
                                          btn_y + btn_height//2 - count_text.get_height()//2))
         
@@ -483,20 +519,31 @@ class SplitCardsUI:
                 btn_width = 70
                 btn_height = 40
                 
-                # 按钮状态
-                is_selected = (self.selected_action == 'split' and 
-                              game_logic.selected_action == 'split' and 
-                              hasattr(game_logic, 'selected_split_point') and 
-                              game_logic.selected_split_point == split_point)
+                # 按钮状态 - 检查是否被选中
+                is_selected = (game_logic.selected_action == 'split' and selected_split_point == split_point)
                 
                 # 绘制按钮
                 btn_rect = pygame.Rect(btn_x, btn_y, btn_width, btn_height)
-                btn_color = self.colors['player2'] if is_selected else (60, 50, 100)
+                
+                # 选中状态使用特殊颜色
+                if is_selected:
+                    btn_color = self.colors['player2']
+                    border_color = (255, 200, 200)
+                else:
+                    btn_color = (60, 50, 100)
+                    border_color = self.colors['accent']
+                
                 pygame.draw.rect(self.screen, btn_color, btn_rect, border_radius=8)
-                pygame.draw.rect(self.screen, self.colors['accent'], btn_rect, 2, border_radius=8)
+                pygame.draw.rect(self.screen, border_color, btn_rect, 3 if is_selected else 2, border_radius=8)
                 
                 # 按钮文本
                 split_text = self.font_manager.small.render(f"{split_point}|{selected_pile_size - split_point}", True, TEXT_COLOR)
+                if is_selected:
+                    # 选中状态文本加粗效果
+                    split_shadow = self.font_manager.small.render(f"{split_point}|{selected_pile_size - split_point}", True, (0, 0, 0, 100))
+                    self.screen.blit(split_shadow, (btn_x + btn_width//2 - split_text.get_width()//2 + 1, 
+                                                  btn_y + btn_height//2 - split_text.get_height()//2 + 1))
+                
                 self.screen.blit(split_text, (btn_x + btn_width//2 - split_text.get_width()//2, 
                                             btn_y + btn_height//2 - split_text.get_height()//2))
     
@@ -561,7 +608,9 @@ class SplitCardsUI:
         if piles_count <= 5:
             for i, card_count in enumerate(game_logic.cards):
                 x = start_x + i * spacing
-                card_pile = MagicCard(x, y_position, card_count, i, self.font_manager)
+                # 检查这个牌堆是否被选中
+                is_selected = (game_logic.selected_pile == i)
+                card_pile = MagicCard(x, y_position, card_count, i, self.font_manager, is_selected)
                 card_piles.append(card_pile)
         else:
             # 两行布局
@@ -571,13 +620,16 @@ class SplitCardsUI:
             # 第一行
             for i in range(first_row):
                 x = start_x + i * spacing
-                card_pile = MagicCard(x, y_position[0], game_logic.cards[i], i, self.font_manager)
+                is_selected = (game_logic.selected_pile == i)
+                card_pile = MagicCard(x, y_position[0], game_logic.cards[i], i, self.font_manager, is_selected)
                 card_piles.append(card_pile)
             
             # 第二行
             for i in range(second_row):
                 x = start_x + i * spacing
-                card_pile = MagicCard(x, y_position[1], game_logic.cards[first_row + i], first_row + i, self.font_manager)
+                pile_index = first_row + i
+                is_selected = (game_logic.selected_pile == pile_index)
+                card_pile = MagicCard(x, y_position[1], game_logic.cards[pile_index], pile_index, self.font_manager, is_selected)
                 card_piles.append(card_pile)
         
         return card_piles
@@ -591,6 +643,9 @@ class SplitCardsUI:
         """更新选中状态"""
         self.selected_pile = game_logic.selected_pile
         self.selected_action = game_logic.selected_action
+        
+        # 强制重新创建卡牌堆以更新选中状态
+        # 这会在下一次draw时生效
     
     def reset_selection(self):
         """重置选择状态"""
