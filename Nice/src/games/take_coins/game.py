@@ -254,6 +254,12 @@ class TakeCoinsGame(BaseGame):
                 return False
             
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                if "refresh" in self.control_buttons and self.control_buttons["refresh"].is_clicked(event):
+                    self.logic.initialize_game(self.logic.game_mode, self.logic.difficulty)
+                    self.ui.scroll_offset = 0
+                    if hasattr(self.input_handler, 'key_repeat_manager'):
+                        self.input_handler.key_repeat_manager._reset_state()
+                    return True
                 result = self.input_handler.handle_mouse_click(
                     event, self.position_buttons, self.scroll_buttons, self.control_buttons
                 )
@@ -325,6 +331,8 @@ class TakeCoinsGame(BaseGame):
                 self.control_buttons["back"].draw(self.screen)
             if "home" in self.control_buttons:
                 self.control_buttons["home"].draw(self.screen)
+            if "refresh" in self.control_buttons:  # 绘制刷新按钮
+                self.control_buttons["refresh"].draw(self.screen)
             
             if not self.logic.game_over:
                 # Draw control panel

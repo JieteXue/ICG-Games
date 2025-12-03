@@ -5,14 +5,16 @@
 - [x]  game2_Take_and_Split_Cards.py 
   * action functions:
     * function: 'acted_list' waiting to be completed.
-- [ ] Type check function: to check whether the parameter get in is of the correct type and range.
 - [x] More games: NIM game (simple version)
 - [x] Find some non-trivial initial list of game 1.
-- [ ] Game 3 test.
+- [x] Game 3 test.
 - [ ] Game 4 test.
 - [ ] Game 5 test.
 - [ ] GUI
 - [ ] README file game introduction proofread.
+- [ ] tips for players (foresee) and situation view (optional)
+- [ ] refresh key
+- [ ] back button at choosing stage.
 
 ## Progress
 
@@ -53,3 +55,16 @@
 #### Nov 28, 2025
 > 1. New game: take coins 
 > 2. Add double click function in new game
+
+#### Nov 29, 2025
+> 1. Add refresh button for taking cards
+
+#### Dec 1-2, 2025
+> 1. Merge Jiete's contributions to Xuan Yang's branch
+> 2. Created a new branch called 玛德给我气笑了
+> 3. Renovation of the menu
+> 4. Split card game creation
+
+#### Dec 3, 2025
+> 1. Add scroll to infobutton
+> 2. Change UI of the split card: two buttons

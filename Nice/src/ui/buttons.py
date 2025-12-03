@@ -247,12 +247,6 @@ class InfoButton(Button):
                 surface.blit(desc_text, (tooltip_x + 20, y_offset + 30))
                 y_offset += 22  # 更紧凑的行距
             
-            # Players info with softer color
-            players_text = self.font_manager.small.render(
-                f"Players: {game_info['min_players']}-{game_info['max_players']}", 
-                True, (140, 160, 180)  # 更柔和的次要文本颜色
-            )
-            surface.blit(players_text, (tooltip_x + 20, y_offset + 10))
             
             y_offset += 40  # 游戏之间的间距
     

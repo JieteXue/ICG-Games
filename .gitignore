@@ -1,0 +1,11 @@
+*.log
+*.aux
+*.out
+*.gz
+*.toc
+*.DS_Store
+*.pyc
+*.venv
+*.cpython-311.pyc
+.vscode/
+.DS_Store

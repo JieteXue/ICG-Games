@@ -19,18 +19,38 @@ class SubtractFactorAutoPlayer:
         return random.random() < DIFFICULTY_RANDOM_RATES.get(difficulty, 0.3)
     
     def get_valid_factors(self, number):
-        """Get all valid factors for the current number"""
-        if number <= 1:
-            return []
+        """Get all valid factors for the current number - 确保移动后值不小于阈值"""
+        if number <= 1 or number <= self.threshold:
+            return []  # 如果当前值已经小于等于阈值，没有有效移动
         
         factors = set()
         i = 1
         while i * i <= number:
             if number % i == 0:
-                if i < number:  # d must be less than m
+                # 检查移动是否会导致立即失败
+                if i < number and (number - i) >= self.threshold:
                     factors.add(i)
-                if number // i < number:  # d must be less than m
-                    factors.add(number // i)
+                other_factor = number // i
+                if other_factor < number and other_factor != i and (number - other_factor) >= self.threshold:
+                    factors.add(other_factor)
+            i += 1
+        
+        return sorted(factors)
+    
+    def _get_all_factors(self, number):
+        """获取所有真因子（不检查阈值） - 用于fallback情况"""
+        if number <= 1:
+            return []
+        
+        factors = []
+        i = 1
+        while i * i <= number:
+            if number % i == 0:
+                if i < number:
+                    factors.append(i)
+                other_factor = number // i
+                if other_factor != i and other_factor < number:
+                    factors.append(other_factor)
             i += 1
         
         return sorted(factors)
@@ -42,7 +62,7 @@ class SubtractFactorAutoPlayer:
         for factor in valid_factors:
             new_value = self.current_value - factor
             if new_value < self.threshold:
-                continue  # This move would lose immediately
+                continue  # 这个移动会导致立即失败，应该已经被过滤了
             
             # Check if this move leaves opponent in losing position
             if new_value < len(self.winning_positions) and not self.winning_positions[new_value]:
@@ -51,28 +71,39 @@ class SubtractFactorAutoPlayer:
         return None
     
     def move_instruction(self, difficulty):
-        """Generate move instruction for AI"""
-        # Try to find a winning move first
+        """Generate move instruction for AI - 更健壮的版本"""
+        # 首先获取所有有效移动（不会导致立即失败的）
+        valid_factors = self.get_valid_factors(self.current_value)
+        
+        # 如果没有有效移动，说明所有移动都会导致失败
+        if not valid_factors:
+            # 这种情况应该很少见，但需要处理
+            all_factors = self._get_all_factors(self.current_value)
+            if all_factors:
+                # 选择一个最小的因子，尽量拖延
+                return min(all_factors)
+            else:
+                # 完全没有因子可选，返回1作为fallback
+                return 1
+        
+        # 尝试寻找必胜移动
         winning_move = self.find_winning_move()
         
-        # For higher difficulties, use winning moves more often
+        # 对于高难度，更频繁使用必胜移动
         if winning_move and not self.this_turn_random(difficulty):
             return winning_move
         else:
-            # Make a random move
-            valid_factors = self.get_valid_factors(self.current_value)
-            if valid_factors:
-                # Prefer larger factors on higher difficulties to end game faster
-                if difficulty >= 3:  # Hard and Insane
-                    # Sort factors and pick from larger ones
-                    valid_factors.sort()
-                    start_index = max(0, len(valid_factors) - len(valid_factors) // 3)
-                    return random.choice(valid_factors[start_index:])
-                else:
-                    return random.choice(valid_factors)
-            
-            # Fallback
-            return 1
+            # 随机选择，但根据难度调整策略
+            if difficulty >= 3:  # Hard and Insane
+                # 偏好大因子以快速结束游戏
+                valid_factors.sort()
+                start_index = max(0, len(valid_factors) - len(valid_factors) // 3)
+                # 确保切片不会为空
+                candidates = valid_factors[start_index:]
+                return random.choice(candidates) if candidates else valid_factors[-1]
+            else:
+                # 简单和普通难度：完全随机选择
+                return random.choice(valid_factors)
 
 class SubtractFactorLogic:
     """Game logic for Subtract Factor"""
@@ -142,16 +173,25 @@ class SubtractFactorLogic:
         return sorted(factors)
     
     def update_valid_factors(self):
-        """Update list of valid factors for current value"""
-        self.valid_factors = self._get_factors_optimized(self.current_value)
-        # Filter factors that don't immediately lose
-        self.valid_factors = [f for f in self.valid_factors 
+        """Update list of valid factors for current value - 修复版本"""
+        # 首先获取所有因子
+        all_factors = self._get_factors_optimized(self.current_value)
+        
+        # 过滤掉会导致立即失败的因子
+        self.valid_factors = [f for f in all_factors 
                             if (self.current_value - f) >= self.threshold_k]
+        
+        # 如果当前值已经小于阈值，游戏应该结束
+        if self.current_value < self.threshold_k and not self.game_over:
+            self.game_over = True
+            # 当前玩家输，因为当前值已经低于阈值
+            self.winner = "AI" if self.current_player == "Player 1" else "Player 1"
+            self.message = f"Game Over! Current value {self.current_value} < threshold {self.threshold_k}. {self.current_player} loses!"
     
     def judge_win(self):
         """Determine if current position is winning"""
         if self.current_value < self.threshold_k:
-            return False
+            return False  # 已经低于阈值，必败位置
         if self.current_value >= len(self.winning_positions):
             # 对于超出预计算范围的值，使用实时计算
             return self._calculate_winning_position(self.current_value)
@@ -163,7 +203,10 @@ class SubtractFactorLogic:
             return False
             
         factors = self._get_factors_optimized(value)
-        for factor in factors:
+        # 只考虑不会导致立即失败的因子
+        valid_factors = [f for f in factors if (value - f) >= self.threshold_k]
+        
+        for factor in valid_factors:
             new_val = value - factor
             if new_val < self.threshold_k:
                 continue
@@ -177,15 +220,16 @@ class SubtractFactorLogic:
             return False
             
         factors = self._get_factors_optimized(value)
-        for factor in factors:
+        # 只考虑不会导致立即失败的因子
+        valid_factors = [f for f in factors if (value - f) >= self.threshold_k]
+        
+        for factor in valid_factors:
             new_val = value - factor
             if new_val < self.threshold_k:
                 continue
             if not self.judge_win_single(new_val):
                 return True
         return False
-    
-    # 在 SubtractFactorLogic 类的 initialize_game 方法中修改：
     
     def initialize_game(self, game_mode, difficulty=None):
         """Initialize a new game - ensure player starts in winning position in PvE"""
@@ -237,20 +281,16 @@ class SubtractFactorLogic:
             if self.game_mode == "PVE":
                 # 检查是否为玩家胜利局面
                 is_winning_position = self.judge_win()
-                if is_winning_position:
-                    break  # 找到玩家胜利局面
+                if is_winning_position and self.valid_factors:  # 确保有有效移动
+                    break  # 找到玩家胜利局面且有有效移动
             else:
-                break  # PvP模式不关心初始胜负
-            
-        # 如果没找到玩家胜利局面，使用第一个有效配置
+                if self.valid_factors:  # 确保有有效移动
+                    break  # PvP模式只关心有有效移动
+        
+        # 如果没找到合适的配置，使用一个安全的默认值
         if attempt_count >= max_attempts:
-            self.initial_n = random.randint(min_n, max_n)
-            min_k = max(10, int(math.sqrt(self.initial_n) * 1.5))
-            max_k = min(self.initial_n - 20, int(self.initial_n * 0.7))
-            if min_k > max_k:
-                min_k = max(10, self.initial_n // 3)
-                max_k = min(self.initial_n - 10, self.initial_n // 2)
-            self.threshold_k = random.randint(min_k, max_k)
+            self.initial_n = random.randint(200, 300)
+            self.threshold_k = random.randint(50, 100)
             self.current_value = self.initial_n
             self.calculate_winning_positions()
             self.update_valid_factors()
@@ -272,12 +312,14 @@ class SubtractFactorLogic:
     
     def make_move(self, factor):
         """Execute a move and return success status"""
+        # 验证因子是否有效
         if factor not in self.valid_factors:
+            self.message = f"Invalid factor: {factor}. Please select a valid factor."
             return False
         
         new_value = self.current_value - factor
         
-        # Check if this move causes immediate loss
+        # 检查是否会导致立即失败（理论上不应该发生，因为valid_factors已经过滤过了）
         if new_value < self.threshold_k:
             self.game_over = True
             self.winner = "AI" if self.current_player == "Player 1" else "Player 1"
@@ -287,23 +329,23 @@ class SubtractFactorLogic:
         self.current_value = new_value
         self.message = f"{self.current_player} subtracted {factor}, new value: {self.current_value}."
         
-        # Update AI's state if in PvE mode
+        # 更新AI状态
         if self.game_mode == "PVE":
             self.auto_player.current_value = self.current_value
         
         self.update_valid_factors()
         
-        # Check if game is over (no valid moves)
-        if not self.valid_factors:
+        # 检查游戏是否结束（没有有效移动）
+        if not self.valid_factors and not self.game_over:
             self.game_over = True
             self.winner = self.current_player
             self.message = f"Game Over! {self.current_player} Wins! No valid moves left."
             return True
         
-        # Switch player
+        # 切换玩家
         self.switch_player()
         
-        # Update position analysis
+        # 更新局面分析
         if self.game_mode == "PVE":
             position_state = "winning" if self.judge_win() else "losing"
             if self.current_player == "Player 1":
@@ -332,9 +374,31 @@ class SubtractFactorLogic:
     def ai_make_move(self):
         """Let AI make a move (only in PvE mode)"""
         if self.game_mode == "PVE" and self.current_player == "AI" and not self.game_over:
-            factor = self.auto_player.move_instruction(self.difficulty)
-            if self.make_move(factor):
+            # 确保AI有有效移动
+            if not self.valid_factors:
+                self.game_over = True
+                self.winner = "Player 1"
+                self.message = f"Game Over! Player 1 Wins! AI has no valid moves."
                 return True
+            
+            factor = self.auto_player.move_instruction(self.difficulty)
+            
+            # 验证AI选择的因子是否有效
+            if factor in self.valid_factors:
+                return self.make_move(factor)
+            else:
+                # AI选择了无效因子，尝试选择一个有效因子
+                if self.valid_factors:
+                    # 选择第一个有效因子
+                    factor = self.valid_factors[0]
+                    return self.make_move(factor)
+                else:
+                    # 没有有效移动，游戏结束
+                    self.game_over = True
+                    self.winner = "Player 1"
+                    self.message = f"Game Over! Player 1 Wins! AI has no valid moves."
+                    return True
+        
         return False
     
     def select_factor(self, factor):
@@ -347,4 +411,6 @@ class SubtractFactorLogic:
             else:
                 self.message = f"{self.current_player} selected factor: {factor}, press confirm to make move."
             return True
+        
+        self.message = f"Invalid factor: {factor}. Please select a valid factor."
         return False

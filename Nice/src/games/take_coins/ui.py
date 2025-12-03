@@ -312,6 +312,13 @@ class TakeCoinsUI:
     
     def create_buttons(self):
         """Create UI buttons"""
+        control_y = 370
+        control_width = 400
+        control_x = (SCREEN_WIDTH - control_width) // 2
+        number_button_width = 80
+        number_button_height = 50
+        nav_button_size = 50
+        
         buttons = {
             "confirm": Button(SCREEN_WIDTH//2 - 100, 520, 200, 45, "Confirm Move", 
                             self.font_manager, tooltip="Make move at selected position"),
@@ -320,7 +327,8 @@ class TakeCoinsUI:
             "back": Button(20, 20, 45, 45, "", self.font_manager, icon='back', 
                           tooltip="Back to mode selection"),
             "home": Button(75, 20, 45, 45, "", self.font_manager, icon='home', 
-                          tooltip="Back to main menu")
+                          tooltip="Back to main menu"),
+            "refresh": Button(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game")
         }
         
         return buttons
