@@ -12,6 +12,32 @@ from utils.constants import *
 from utils.helpers import FontManager
 from core.game_registry import game_registry
 
+def get_icon_path(icon_filename):
+    """获取图标文件的路径（跨平台兼容）"""
+    # 获取当前文件所在目录（menus.py所在的目录）
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 构建图标文件路径
+    icon_path = os.path.join(current_dir, 'icon', icon_filename)
+    
+    # 检查文件是否存在
+    if os.path.exists(icon_path):
+        return icon_path
+    
+    # 如果不存在，尝试其他可能的路径（从项目根目录开始）
+    # 获取项目根目录（src的父目录）
+    project_root = os.path.dirname(os.path.dirname(current_dir))
+    # 尝试从项目根目录开始构建路径
+    alt_path = os.path.join(project_root, 'src', 'ui', 'icon', icon_filename)
+    
+    if os.path.exists(alt_path):
+        return alt_path
+    
+    # 如果还是找不到，返回None（将使用默认图标）
+    print(f"警告: 找不到图标文件 {icon_filename}")
+    print(f"搜索路径1: {icon_path}")
+    print(f"搜索路径2: {alt_path}")
+    return None
+
 def create_rounded_surface(width, height, color, radius=15):
     """创建圆角矩形的表面"""
     surface = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -251,37 +277,37 @@ class MainMenu:
                 "id": "take_coins", 
                 "name": "Take Coins", 
                 "description": "Coin taking strategy game",
-                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G1ICON.jpg" #absolute import:C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon
+                "icon": "G1ICON.jpg"  # 只保留文件名，不包含路径
             },
             {
                 "id": "split_cards", 
                 "name": "Split Cards", 
                 "description": "Card splitting strategy game",
-                "icon":  r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G2ICON.jpg"
+                "icon": "G2ICON.jpg"
             },
             {
                 "id": "card_nim", 
                 "name": "Card Nim", 
                 "description": "Strategic card taking game using Nim theory",
-                "icon":  r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G3ICON.jpg"
+                "icon": "G3ICON.jpg"
             },
             {
                 "id": "dawson_kayles", 
                 "name": "Laser Defense", 
                 "description": "Strategic tower connection game",
-                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G4ICON.jpg"
+                "icon": "G4ICON.jpg"
             },
             {
                 "id": "subtract_factor", 
                 "name": "Subtract Factor", 
                 "description": "Strategic number reduction using factor subtraction",
-                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G5ICON.jpg"
+                "icon": "G5ICON.jpg"
             },
             {
                 "id": "coming_soon", 
                 "name": "Coming Soon", 
                 "description": "New game coming soon",
-                "icon": r"C:\Users\admin\Documents\GitHub\ICG-Games\Nice\src\ui\icon\G6ICON.jpg"
+                "icon": "G6ICON.jpg"
             }
         ]
         
@@ -300,7 +326,13 @@ class MainMenu:
             
             config = button_configs[i]
             game_id = config["id"]
-            icon_path = config["icon"]
+            icon_filename = config["icon"]
+            
+            # 获取图标完整路径
+            if icon_filename:
+                icon_path = get_icon_path(icon_filename)
+            else:
+                icon_path = None
             
             if game_id == "coming_soon":
                 btn = SquareButton(x, y, button_size, button_size,
