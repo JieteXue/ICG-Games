@@ -276,6 +276,10 @@ class SplitCardsGame(BaseGame):
             print(f"Error initializing game settings: {e}")
             # 后备初始化
             self.logic.initialize_game("PVE", 2)
+        finally:
+             # 清除选择界面，准备绘制游戏界面
+            self.screen.fill((15, 10, 30))  # Split Cards的背景色
+            pygame.display.flip()
     
     def handle_events(self):
         """处理游戏事件"""

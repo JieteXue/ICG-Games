@@ -282,6 +282,7 @@ class SplitCardsUI:
         self.selected_action = None  # 'take' 或 'split'
         self.highlighted_piles = set()
         self.magic_effects = []
+        self.max_effects = 10  # 最大同时显示的效果数量
         
         # 颜色方案（神秘魔术风格）
         self.colors = {
@@ -295,6 +296,33 @@ class SplitCardsUI:
             'lose': (255, 100, 100),        # 失败色
             'hint': (180, 160, 220)         # 提示色
         }
+    
+    def add_magic_effect(self, start_pos: Tuple[int, int], end_pos: Tuple[int, int], effect_type: str = "sparkle"):
+        """添加魔法效果"""
+        # 清理旧效果（移除不活跃的）
+        self._cleanup_effects()
+        
+        # 如果效果数量过多，移除最早的效果
+        if len(self.magic_effects) >= self.max_effects:
+            self.magic_effects.pop(0)
+        
+        effect = MagicEffect(start_pos, end_pos, effect_type)
+        self.magic_effects.append(effect)
+    
+    def _cleanup_effects(self):
+        """清理不活跃的魔法效果"""
+        # 移除不活跃的效果
+        self.magic_effects = [effect for effect in self.magic_effects if effect.active]
+    
+    def draw_magic_effects(self):
+        """绘制魔法效果"""
+        # 更新并绘制所有效果
+        for effect in self.magic_effects:
+            effect.update()
+            effect.draw(self.screen)
+        
+        # 每帧结束后自动清理
+        self._cleanup_effects()
     
     def draw_background(self):
         """绘制神秘背景"""
@@ -430,15 +458,6 @@ class SplitCardsUI:
         for card_pile in card_piles:
             card_pile.update()
             card_pile.draw(self.screen)
-    
-    def draw_magic_effects(self):
-        """绘制魔法效果"""
-        for effect in self.magic_effects[:]:
-            effect.update()
-            effect.draw(self.screen)
-            
-            if not effect.active:
-                self.magic_effects.remove(effect)
     
     def draw_action_buttons(self, game_logic):
         """绘制动作按钮（拿牌/分割）"""

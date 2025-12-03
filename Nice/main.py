@@ -47,7 +47,7 @@ def register_games():
             max_players=2
         )
         print("✅ Split Cards game registered successfully")
-        
+
         # Installation and registry of Card Nim game
         from games.card_nim.game import CardNimGame
         game_registry.register_game(
