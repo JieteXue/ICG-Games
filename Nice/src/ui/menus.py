@@ -27,7 +27,7 @@ def get_icon_path(icon_filename):
     # 获取项目根目录（src的父目录）
     project_root = os.path.dirname(os.path.dirname(current_dir))
     # 尝试从项目根目录开始构建路径
-    alt_path = os.path.join(project_root, 'src', 'ui', 'icon', icon_filename)
+    alt_path = os.path.join(project_root, 'assets','image','icon', icon_filename)
     
     if os.path.exists(alt_path):
         return alt_path
