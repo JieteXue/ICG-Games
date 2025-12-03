@@ -208,22 +208,30 @@ class SubtractFactorGame(BaseGame):
     def handle_events(self):
         """Handle game events"""
         mouse_pos = pygame.mouse.get_pos()
-        
+
         # Update button hover states
         for button in self.control_buttons.values():
             button.update_hover(mouse_pos)
-        
+
         for button in self.factor_buttons:
             button.update_hover(mouse_pos)
-        
+
         for button in self.scroll_buttons:
             button.update_hover(mouse_pos)
-        
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
-            
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                # 检查刷新按钮 - 优先处理
+                if "refresh" in self.control_buttons and self.control_buttons["refresh"].is_clicked(event):
+                    self.logic.initialize_game(self.logic.game_mode, self.logic.difficulty)
+                    self.ui.scroll_offset = 0
+                    if hasattr(self.input_handler, 'key_repeat_manager'):
+                        self.input_handler.key_repeat_manager._reset_state()
+                    return True
+
                 result = self.input_handler.handle_mouse_click(
                     event, self.factor_buttons, self.scroll_buttons, self.control_buttons
                 )
@@ -234,14 +242,14 @@ class SubtractFactorGame(BaseGame):
                 elif result == "home":
                     # Return to main menu
                     return False
-            
+
             elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
                 self.input_handler.handle_keyboard(event)
-            
+
             elif event.type == pygame.MOUSEWHEEL:
                 # Handle mouse wheel scrolling
                 self.ui.handle_mouse_wheel(event, len(self.logic.valid_factors))
-        
+
         return True
     
     def update(self):
@@ -287,11 +295,13 @@ class SubtractFactorGame(BaseGame):
             # Draw factor selection area with scrolling
             self.ui.draw_factor_selection(self.logic, self.factor_buttons, self.scroll_buttons)
             
-            # Draw navigation buttons
+            # Draw navigation buttons (包括刷新按钮)
             if "back" in self.control_buttons:
                 self.control_buttons["back"].draw(self.screen)
             if "home" in self.control_buttons:
                 self.control_buttons["home"].draw(self.screen)
+            if "refresh" in self.control_buttons:  # 绘制刷新按钮
+                self.control_buttons["refresh"].draw(self.screen)
             
             if not self.logic.game_over:
                 # Draw control panel
