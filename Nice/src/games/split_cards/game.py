@@ -9,6 +9,7 @@ from core.base_game import BaseGame
 from games.split_cards.logic import SplitCardsLogic
 from games.split_cards.ui import SplitCardsUI
 from ui.menus import GameModeSelector
+from ui.buttons import Button
 from utils.constants import CARD_GAME_FPS, SCREEN_WIDTH, SCREEN_HEIGHT
 
 class SplitCardsInputHandler:
