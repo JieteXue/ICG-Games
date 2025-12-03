@@ -56,7 +56,12 @@
 #### Nov 29, 2025
 > 1. Add refresh button for taking cards
 
-#### Dec 1-2,2025
+#### Dec 1-2, 2025
 > 1. Merge Jiete's contributions to Xuan Yang's branch
 > 2. Created a new branch called 玛德给我气笑了
 > 3. Renovation of the menu
+> 4. Split card game creation
+
+#### Dec 3, 2025
+> 1. Add scroll to infobutton
+> 2. Change UI of the split card: two buttons

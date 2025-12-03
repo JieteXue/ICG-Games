@@ -25,6 +25,7 @@ class SplitCardsLogic:
         self.selected_action = None  # 选中的动作类型 ('take' 或 'split')
         # 移除selected_take_count和selected_split_point属性，使用字典存储临时选择
         self._temp_selection = {}  # 临时存储选择参数
+        self.split_point = 1  # 分割点，默认1
     
     def initialize_game(self, game_mode: str, difficulty: Optional[int] = None):
         """初始化新游戏"""
@@ -42,6 +43,7 @@ class SplitCardsLogic:
         self.selected_pile = None
         self.selected_action = None
         self._temp_selection = {}
+        self.split_point = 1
         
         # 根据模式设置消息
         if game_mode == "PVE":
@@ -85,6 +87,10 @@ class SplitCardsLogic:
         self.selected_pile = pile_index
         self.selected_action = action
         self._temp_selection = kwargs
+        
+        # 更新分割点
+        if 'split_point' in kwargs:
+            self.split_point = kwargs['split_point']
     
     def get_selection_param(self, key: str, default=None):
         """获取选择参数"""
@@ -144,7 +150,7 @@ class SplitCardsLogic:
                 'old_state': self.cards.copy()
             })
             
-            # 执行分割
+            # 执行分割 - 替换原牌堆，插入新牌堆
             self.cards[pile_index] = split_point
             self.cards.insert(pile_index + 1, pile_size - split_point)
             
@@ -262,3 +268,16 @@ class SplitCardsLogic:
                 'can_split': count >= 2
             })
         return piles_info
+    
+    def adjust_split_point(self, delta: int):
+        """调整分割点"""
+        if self.selected_pile is not None and self.selected_action == 'split':
+            pile_size = self.cards[self.selected_pile]
+            new_split_point = self.split_point + delta
+            
+            # 确保分割点在合理范围内（1到pile_size-1）
+            if 1 <= new_split_point < pile_size:
+                self.split_point = new_split_point
+                self.set_selection(self.selected_pile, 'split', split_point=new_split_point)
+                return True
+        return False
