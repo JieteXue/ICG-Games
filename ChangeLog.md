@@ -15,6 +15,8 @@
 - [ ] tips for players (foresee) and situation view (optional)
 - [ ] refresh key
 - [ ] back button at choosing stage.
+- [ ] fix bugs of Strategic number reduction using factor subtraction
+- [ ] attend background music
 
 ## Progress
 
