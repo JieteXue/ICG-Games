@@ -9,7 +9,7 @@ from core.base_game import BaseGame
 from games.split_cards.logic import SplitCardsLogic
 from games.split_cards.ui import SplitCardsUI
 from ui.menus import GameModeSelector
-from ui.buttons import Button  # 添加这行导入
+from ui.buttons import Button
 from utils.constants import CARD_GAME_FPS, SCREEN_WIDTH, SCREEN_HEIGHT
 
 class SplitCardsInputHandler:
@@ -128,7 +128,7 @@ class SplitCardsInputHandler:
         elif self.game_logic.selected_action == 'split':
             split_y = action_panel_y + 50
             
-            # 减少按钮区域
+            # 减少按钮区域 - 修复坐标问题
             minus_btn_rect = pygame.Rect(SCREEN_WIDTH//2 - 140, split_y + 70, 80, 50)
             # 增加按钮区域
             plus_btn_rect = pygame.Rect(SCREEN_WIDTH//2 + 60, split_y + 70, 80, 50)

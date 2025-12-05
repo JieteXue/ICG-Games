@@ -23,7 +23,6 @@ class SplitCardsLogic:
         self.move_history = []  # 移动历史记录
         self.selected_pile = None  # 选中的牌堆索引
         self.selected_action = None  # 选中的动作类型 ('take' 或 'split')
-        # 移除selected_take_count和selected_split_point属性，使用字典存储临时选择
         self._temp_selection = {}  # 临时存储选择参数
         self.split_point = 1  # 分割点，默认1
     
@@ -210,36 +209,116 @@ class SplitCardsLogic:
         
         return self.make_move(move)
     
+    def _calculate_sg(self, n: int) -> int:
+        """计算单个牌堆的SG值"""
+        if n % (2 ** self.k) == 0:
+            return n - 1
+        elif n % (2 ** self.k) == (2 ** self.k) - 1:
+            return n + 1
+        else:
+            return n
+    
+    def _get_current_sg_xor(self) -> int:
+        """获取当前局面的SG异或值"""
+        sg_xor = 0
+        for pile_size in self.cards:
+            sg_xor ^= self._calculate_sg(pile_size)
+        return sg_xor
+    
     def _find_best_move(self, available_moves: List[Dict]) -> Dict:
-        """寻找最佳移动（Hard难度）"""
-        # 简单的策略：优先拿完一个牌堆
-        for move in available_moves:
-            if move['type'] == 'take':
-                pile_idx = move['pile_index']
-                if move['take_count'] == self.cards[pile_idx]:
-                    return move  # 可以拿完整个牌堆
+        """寻找最佳移动（Hard难度）- 基于SG理论"""
+        current_sg = self._get_current_sg_xor()
         
-        # 否则随机选择一个移动
+        # 如果当前是必败局面，随机走一步
+        if current_sg == 0:
+            return random.choice(available_moves)
+        
+        # 寻找能使SG异或和为0的移动
+        for move in available_moves:
+            # 模拟这个移动
+            if move['type'] == 'take':
+                # 模拟拿牌
+                test_cards = self.cards.copy()
+                test_cards[move['pile_index']] -= move['take_count']
+                if test_cards[move['pile_index']] == 0:
+                    test_cards.pop(move['pile_index'])
+                
+                # 计算模拟后的SG值
+                sg_xor = 0
+                for pile in test_cards:
+                    sg_xor ^= self._calculate_sg(pile)
+                
+                if sg_xor == 0:
+                    return move
+            elif move['type'] == 'split':
+                # 模拟分割
+                test_cards = self.cards.copy()
+                pile_idx = move['pile_index']
+                test_cards[pile_idx] = move['split_point']
+                test_cards.insert(pile_idx + 1, self.cards[pile_idx] - move['split_point'])
+                
+                # 计算模拟后的SG值
+                sg_xor = 0
+                for pile in test_cards:
+                    sg_xor ^= self._calculate_sg(pile)
+                
+                if sg_xor == 0:
+                    return move
+        
+        # 如果没有找到必胜策略，随机选择
         return random.choice(available_moves)
     
     def _find_optimal_move(self, available_moves: List[Dict]) -> Dict:
-        """寻找最优移动（Insane难度）"""
-        # 这里可以实现更复杂的Nim策略计算
-        # 暂时使用Hard难度的策略
-        return self._find_best_move(available_moves)
+        """寻找最优移动（Insane难度）- 使用深度搜索"""
+        # 先尝试Hard难度的策略
+        best_move = self._find_best_move(available_moves)
+        
+        # 如果找到必胜策略，直接返回
+        if best_move and self._is_winning_move(best_move):
+            return best_move
+        
+        # 如果没有必胜策略，选择最优的
+        # 优先选择能减少牌堆数量的策略
+        for move in available_moves:
+            if move['type'] == 'take' and self.cards[move['pile_index']] == move['take_count']:
+                # 可以拿完一个牌堆
+                return move
+        
+        # 否则返回Hard难度的选择
+        return best_move if best_move else random.choice(available_moves)
+    
+    def _is_winning_move(self, move: Dict) -> bool:
+        """检查这个移动是否能制造必胜局面"""
+        # 模拟移动
+        if move['type'] == 'take':
+            test_cards = self.cards.copy()
+            test_cards[move['pile_index']] -= move['take_count']
+            if test_cards[move['pile_index']] == 0:
+                test_cards.pop(move['pile_index'])
+        else:  # split
+            test_cards = self.cards.copy()
+            pile_idx = move['pile_index']
+            test_cards[pile_idx] = move['split_point']
+            test_cards.insert(pile_idx + 1, self.cards[pile_idx] - move['split_point'])
+        
+        # 计算对手的SG值
+        sg_xor = 0
+        for pile in test_cards:
+            sg_xor ^= self._calculate_sg(pile)
+        
+        return sg_xor == 0
     
     def judge_win(self) -> bool:
-        """判断当前玩家是否处于必胜局面"""
-        # 简化版的必胜判断，可以后续完善
-        total_cards = sum(self.cards)
-        if total_cards == 0:
-            return False  # 游戏结束
+        """判断当前玩家是否处于必胜局面（基于SG函数理论）"""
+        # 如果游戏已经结束，返回False
+        if not self.cards or self.game_over:
+            return False
         
-        # 简单的启发式判断：如果只剩一个牌堆且牌数小于等于k，则必胜
-        if len(self.cards) == 1 and self.cards[0] <= self.k:
-            return True
+        # 计算所有牌堆的SG值异或和
+        sg_xor = self._get_current_sg_xor()
         
-        return False
+        # 根据SG理论：异或和为0是必败局面，非0是必胜局面
+        return sg_xor != 0
     
     def get_game_state(self) -> Dict:
         """返回游戏状态信息"""

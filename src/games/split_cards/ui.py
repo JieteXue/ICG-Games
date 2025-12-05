@@ -168,6 +168,7 @@ class MagicCard:
             card_rect = pygame.Rect(draw_x, draw_y, self.width, self.height)
             return card_rect.collidepoint(event.pos)
         return False
+
 class MagicEffect:
     """魔法效果动画"""
     
@@ -192,7 +193,7 @@ class MagicEffect:
             angle = random.uniform(0, 2 * math.pi)
             speed = random.uniform(2, 5)
             size = random.uniform(2, 4)
-            lifetime = random.uniform(30, 60)  # 定义 lifetime 变量
+            lifetime = random.uniform(30, 60)
             
             self.particles.append({
                 'x': self.start_pos[0],
@@ -201,7 +202,7 @@ class MagicEffect:
                 'vy': math.sin(angle) * speed,
                 'size': size,
                 'lifetime': lifetime,
-                'max_lifetime': lifetime,  # 使用已定义的 lifetime 变量
+                'max_lifetime': lifetime,
                 'color': (random.randint(200, 255), random.randint(200, 255), random.randint(100, 200))
             })
     
@@ -216,7 +217,7 @@ class MagicEffect:
                               self.end_pos[0] - self.start_pos[0])
             offset_angle = angle + random.uniform(-0.2, 0.2)
             speed = random.uniform(1, 3)
-            lifetime = random.uniform(20, 40)  # 定义 lifetime 变量
+            lifetime = random.uniform(20, 40)
             
             self.particles.append({
                 'x': x,
@@ -224,8 +225,8 @@ class MagicEffect:
                 'vx': math.cos(offset_angle) * speed,
                 'vy': math.sin(offset_angle) * speed,
                 'size': random.uniform(3, 6),
-                'lifetime': lifetime,  # 使用已定义的 lifetime 变量
-                'max_lifetime': lifetime,  # 使用已定义的 lifetime 变量
+                'lifetime': lifetime,
+                'max_lifetime': lifetime,
                 'color': (random.randint(150, 255), random.randint(100, 200), random.randint(200, 255))
             })
     
@@ -270,6 +271,7 @@ class MagicEffect:
             pygame.draw.circle(particle_surf, color_with_alpha, 
                               (int(particle['size']), int(particle['size'])), int(particle['size']))
             surface.blit(particle_surf, (int(particle['x'] - particle['size']), int(particle['y'] - particle['size'])))
+
 class SplitCardsUI:
     """Split Cards游戏UI管理器"""
     
@@ -419,13 +421,13 @@ class SplitCardsUI:
         # 游戏消息
         if game_logic.game_over:
             if game_logic.winner == 1:
-                message_color = WIN_COLOR
-                message = "Player 1 wins the magic duel! "
+                message_color = self.colors['win']
+                message = "Player 1 wins the magic duel! ✨"
             else:
-                message_color = LOSE_COLOR if game_logic.game_mode == "PVE" else self.colors['player2']
+                message_color = self.colors['lose'] if game_logic.game_mode == "PVE" else self.colors['player2']
                 message = "AI wins the magic duel! " if game_logic.game_mode == "PVE" else "Player 2 wins the magic duel! ✨"
         else:
-            message_color = TEXT_COLOR
+            message_color = self.colors['hint']
             message = game_logic.message
         
         message_lines = wrap_text(message, self.font_manager.medium, SCREEN_WIDTH - 100)
@@ -441,7 +443,7 @@ class SplitCardsUI:
             
             self.screen.blit(message_text, (SCREEN_WIDTH//2 - message_text.get_width()//2, 113 + i * 25))
         
-        # 胜负状态指示器
+        # 胜负状态指示器 - 只在游戏进行中显示
         if not game_logic.game_over:
             game_state = "Winning Position" if game_logic.judge_win() else "Losing Position"
             state_color = self.colors['win'] if game_logic.judge_win() else self.colors['lose']
@@ -483,7 +485,7 @@ class SplitCardsUI:
             take_btn_rect = pygame.Rect(SCREEN_WIDTH//2 - 210, action_panel_y + 50, 180, 60)
             pygame.draw.rect(self.screen, self.colors['player1'], take_btn_rect, border_radius=10)
             pygame.draw.rect(self.screen, self.colors['accent'], take_btn_rect, 3, border_radius=10)
-            take_text = self.font_manager.medium.render("Take Cards", True, TEXT_COLOR)
+            take_text = self.font_manager.medium.render("Take Cards", True, (255, 255, 255))
             self.screen.blit(take_text, (take_btn_rect.centerx - take_text.get_width()//2, take_btn_rect.centery - take_text.get_height()//2))
             
             # 分割按钮（只有在牌堆至少有2张牌时才可用）
@@ -491,7 +493,7 @@ class SplitCardsUI:
             split_btn_rect = pygame.Rect(SCREEN_WIDTH//2 + 30, action_panel_y + 50, 180, 60)
             pygame.draw.rect(self.screen, split_btn_color, split_btn_rect, border_radius=10)
             pygame.draw.rect(self.screen, self.colors['accent'], split_btn_rect, 3, border_radius=10)
-            split_text = self.font_manager.medium.render("Split Pile", True, TEXT_COLOR)
+            split_text = self.font_manager.medium.render("Split Pile", True, (255, 255, 255))
             self.screen.blit(split_text, (split_btn_rect.centerx - split_text.get_width()//2, split_btn_rect.centery - split_text.get_height()//2))
             
             # 如果牌堆太小不能分割，显示提示
@@ -535,7 +537,7 @@ class SplitCardsUI:
                 pygame.draw.rect(self.screen, border_color, btn_rect, 3 if is_selected else 2, border_radius=8)
                 
                 # 按钮文本
-                count_text = self.font_manager.medium.render(str(take_count), True, TEXT_COLOR)
+                count_text = self.font_manager.medium.render(str(take_count), True, (255, 255, 255))
                 if is_selected:
                     # 选中状态文本加粗效果
                     count_shadow = self.font_manager.medium.render(str(take_count), True, (0, 0, 0, 100))
@@ -560,28 +562,32 @@ class SplitCardsUI:
             plan_display = self.font_manager.medium.render(plan_text, True, self.colors['player2'])
             self.screen.blit(plan_display, (SCREEN_WIDTH//2 - plan_display.get_width()//2, split_y + 30))
             
-            # 绘制调节按钮（仿照card nim）
+            # 绘制调节按钮 - 确保坐标与game.py中的检测一致
             button_width = 80
             button_height = 50
             center_x = SCREEN_WIDTH // 2
             
             # 减少按钮
-            minus_btn_rect = pygame.Rect(center_x - button_width - 60, split_y + 70, button_width, button_height)
+            minus_btn_rect = pygame.Rect(center_x - 140, split_y + 70, button_width, button_height)
             minus_enabled = current_split > 1
-            minus_color = (60, 50, 100) if minus_enabled else (40, 40, 60)
+            minus_color = self.colors['player2'] if minus_enabled else (100, 100, 120)
             pygame.draw.rect(self.screen, minus_color, minus_btn_rect, border_radius=8)
             pygame.draw.rect(self.screen, self.colors['accent'], minus_btn_rect, 3, border_radius=8)
-            minus_text = self.font_manager.large.render("-", True, TEXT_COLOR if minus_enabled else (100, 100, 120))
+            minus_text = self.font_manager.large.render("-", True, (255, 255, 255) if minus_enabled else (150, 150, 150))
             self.screen.blit(minus_text, (minus_btn_rect.centerx - minus_text.get_width()//2, minus_btn_rect.centery - minus_text.get_height()//2))
             
             # 增加按钮
             plus_btn_rect = pygame.Rect(center_x + 60, split_y + 70, button_width, button_height)
             plus_enabled = current_split < selected_pile_size - 1
-            plus_color = (60, 50, 100) if plus_enabled else (40, 40, 60)
+            plus_color = self.colors['player2'] if plus_enabled else (100, 100, 120)
             pygame.draw.rect(self.screen, plus_color, plus_btn_rect, border_radius=8)
             pygame.draw.rect(self.screen, self.colors['accent'], plus_btn_rect, 3, border_radius=8)
-            plus_text = self.font_manager.large.render("+", True, TEXT_COLOR if plus_enabled else (100, 100, 120))
+            plus_text = self.font_manager.large.render("+", True, (255, 255, 255) if plus_enabled else (150, 150, 150))
             self.screen.blit(plus_text, (plus_btn_rect.centerx - plus_text.get_width()//2, plus_btn_rect.centery - plus_text.get_height()//2))
+            
+            # 添加键盘提示
+            hint_text = self.font_manager.small.render("Use ←/→ keys or click +/- to adjust", True, self.colors['hint'])
+            self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, split_y + 130))
     
     def draw_control_buttons(self):
         """绘制控制按钮"""
@@ -670,11 +676,6 @@ class SplitCardsUI:
         
         return card_piles
     
-    def add_magic_effect(self, start_pos: Tuple[int, int], end_pos: Tuple[int, int], effect_type: str = "sparkle"):
-        """添加魔法效果"""
-        effect = MagicEffect(start_pos, end_pos, effect_type)
-        self.magic_effects.append(effect)
-    
     def update_selection(self, game_logic):
         """更新选中状态"""
         self.selected_pile = game_logic.selected_pile
@@ -684,7 +685,8 @@ class SplitCardsUI:
         if self.selected_action == 'split' and self.selected_pile is not None:
             pile_size = game_logic.cards[self.selected_pile]
             if pile_size >= 2:
-                game_logic.split_point = 1  # 默认分割为1和pile_size-1
+                # 设置默认分割点为1
+                game_logic.split_point = 1
                 game_logic.set_selection(self.selected_pile, 'split', split_point=1)
     
     def reset_selection(self):
