@@ -206,7 +206,9 @@ class SubtractFactorUI:
             "confirm": Button(control_x + 100, control_y + 120, 200, 50, "Confirm Move", self.font_manager, tooltip="Make move with selected factor"),
             "restart": Button(SCREEN_WIDTH//2 - 120, 550, 240, 60, "New Game", self.font_manager, tooltip="Start a new game"),
             "back": Button(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back', tooltip="Back to mode selection"),
-            "home": Button(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu")
+            "home": Button(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu"),
+            # 添加刷新按钮 - 右上角
+            "refresh": Button(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game")
         }
         
         return buttons
