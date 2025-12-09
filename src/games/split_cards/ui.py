@@ -21,6 +21,10 @@ class SplitCardsUI:
         # Draw dark background
         self.screen.fill((30, 25, 20))
         
+        # Draw table shadow
+        shadow_rect = self.table_rect.move(8, 8)
+        pygame.draw.rect(self.screen, (20, 15, 10), shadow_rect, border_radius=20)
+
         # Draw wooden table
         pygame.draw.rect(self.screen, self.table_color, self.table_rect, border_radius=20)
         
@@ -35,9 +39,7 @@ class SplitCardsUI:
         # Draw table edge
         pygame.draw.rect(self.screen, (180, 150, 110), self.table_rect, 5, border_radius=20)
         
-        # Draw table shadow
-        shadow_rect = self.table_rect.move(8, 8)
-        pygame.draw.rect(self.screen, (20, 15, 10), shadow_rect, border_radius=20)
+        
     
     def draw_game_info(self, game_logic):
         """Draw game information panel"""
@@ -163,7 +165,7 @@ class SplitCardsUI:
         pile_rect = pygame.Rect(x, y, width, height)
         
         # Draw pile shadow
-        shadow_rect = pile_rect.move(5, 5)
+        shadow_rect = pile_rect.move(2, 2)
         pygame.draw.rect(self.screen, (150, 120, 90), shadow_rect, border_radius=10)
         
         # Draw cards in stack (visual effect)
@@ -208,7 +210,7 @@ class SplitCardsUI:
     
     def draw_control_panel(self, game_logic):
         """Draw control panel for actions"""
-        control_y = self.table_rect.bottom + 20
+        control_y = self.table_rect.bottom + 40
         control_width = 600
         control_x = (SCREEN_WIDTH - control_width) // 2
         
@@ -241,17 +243,17 @@ class SplitCardsUI:
         control_width = 600
         control_x = (SCREEN_WIDTH - control_width) // 2
         
-        buttons["take_btn"] = Button(control_x, control_y + 40, 180, 50, "Take Cards", 
+        buttons["take_btn"] = Button(control_x, control_y + 60, 180, 50, "Take Cards", 
                                     self.font_manager, tooltip="Take cards from selected pile")
-        buttons["split_btn"] = Button(control_x + 200, control_y + 40, 180, 50, "Split Pile", 
+        buttons["split_btn"] = Button(control_x + 200, control_y + 60, 180, 50, "Split Pile", 
                                      self.font_manager, tooltip="Split selected pile into two")
-        buttons["confirm_btn"] = Button(control_x + 400, control_y + 40, 180, 50, "Confirm Move", 
+        buttons["confirm_btn"] = Button(control_x + 400, control_y + 60, 180, 50, "Confirm Move", 
                                        self.font_manager, tooltip="Execute selected move")
         
         # Number adjustment buttons
-        buttons["minus"] = Button(control_x + 100, control_y + 100, 50, 40, "−", 
+        buttons["minus"] = Button(control_x + 210, control_y+10 , 50, 40, "−", 
                                  self.font_manager, tooltip="Decrease count")
-        buttons["plus"] = Button(control_x + 150, control_y + 100, 50, 40, "+", 
+        buttons["plus"] = Button(control_x + 320, control_y+10 , 50, 40, "+", 
                                 self.font_manager, tooltip="Increase count")
         
         # Restart button
@@ -259,3 +261,7 @@ class SplitCardsUI:
                                    "New Game", self.font_manager, tooltip="Start a new game")
         
         return buttons
+    
+    """Current problems: Overlapping of card piles in two rows,
+    and the control panel not being drawn correctly. Also, the texture should be adjusted.
+    Where is the code for showing how many cards I've split? """
