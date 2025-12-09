@@ -41,3 +41,4 @@ class GameRegistry:
 
 # Global game registry instance
 game_registry = GameRegistry()
+
