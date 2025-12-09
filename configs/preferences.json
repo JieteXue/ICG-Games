@@ -1,0 +1,9 @@
+{
+  "sound_volume": 0.7,
+  "music_volume": 0.5,
+  "show_hints": true,
+  "show_animations": true,
+  "theme": "dark",
+  "language": "en",
+  "autosave": true
+}
