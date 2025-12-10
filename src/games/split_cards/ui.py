@@ -38,8 +38,6 @@ class SplitCardsUI:
         
         # Draw table edge
         pygame.draw.rect(self.screen, (180, 150, 110), self.table_rect, 5, border_radius=20)
-        
-        
     
     def draw_game_info(self, game_logic):
         """Draw game information panel"""
@@ -130,14 +128,14 @@ class SplitCardsUI:
                                           i, selected_index, selected_action)
                 pile_rects.append(pile_rect)
         else:
-            # Two rows
+            # Two rows - 修复重叠问题
             row1_count = (num_piles + 1) // 2
             row2_count = num_piles - row1_count
             
             # Row 1
             total_width = row1_count * pile_width + (row1_count - 1) * spacing
             start_x = self.table_rect.centerx - total_width // 2
-            y1 = self.table_rect.centery - pile_height - 20
+            y1 = self.table_rect.centery - pile_height - 40  # 增加间距
             
             for i in range(row1_count):
                 x = start_x + i * (pile_width + spacing)
@@ -148,7 +146,7 @@ class SplitCardsUI:
             # Row 2
             total_width = row2_count * pile_width + (row2_count - 1) * spacing
             start_x = self.table_rect.centerx - total_width // 2
-            y2 = self.table_rect.centery + 20
+            y2 = self.table_rect.centery + 20  # 调整位置
             
             for i in range(row2_count):
                 x = start_x + i * (pile_width + spacing)
@@ -161,6 +159,17 @@ class SplitCardsUI:
     
     def draw_pile(self, x, y, width, height, count, index, selected_index, selected_action):
         """Draw a single card pile"""
+        # 增强选中效果：在选中的牌堆周围绘制高亮边框
+        if index == selected_index:
+            # 绘制一个更大的高亮矩形
+            highlight_rect = pygame.Rect(x-8, y-8, width+16, height+16)
+            if selected_action == 'take':
+                pygame.draw.rect(self.screen, (255, 255, 100), highlight_rect, 4, border_radius=12)
+            elif selected_action == 'split':
+                pygame.draw.rect(self.screen, (100, 255, 100), highlight_rect, 4, border_radius=12)
+            else:
+                pygame.draw.rect(self.screen, (255, 200, 50), highlight_rect, 4, border_radius=12)
+        
         # Pile background (card stack)
         pile_rect = pygame.Rect(x, y, width, height)
         
@@ -186,6 +195,7 @@ class SplitCardsUI:
             card_rect = pygame.Rect(x + offset, y + offset, width, height)
             pygame.draw.rect(self.screen, card_color, card_rect, border_radius=8)
             pygame.draw.rect(self.screen, border_color, card_rect, 2, border_radius=8)
+        
         max_offset = min(4, count-1) * 3
         # Draw card count
         count_text = self.font_manager.large.render(str(count), True, (40, 35, 30))
@@ -208,20 +218,42 @@ class SplitCardsUI:
         
         return pile_rect
     
-    def draw_control_panel(self, game_logic):
-        """Draw control panel for actions"""
+    def draw_control_panel(self, game_logic, buttons):
+        """Draw control panel for actions - 动态显示"""
         control_y = self.table_rect.bottom + 40
         control_width = 600
         control_x = (SCREEN_WIDTH - control_width) // 2
         
-        # Control panel background
-        control_bg = pygame.Rect(control_x - 20, control_y - 20, control_width + 40, 120)
-        pygame.draw.rect(self.screen, (50, 45, 40), control_bg, border_radius=15)
-        pygame.draw.rect(self.screen, (180, 150, 110), control_bg, 3, border_radius=15)
+        # Control panel background (仅在需要时显示)
+        should_draw_panel = (game_logic.selected_pile_index is not None or 
+                            game_logic.selected_action is not None)
         
-        # Action type selection
-        action_text = self.font_manager.medium.render("Select Action:", True, (240, 230, 220))
-        self.screen.blit(action_text, (control_x, control_y))
+        if should_draw_panel:
+            control_bg = pygame.Rect(control_x - 20, control_y - 20, control_width + 40, 120)
+            pygame.draw.rect(self.screen, (50, 45, 40), control_bg, border_radius=15)
+            pygame.draw.rect(self.screen, (180, 150, 110), control_bg, 3, border_radius=15)
+            
+            # Action type selection
+            if game_logic.selected_action is None:
+                action_text = self.font_manager.medium.render("Select Action:", True, (240, 230, 220))
+                self.screen.blit(action_text, (control_x, control_y))
+            
+            # 数量显示（当选择了动作时显示）
+            if game_logic.selected_action is not None:
+                # 在加减按钮中间显示数量
+                count_display = str(game_logic.selected_count)
+                count_text = self.font_manager.large.render(count_display, True, (240, 230, 220))
+                
+                # 计算中间位置
+                minus_rect = buttons["minus"].rect
+                plus_rect = buttons["plus"].rect
+                center_x = (minus_rect.x + plus_rect.x) // 2
+                
+                count_bg = pygame.Rect(center_x - 25, control_y + 95, 50, 40)
+                pygame.draw.rect(self.screen, (50, 45, 40), count_bg, border_radius=8)
+                pygame.draw.rect(self.screen, (180, 150, 110), count_bg, 2, border_radius=8)
+                self.screen.blit(count_text, (center_x - count_text.get_width()//2, 
+                                             control_y + 115 - count_text.get_height()//2))
         
         return control_x, control_y
     
@@ -238,30 +270,93 @@ class SplitCardsUI:
         buttons["refresh"] = Button(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", 
                                    self.font_manager, icon='refresh', tooltip="Restart current game")
         
-        # Action buttons
-        control_y = self.table_rect.bottom + 20 if hasattr(self, 'table_rect') else 500
+        # Action buttons - 初始设置为不可见
+        control_y = self.table_rect.bottom + 40 if hasattr(self, 'table_rect') else 500
         control_width = 600
         control_x = (SCREEN_WIDTH - control_width) // 2
         
         buttons["take_btn"] = Button(control_x, control_y + 60, 180, 50, "Take Cards", 
-                                    self.font_manager, tooltip="Take cards from selected pile")
+                                    self.font_manager, tooltip="Take cards from selected pile",
+                                    visible=False)
         buttons["split_btn"] = Button(control_x + 200, control_y + 60, 180, 50, "Split Pile", 
-                                     self.font_manager, tooltip="Split selected pile into two")
+                                     self.font_manager, tooltip="Split selected pile into two",
+                                     visible=False)
         buttons["confirm_btn"] = Button(control_x + 400, control_y + 60, 180, 50, "Confirm Move", 
-                                       self.font_manager, tooltip="Execute selected move")
+                                       self.font_manager, tooltip="Execute selected move",
+                                       visible=False)
         
-        # Number adjustment buttons
-        buttons["minus"] = Button(control_x + 210, control_y+10 , 50, 40, "−", 
-                                 self.font_manager, tooltip="Decrease count")
-        buttons["plus"] = Button(control_x + 320, control_y+10 , 50, 40, "+", 
-                                self.font_manager, tooltip="Increase count")
+        # Number adjustment buttons - 重新调整位置
+        # 减号按钮在左边，加号按钮在右边，中间留出空间显示数字
+        number_panel_x = control_x + 200
+        buttons["minus"] = Button(number_panel_x, control_y + 60, 50, 40, "−", 
+                                 self.font_manager, tooltip="Decrease count",
+                                 visible=False)
+        buttons["plus"] = Button(number_panel_x + 110, control_y + 60, 50, 40, "+", 
+                                self.font_manager, tooltip="Increase count",
+                                visible=False)
         
-        # Restart button
-        buttons["restart"] = Button(SCREEN_WIDTH//2 - 120, control_y + 150, 240, 60, 
-                                   "New Game", self.font_manager, tooltip="Start a new game")
+        # New Game / Restart button (游戏结束时显示)
+        buttons["new_game"] = Button(SCREEN_WIDTH//2 - 120, control_y + 150, 240, 60, 
+                                   "New Game", self.font_manager, 
+                                   tooltip="Start a new game", visible=False)
         
         return buttons
     
-    """Current problems: Overlapping of card piles in two rows,
-    and the control panel not being drawn correctly. Also, the texture should be adjusted.
-    Where is the code for showing how many cards I've split? """
+    def update_button_visibility(self, buttons, game_logic):
+        """根据游戏状态更新按钮的可见性"""
+        # 导航按钮始终可见
+        buttons["back"].visible = True
+        buttons["home"].visible = True
+        buttons["refresh"].visible = True
+        
+        if game_logic.game_over:
+            # 游戏结束时只显示New Game按钮
+            buttons["take_btn"].visible = False
+            buttons["split_btn"].visible = False
+            buttons["confirm_btn"].visible = False
+            buttons["minus"].visible = False
+            buttons["plus"].visible = False
+            buttons["new_game"].visible = True
+            return
+        
+        # 隐藏New Game按钮
+        buttons["new_game"].visible = False
+        
+        # 检查当前玩家是否可以交互
+        can_interact = False
+        if game_logic.game_mode == "PVP":
+            can_interact = True
+        elif game_logic.game_mode == "PVE" and game_logic.current_player == "Player 1":
+            can_interact = True
+        
+        if not can_interact:
+            # AI回合或不能交互时，隐藏所有动作按钮
+            buttons["take_btn"].visible = False
+            buttons["split_btn"].visible = False
+            buttons["confirm_btn"].visible = False
+            buttons["minus"].visible = False
+            buttons["plus"].visible = False
+            return
+        
+        # 玩家可以交互时
+        if game_logic.selected_pile_index is None:
+            # 没有选择牌堆，隐藏所有动作按钮
+            buttons["take_btn"].visible = False
+            buttons["split_btn"].visible = False
+            buttons["confirm_btn"].visible = False
+            buttons["minus"].visible = False
+            buttons["plus"].visible = False
+        elif game_logic.selected_action is None:
+            # 选择了牌堆但未选择动作，显示Take/Split按钮
+            buttons["take_btn"].visible = True
+            buttons["split_btn"].visible = True
+            buttons["confirm_btn"].visible = False
+            buttons["minus"].visible = False
+            buttons["plus"].visible = False
+        else:
+            # 选择了动作，显示加减按钮和确认按钮
+            buttons["take_btn"].visible = False
+            buttons["split_btn"].visible = False
+            buttons["confirm_btn"].visible = True
+            buttons["minus"].visible = True
+            buttons["plus"].visible = True

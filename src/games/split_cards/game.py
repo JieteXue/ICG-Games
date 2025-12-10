@@ -24,7 +24,7 @@ class SplitCardsInputHandler:
         
         # Check if game is over
         if self.game_logic.game_over:
-            if buttons["restart"].is_clicked(event):
+            if buttons["new_game"].is_clicked(event):
                 self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
                 self.key_repeat_manager._reset_state()
                 return True
@@ -245,9 +245,10 @@ class SplitCardsGame(BaseGame):
         """Handle game events"""
         mouse_pos = pygame.mouse.get_pos()
         
-        # Update button hover states
+        # Update button hover states (只更新可见的按钮)
         for button in self.buttons.values():
-            button.update_hover(mouse_pos)
+            if button.visible:  # 只更新可见按钮
+                button.update_hover(mouse_pos)
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -302,45 +303,22 @@ class SplitCardsGame(BaseGame):
                 self.logic.selected_action
             )
             
-            # Draw navigation buttons
+            # Draw navigation buttons (始终显示)
             self.buttons["back"].draw(self.screen)
             self.buttons["home"].draw(self.screen)
             self.buttons["refresh"].draw(self.screen)
             
+            # Update button visibility based on game state
+            self.ui.update_button_visibility(self.buttons, self.logic)
+            
             if not self.logic.game_over:
-                # Set button enabled states based on game mode and current player
-                if self.logic.game_mode == "PVE":
-                    buttons_enabled = (self.logic.current_player == "Player 1")
-                else:
-                    buttons_enabled = True
+                # Draw control panel (背景)
+                self.ui.draw_control_panel(self.logic, self.buttons)
                 
-                # Update button enabled states
+                # Draw visible buttons
                 for btn_name in ["take_btn", "split_btn", "confirm_btn", "minus", "plus"]:
-                    if btn_name in self.buttons:
-                        self.buttons[btn_name].enabled = buttons_enabled
-                
-                # Draw control panel
-                self.ui.draw_control_panel(self.logic)
-                
-                # Draw control buttons
-                for btn_name in ["take_btn", "split_btn", "confirm_btn", "minus", "plus"]:
-                    if btn_name in self.buttons:
+                    if btn_name in self.buttons and self.buttons[btn_name].visible:
                         self.buttons[btn_name].draw(self.screen)
-                
-                # Draw count display
-                if (self.logic.selected_pile_index is not None and 
-                    self.logic.selected_action):
-                    
-                    control_y = self.ui.table_rect.bottom + 20
-                    control_x = (SCREEN_WIDTH - 600) // 2
-                    
-                    count_display = str(self.logic.selected_count)
-                    count_text = self.font_manager.large.render(count_display, True, (240, 230, 220))
-                    count_bg = pygame.Rect(control_x + 210, control_y + 95, 50, 40)
-                    pygame.draw.rect(self.screen, (50, 45, 40), count_bg, border_radius=8)
-                    pygame.draw.rect(self.screen, (180, 150, 110), count_bg, 2, border_radius=8)
-                    self.screen.blit(count_text, (control_x + 235 - count_text.get_width()//2, 
-                                                 control_y + 115 - count_text.get_height()//2))
                 
                 # Draw hints
                 hints = [
@@ -354,8 +332,9 @@ class SplitCardsGame(BaseGame):
                     hint_text = self.font_manager.small.render(hint, True, (200, 190, 170))
                     self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, hint_y + i * 20))
             else:
-                # Draw game over screen
-                self.buttons["restart"].draw(self.screen)
+                # Draw game over screen with New Game button
+                if self.buttons["new_game"].visible:
+                    self.buttons["new_game"].draw(self.screen)
             
             pygame.display.flip()
             
