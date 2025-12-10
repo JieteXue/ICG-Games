@@ -8,7 +8,7 @@ from utils.constants import *
 
 class Button:
     """Represents a clickable button"""
-    def __init__(self, x, y, width, height, text, font_manager, icon=None, tooltip="",visible=True):
+    def __init__(self, x, y, width, height, text, font_manager, icon=None, tooltip=""):
         self.rect = pygame.Rect(x, y, width, height)
         self.text = text
         self.font_manager = font_manager
@@ -18,7 +18,6 @@ class Button:
         self.tooltip = tooltip  # 添加提示文本
         self.tooltip_timer = 0  # 提示显示计时器
         self.show_tooltip = False  # 是否显示提示
-        self.visible=visible
     
     def draw(self, surface):
         """Draw the button on the surface with enhanced styling"""
@@ -168,8 +167,6 @@ class InfoButton(Button):
     
     def draw(self, surface):
         """Override draw method to use softer colors"""
-        if not self.visible:
-            return
         # 确保字体已初始化
         self.font_manager.ensure_initialized()
         
