@@ -48,14 +48,16 @@ class SplitCardsInputHandler:
                 
                 # Check action buttons
                 if self.game_logic.selected_pile_index is not None:
+                    # 检查split按钮是否可用（牌堆必须大于1）
+                    pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]
+                    
                     if buttons["take_btn"].is_clicked(event):
                         self.game_logic.selected_action = 'take'
-                        max_take = min(self.game_logic.max_take, 
-                                      self.game_logic.card_piles[self.game_logic.selected_pile_index])
+                        max_take = min(self.game_logic.max_take, pile_size)
                         self.game_logic.selected_count = min(self.game_logic.selected_count, max_take)
                         self.game_logic.message = f"Taking from pile {self.game_logic.selected_pile_index + 1}. Select amount (1-{max_take})."
                     
-                    elif buttons["split_btn"].is_clicked(event):
+                    elif buttons["split_btn"].is_clicked(event) and pile_size > 1:  # 添加牌堆大小检查
                         self.game_logic.selected_action = 'split'
                         pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]
                         self.game_logic.selected_count = min(self.game_logic.selected_count, pile_size - 1)
@@ -319,14 +321,27 @@ class SplitCardsGame(BaseGame):
                     if btn_name in self.buttons:
                         self.buttons[btn_name].enabled = buttons_enabled
                 
+                # 特殊处理：如果选中的牌堆只有1张，则split按钮不可用
+                if (self.logic.selected_pile_index is not None and 
+                    self.buttons["split_btn"].enabled and
+                    self.logic.card_piles[self.logic.selected_pile_index] <= 1):
+                    self.buttons["split_btn"].enabled = False
+                
                 # Draw control panel
                 self.ui.draw_control_panel(self.logic)
                 
                 # Draw control buttons
-                for btn_name in ["take_btn", "split_btn", "confirm_btn", "minus", "plus"]:
+                for btn_name in ["take_btn", "split_btn", "confirm_btn"]:
                     if btn_name in self.buttons:
                         self.buttons[btn_name].draw(self.screen)
-                
+                for btn_name in ["minus", "plus"]:
+                    # If no action selected, hide plus/minus buttons
+                    if self.logic.selected_action is None:
+                        self.buttons[btn_name].visible = False
+                    else:
+                        self.buttons[btn_name].visible = True
+                        if btn_name in self.buttons:
+                            self.buttons[btn_name].draw(self.screen)
                 # Draw count display
                 if (self.logic.selected_pile_index is not None and 
                     self.logic.selected_action):
@@ -336,11 +351,11 @@ class SplitCardsGame(BaseGame):
                     
                     count_display = str(self.logic.selected_count)
                     count_text = self.font_manager.large.render(count_display, True, (240, 230, 220))
-                    count_bg = pygame.Rect(control_x + 210, control_y + 95, 50, 40)
+                    count_bg = pygame.Rect(control_x + 265, control_y +10, 50, 40)
                     pygame.draw.rect(self.screen, (50, 45, 40), count_bg, border_radius=8)
                     pygame.draw.rect(self.screen, (180, 150, 110), count_bg, 2, border_radius=8)
-                    self.screen.blit(count_text, (control_x + 235 - count_text.get_width()//2, 
-                                                 control_y + 115 - count_text.get_height()//2))
+                    self.screen.blit(count_text, (control_x + 290 - count_text.get_width()//2, 
+                                                 control_y +30 - count_text.get_height()//2))
                 
                 # Draw hints
                 hints = [

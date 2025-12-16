@@ -130,14 +130,14 @@ class SplitCardsUI:
                                           i, selected_index, selected_action)
                 pile_rects.append(pile_rect)
         else:
-            # Two rows
+            # Two rows - 修复重叠问题
             row1_count = (num_piles + 1) // 2
             row2_count = num_piles - row1_count
             
             # Row 1
             total_width = row1_count * pile_width + (row1_count - 1) * spacing
             start_x = self.table_rect.centerx - total_width // 2
-            y1 = self.table_rect.centery - pile_height - 20
+            y1 = self.table_rect.centery - pile_height - 40  # 增加间距避免重叠
             
             for i in range(row1_count):
                 x = start_x + i * (pile_width + spacing)
@@ -148,7 +148,7 @@ class SplitCardsUI:
             # Row 2
             total_width = row2_count * pile_width + (row2_count - 1) * spacing
             start_x = self.table_rect.centerx - total_width // 2
-            y2 = self.table_rect.centery + 20
+            y2 = self.table_rect.centery + 20  # 调整位置
             
             for i in range(row2_count):
                 x = start_x + i * (pile_width + spacing)
@@ -179,6 +179,10 @@ class SplitCardsUI:
             elif selected_action == 'split':
                 card_color = (200, 255, 200)  # Greenish for split selection
                 border_color = (100, 200, 100)
+            else:
+                # 选中但未选择动作时，给牌堆加一个明显的边框
+                pygame.draw.rect(self.screen, (255, 200, 50), 
+                                (x-6, y-6, width+12, height+12), 4, border_radius=12)
         
         # Draw card stack (multiple cards slightly offset)
         for i in range(min(5, count)):
@@ -186,6 +190,7 @@ class SplitCardsUI:
             card_rect = pygame.Rect(x + offset, y + offset, width, height)
             pygame.draw.rect(self.screen, card_color, card_rect, border_radius=8)
             pygame.draw.rect(self.screen, border_color, card_rect, 2, border_radius=8)
+        
         max_offset = min(4, count-1) * 3
         # Draw card count
         count_text = self.font_manager.large.render(str(count), True, (40, 35, 30))
@@ -204,7 +209,27 @@ class SplitCardsUI:
         # Draw pile number
         pile_num = self.font_manager.small.render(f"Pile {index + 1}", True, (255, 255, 255))
         self.screen.blit(pile_num, (x + width//2 - pile_num.get_width()//2+5, y + height + 18))
-
+        
+        # 绘制选中箭头（如果这个牌堆被选中）
+        if index == selected_index:
+            arrow_y = y + height + 50  # 在牌堆编号下方
+            arrow_x = x + width // 2
+            
+            # 根据选择的操作确定箭头颜色
+            if selected_action == 'take':
+                arrow_color = (255, 200, 50)  # 黄色
+            elif selected_action == 'split':
+                arrow_color = (100, 200, 100)  # 绿色
+            else:
+                arrow_color = (255, 255, 0)    # 亮黄色（选中但未选择动作）
+            
+            # 绘制三角形箭头
+            points = [
+                (arrow_x, arrow_y - 15),           # 顶点
+                (arrow_x - 10, arrow_y ), # 左下角
+                (arrow_x + 10, arrow_y )  # 右下角
+            ]
+            pygame.draw.polygon(self.screen, arrow_color, points)
         
         return pile_rect
     
@@ -214,14 +239,21 @@ class SplitCardsUI:
         control_width = 600
         control_x = (SCREEN_WIDTH - control_width) // 2
         
-        # Control panel background
-        control_bg = pygame.Rect(control_x - 20, control_y - 20, control_width + 40, 120)
-        pygame.draw.rect(self.screen, (50, 45, 40), control_bg, border_radius=15)
-        pygame.draw.rect(self.screen, (180, 150, 110), control_bg, 3, border_radius=15)
-        
-        # Action type selection
-        action_text = self.font_manager.medium.render("Select Action:", True, (240, 230, 220))
-        self.screen.blit(action_text, (control_x, control_y))
+        # Control panel background (只在需要时显示)
+        if (game_logic.selected_pile_index is not None or 
+            (game_logic.game_mode == "PVE" and game_logic.current_player == "Player 1") or
+            game_logic.game_mode == "PVP"):
+            
+            control_bg = pygame.Rect(control_x - 20, control_y - 20, control_width +40, 120)
+            pygame.draw.rect(self.screen, (50, 45, 40), control_bg, border_radius=15)
+            pygame.draw.rect(self.screen, (180, 150, 110), control_bg, 3, border_radius=15)
+            
+            # Action type selection (只在选中牌堆但未选择动作时显示)
+            if (game_logic.selected_pile_index is not None and 
+                game_logic.selected_action is None):
+                
+                action_text = self.font_manager.medium.render("Select Action:", True, (240, 230, 220))
+                self.screen.blit(action_text, (control_x, control_y))
         
         return control_x, control_y
     
@@ -239,21 +271,21 @@ class SplitCardsUI:
                                    self.font_manager, icon='refresh', tooltip="Restart current game")
         
         # Action buttons
-        control_y = self.table_rect.bottom + 20 if hasattr(self, 'table_rect') else 500
+        control_y = self.table_rect.bottom + 40 if hasattr(self, 'table_rect') else 500
         control_width = 600
         control_x = (SCREEN_WIDTH - control_width) // 2
         
-        buttons["take_btn"] = Button(control_x, control_y + 60, 180, 50, "Take Cards", 
+        buttons["take_btn"] = Button(control_x, control_y +40, 180, 50, "Take Cards", 
                                     self.font_manager, tooltip="Take cards from selected pile")
-        buttons["split_btn"] = Button(control_x + 200, control_y + 60, 180, 50, "Split Pile", 
+        buttons["split_btn"] = Button(control_x + 200, control_y+40, 180, 50, "Split Pile", 
                                      self.font_manager, tooltip="Split selected pile into two")
-        buttons["confirm_btn"] = Button(control_x + 400, control_y + 60, 180, 50, "Confirm Move", 
+        buttons["confirm_btn"] = Button(control_x + 400, control_y + 40, 180, 50, "Confirm Move", 
                                        self.font_manager, tooltip="Execute selected move")
         
         # Number adjustment buttons
-        buttons["minus"] = Button(control_x + 210, control_y+10 , 50, 40, "−", 
+        buttons["minus"] = Button(control_x + 200, control_y -10, 50, 40, "−", 
                                  self.font_manager, tooltip="Decrease count")
-        buttons["plus"] = Button(control_x + 320, control_y+10 , 50, 40, "+", 
+        buttons["plus"] = Button(control_x + 330, control_y-10, 50, 40, "+", 
                                 self.font_manager, tooltip="Increase count")
         
         # Restart button
@@ -261,7 +293,3 @@ class SplitCardsUI:
                                    "New Game", self.font_manager, tooltip="Start a new game")
         
         return buttons
-    
-    """Current problems: Overlapping of card piles in two rows,
-    and the control panel not being drawn correctly. Also, the texture should be adjusted.
-    Where is the code for showing how many cards I've split? """

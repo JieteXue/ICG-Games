@@ -113,7 +113,7 @@ class SplitCardsLogic:
                 1: {'max_take': (2, 4), 'initial_pile': (10, 15)},  # Easy
                 2: {'max_take': (3, 6), 'initial_pile': (15, 20)},  # Normal
                 3: {'max_take': (4, 8), 'initial_pile': (20, 25)},  # Hard
-                4: {'max_take': (5, 10), 'initial_pile': (25, 30)}  # Insane
+                4: {'max_take': (5, 10), 'initial_pile': (25, 40)}  # Insane
             }
             
             ranges = difficulty_ranges.get(self.difficulty, difficulty_ranges[2])
