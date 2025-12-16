@@ -34,15 +34,25 @@ class Sidebar:
 
         # Animation state
         self.is_animating = False
+
+        self.key_shortcuts = {
+            pygame.K_r: "refresh",  # R键对应Restart
+            pygame.K_i: "info",     # I键对应Info
+            pygame.K_b: "back",     # B键对应Back
+            pygame.K_h: "home",     # H键对应Home
+            pygame.K_s: "settings", # S键对应Settings
+            pygame.K_t: "toggle",   # T键对应Toggle侧边栏
+            pygame.K_ESCAPE: "toggle"  # ESC键也可以切换侧边栏
+        }
         
     def create_buttons(self):
         """Create sidebar buttons with text"""
         button_configs = [
-            {"name": "back", "display_text": "Back", "tooltip": "Back to mode selection"},
-            {"name": "home", "display_text": "Home", "tooltip": "Back to main menu"},
-            {"name": "refresh", "display_text": "Restart", "tooltip": "Restart current game"},
-            {"name": "info", "display_text": "Info", "tooltip": "Game instructions"},
-            {"name": "settings", "display_text": "Settings", "tooltip": "Game settings"}
+            {"name": "back", "display_text": "Back (B)", "tooltip": "Back to mode selection (B键)"},
+            {"name": "home", "display_text": "Home (H)", "tooltip": "Back to main menu (H键)"},
+            {"name": "refresh", "display_text": "Restart (R)", "tooltip": "Restart current game (R键)"},
+            {"name": "info", "display_text": "Info (I)", "tooltip": "Game instructions (I键)"},
+            {"name": "settings", "display_text": "Settings (S)", "tooltip": "Game settings (S键)"}
         ]
 
         start_y = 90  # 提高了起始位置，给标题留更多空间
@@ -66,6 +76,7 @@ class Sidebar:
         self.expanded = not self.expanded
         self.target_width = SIDEBAR_EXPANDED_WIDTH if self.expanded else 0
         self.is_animating = True
+        return "toggle"
     
     def update(self):
         """Update sidebar animation"""
@@ -107,23 +118,30 @@ class Sidebar:
     
     def handle_event(self, event, mouse_pos):
         """Handle sidebar events"""
-        # Check toggle button (在折叠状态下也可见)
+        # Check keyboard shortcuts
+        if event.type == pygame.KEYDOWN:
+            if event.key in self.key_shortcuts:
+                action = self.key_shortcuts[event.key]
+                if action == "toggle":
+                    return self.toggle()
+                return action
+
+        # Check toggle button
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.toggle_button_rect.collidepoint(mouse_pos):
-                self.toggle()
-                return "toggle"
-            
+                return self.toggle()
+
             # Check sidebar buttons if expanded and visible
             if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
                 for button in self.buttons:
                     if button.is_clicked(event):
                         return button.name
-        
+
         # Handle hover
         if event.type == pygame.MOUSEMOTION:
             for button in self.buttons:
                 button.update_hover(mouse_pos)
-        
+
         return None
     
     def draw(self):
