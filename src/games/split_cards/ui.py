@@ -38,7 +38,7 @@ class SplitCardsUI:
         
         # Draw table edge
         pygame.draw.rect(self.screen, (180, 150, 110), self.table_rect, 5, border_radius=20)
-        
+      
         
     
     def draw_game_info(self, game_logic):
@@ -83,10 +83,24 @@ class SplitCardsUI:
         )
         
         player_bg = pygame.Rect(SCREEN_WIDTH - player_text.get_width() - 40, 75, 
-                              player_text.get_width() + 20, player_text.get_height() + 10)
+                            player_text.get_width() + 20, player_text.get_height() + 10)
         pygame.draw.rect(self.screen, (50, 45, 40), player_bg, border_radius=8)
         pygame.draw.rect(self.screen, player_color, player_bg, 2, border_radius=8)
         self.screen.blit(player_text, (SCREEN_WIDTH - player_text.get_width() - 30, 80))
+        
+        # 添加状态指示器（必胜/必败）
+        if not game_logic.game_over:
+            # 计算当前是否为必胜位置
+            is_winning = game_logic.is_winning_position()
+            position_text = "Winning Position" if is_winning else "Losing Position"
+            position_color = (100, 200, 100) if is_winning else (220, 100, 100)
+            
+            position_display = self.font_manager.small.render(position_text, True, position_color)
+            position_bg = pygame.Rect(SCREEN_WIDTH//2 - position_display.get_width()//2 - 10, 92, 
+                               position_display.get_width() + 20, position_display.get_height() + 6)
+            pygame.draw.rect(self.screen, (50, 45, 40), position_bg, border_radius=8)
+            pygame.draw.rect(self.screen, position_color, position_bg, 2, border_radius=8)
+            self.screen.blit(position_display, (SCREEN_WIDTH//2 - position_display.get_width()//2, 95))
         
         # Game message
         message_color = (100, 200, 100) if game_logic.game_over and game_logic.winner == "Player 1" \
@@ -99,11 +113,11 @@ class SplitCardsUI:
             if i == 0:
                 message_bg_width = message_text.get_width() + 30
                 message_bg = pygame.Rect(SCREEN_WIDTH//2 - message_bg_width//2, 119, 
-                                       message_bg_width, message_text.get_height() + 6)
+                                    message_bg_width, message_text.get_height() + 6)
                 pygame.draw.rect(self.screen, (50, 45, 40), message_bg, border_radius=8)
                 pygame.draw.rect(self.screen, (180, 150, 110), message_bg, 2, border_radius=8)
             self.screen.blit(message_text, (SCREEN_WIDTH//2 - message_text.get_width()//2, 121 + i * 25))
-    
+        
     def draw_card_piles(self, card_piles, selected_index, selected_action):
         """Draw all card piles on the table"""
         if not card_piles:
