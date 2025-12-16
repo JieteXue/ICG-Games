@@ -5,6 +5,7 @@ from games.take_coins.logic import TakeCoinsLogic
 from games.take_coins.ui import TakeCoinsUI, ScrollButton
 from utils.constants import *
 from utils.key_repeat import KeyRepeatManager
+from ui.components.sidebar import Sidebar
 
 class TakeCoinsInputHandler:
     """Handles input for Take Coins game with scrolling support"""
@@ -36,11 +37,13 @@ class TakeCoinsInputHandler:
                     self.ui.scroll_right(len(self.game_logic.coins))
                 return None
         
+        # 检查游戏控制按钮
         if self.game_logic.game_over:
-            if control_buttons["restart"].is_clicked(event):
+            if "restart" in control_buttons and control_buttons["restart"].is_clicked(event):
                 self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
                 self.ui.scroll_offset = 0
                 self.key_repeat_manager._reset_state()
+                return "restart"  # 返回重启标记
         else:
             can_interact = False
             if self.game_logic.game_mode == "PVP":
@@ -53,17 +56,11 @@ class TakeCoinsInputHandler:
                 self._handle_position_click(event, mouse_pos, position_buttons)
                 
                 # Check confirm button
-                if (control_buttons["confirm"].is_clicked(event) and 
+                if (control_buttons.get("confirm") and control_buttons["confirm"].is_clicked(event) and 
                     self.game_logic.selected_position is not None and
                     self.game_logic.selected_position in self.game_logic.valid_positions):
                     if self.game_logic.make_move():
                         self.key_repeat_manager._reset_state()
-        
-        # Check navigation buttons
-        if "back" in control_buttons and control_buttons["back"].is_clicked(event):
-            return "back"
-        elif "home" in control_buttons and control_buttons["home"].is_clicked(event):
-            return "home"
         
         return None
     
@@ -112,7 +109,13 @@ class TakeCoinsInputHandler:
     def handle_keyboard(self, event):
         """Handle keyboard events"""
         if self.game_logic.game_over:
-            return
+            # 游戏结束后允许按R键重启
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                self.game_logic.initialize_game(self.game_logic.game_mode, self.game_logic.difficulty)
+                self.ui.scroll_offset = 0
+                self.key_repeat_manager._reset_state()
+                return "restart"
+            return None
         
         can_interact = False
         if self.game_logic.game_mode == "PVP":
@@ -130,6 +133,8 @@ class TakeCoinsInputHandler:
                     self.game_logic.selected_position in self.game_logic.valid_positions):
                     if self.game_logic.make_move():
                         self.key_repeat_manager._reset_state()
+        
+        return None
     
     def update_key_repeat(self):
         """更新按键重复状态"""
@@ -183,15 +188,72 @@ class TakeCoinsInputHandler:
             )
 
 class TakeCoinsGame(GameManager):
-    """Take Coins Game implementation with scrolling support"""
+    """Take Coins Game implementation with scrolling support and sidebar"""
     
     def __init__(self, screen, font_manager):
         super().__init__(screen, font_manager)
         self.logic = TakeCoinsLogic()
         self.ui = TakeCoinsUI(screen, font_manager)
         self.input_handler = TakeCoinsInputHandler(self.logic, self.ui)
+        self.sidebar = Sidebar(screen, font_manager)
         
         self.font_manager.initialize_fonts()
+        
+        # 游戏说明
+        self.game_instructions = """
+TAKE COINS GAME - INSTRUCTIONS
+
+Objective:
+Take coins from adjacent positions. The player who cannot make a move loses!
+
+How to Play:
+1. Select a position to add a coin (except first and last positions)
+2. The selected position gains 1 coin
+3. Both neighboring positions lose 1 coin each
+4. A move is only valid if both neighbors have at least 1 coin
+5. Press CONFIRM or double-click to make your move
+
+Game Rules:
+- You can only select positions that have neighbors with coins
+- If a position reaches 0 coins, it becomes "Empty"
+- The game ends when no valid moves remain
+- Last player to make a move wins!
+
+Game Modes:
+- Player vs Player: Play against another person
+- Player vs AI: Play against computer AI with adjustable difficulty
+
+Strategies:
+- Try to leave your opponent with no valid moves
+- Control the center positions for more options
+- Watch the "Winning Position"/"Losing Position" indicator
+
+Controls:
+- Mouse: Click to select positions and buttons
+- Arrow Keys: Navigate between positions
+- UP/DOWN: Scroll through positions
+- ENTER: Confirm move
+- R: Restart game
+- I: Show these instructions
+- ESC: Back to mode selection
+
+Difficulty Levels:
+- Easy: AI makes more random moves
+- Normal: Balanced AI difficulty
+- Hard: AI uses advanced strategies
+- Insane: AI plays nearly perfectly
+
+Navigation:
+- Back (←): Return to mode selection
+- Home (🏠): Return to main menu  
+- Restart: Restart current game
+- Info (i): Show these instructions
+
+Good luck and have fun!
+"""
+        
+        # 信息对话框状态
+        self.showing_instructions = False
         
         # Initialize game mode and difficulty
         self.initialize_game_settings()
@@ -207,12 +269,40 @@ class TakeCoinsGame(GameManager):
         self.scroll_buttons = []
         self.ai_timer = 0
     
+    def initialize_game_settings(self):
+        """Universal game settings initialization - 使用延迟导入"""
+        try:
+            # 延迟导入，避免循环导入
+            from ui.menus import GameModeSelector
+            selector = GameModeSelector(self.screen, self.font_manager)
+            game_mode = selector.get_game_mode()
+            
+            if game_mode == "back":
+                self.should_return_to_menu = True
+                return
+            
+            if game_mode == "PVE":
+                difficulty = selector.get_difficulty()
+                if difficulty == "back":
+                    self.should_return_to_menu = True
+                    return
+                self.logic.initialize_game("PVE", difficulty)
+            else:
+                self.logic.initialize_game("PVP")
+                
+        except Exception as e:
+            print(f"Error initializing game settings: {e}")
+            self.logic.initialize_game("PVE", 2)
+    
     def handle_events(self):
         """Handle game events with scrolling support"""
         if self.should_return_to_menu:
             return False
         
         mouse_pos = pygame.mouse.get_pos()
+        
+        # 处理侧边栏事件
+        sidebar_result = self.sidebar.handle_event(pygame.event.Event(pygame.MOUSEMOTION, {'pos': mouse_pos}), mouse_pos)
         
         # Update button hover states
         for button in self.control_buttons.values():
@@ -225,33 +315,113 @@ class TakeCoinsGame(GameManager):
             if event.type == pygame.QUIT:
                 return False
             
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if "refresh" in self.control_buttons and self.control_buttons["refresh"].is_clicked(event):
-                    self.logic.initialize_game(self.logic.game_mode, self.logic.difficulty)
-                    self.ui.scroll_offset = 0
-                    if hasattr(self.input_handler, 'key_repeat_manager'):
-                        self.input_handler.key_repeat_manager._reset_state()
+            # 处理侧边栏事件
+            sidebar_result = self.sidebar.handle_event(event, mouse_pos)
+            if sidebar_result:
+                return self._handle_sidebar_action(sidebar_result)
+            
+            # 处理信息对话框
+            if self.showing_instructions:
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.showing_instructions = False
                     return True
-                
+                elif event.type == pygame.KEYDOWN and event.key in [pygame.K_ESCAPE, pygame.K_i]:
+                    self.showing_instructions = False
+                    return True
+                else:
+                    return True  # 忽略其他事件当显示说明时
+            
+            # Handle navigation events
+            nav_result = self.handle_navigation_events(event)
+            if nav_result == "back":
+                self.initialize_game_settings()
+                self.ui.scroll_offset = 0
+                return True
+            elif nav_result == "home":
+                return False
+            elif nav_result == "refresh":
+                # Restart game
+                game_mode = getattr(self.logic, 'game_mode', "PVE")
+                difficulty = getattr(self.logic, 'difficulty', 2)
+                self.logic.initialize_game(game_mode, difficulty)
+                self.ui.scroll_offset = 0
+                if hasattr(self.input_handler, 'key_repeat_manager'):
+                    self.input_handler.key_repeat_manager._reset_state()
+                return True
+            elif nav_result == "info":
+                self.showing_instructions = True
+                return True
+            
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 result = self.input_handler.handle_mouse_click(
                     event, self.position_buttons, self.scroll_buttons, self.control_buttons
                 )
-                if result == "back":
-                    self.initialize_game_settings()
-                    self.ui.scroll_offset = 0
-                elif result == "home":
-                    return False
+                # 检查是否重启了游戏
+                if result == "restart":
+                    self.create_components()
+                    return True
             
             elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
-                self.input_handler.handle_keyboard(event)
+                result = self.input_handler.handle_keyboard(event)
+                # 检查是否重启了游戏
+                if result == "restart":
+                    self.create_components()
+                    return True
             
             elif event.type == pygame.MOUSEWHEEL:
                 self.ui.handle_mouse_wheel(event, len(self.logic.coins))
         
         return True
     
+    def handle_navigation_events(self, event):
+        """Universal navigation events handling"""
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # 不再检查游戏控制按钮，因为这些现在在侧边栏中
+            pass
+        
+        # 按 I 键显示信息
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            return "info"
+        # 按 R 键重启游戏
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+            return "refresh"
+        # Toggle performance overlay with F2
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
+            self.show_perf_overlay = not self.show_perf_overlay
+        
+        return None
+    
+    def _handle_sidebar_action(self, action):
+        """处理侧边栏按钮点击"""
+        if action == "toggle":
+            return True
+        elif action == "back":
+            self.initialize_game_settings()
+            self.ui.scroll_offset = 0
+            return True
+        elif action == "home":
+            return False  # 返回主菜单
+        elif action == "refresh":
+            # 重启游戏
+            game_mode = getattr(self.logic, 'game_mode', "PVE")
+            difficulty = getattr(self.logic, 'difficulty', 2)
+            self.logic.initialize_game(game_mode, difficulty)
+            self.ui.scroll_offset = 0
+            if hasattr(self.input_handler, 'key_repeat_manager'):
+                self.input_handler.key_repeat_manager._reset_state()
+            return True
+        elif action == "info":
+            self.showing_instructions = True
+            return True
+        elif action == "settings":
+            print("Settings button clicked")
+            return True
+        return True
+    
     def update(self):
         """Update game state with scrolling support"""
+        self.sidebar.update()
+        
         # Update position buttons based on current valid positions
         self.position_buttons = self.ui.create_position_buttons(
             self.logic.coins, self.logic.valid_positions, self.logic.selected_position
@@ -260,17 +430,8 @@ class TakeCoinsGame(GameManager):
         # Update scroll buttons
         self.scroll_buttons = self.ui.create_scroll_buttons(len(self.logic.coins))
         
-        # Set button enabled states
-        if self.logic.game_mode == "PVE":
-            buttons_enabled = (self.logic.current_player == "Player 1")
-        else:
-            buttons_enabled = True
-        
-        self.control_buttons["confirm"].enabled = (
-            buttons_enabled and 
-            self.logic.selected_position is not None and
-            self.logic.selected_position in self.logic.valid_positions
-        )
+        # Update key repeat
+        self.input_handler.update_key_repeat()
         
         # AI's turn (only in PvE mode)
         if (self.logic.game_mode == "PVE" and 
@@ -286,6 +447,12 @@ class TakeCoinsGame(GameManager):
     def draw(self):
         """Draw the complete game interface with scrolling"""
         try:
+            # 如果显示说明，绘制说明页面
+            if self.showing_instructions:
+                self.draw_instructions()
+                pygame.display.flip()
+                return
+            
             # Draw background
             self.ui.draw_background()
             
@@ -295,26 +462,24 @@ class TakeCoinsGame(GameManager):
             # Draw coin positions with scrolling
             self.ui.draw_coin_stacks(self.logic, self.position_buttons, self.scroll_buttons)
             
-            # Draw navigation buttons
-            if "back" in self.control_buttons:
-                self.control_buttons["back"].draw(self.screen)
-            if "home" in self.control_buttons:
-                self.control_buttons["home"].draw(self.screen)
-            if "refresh" in self.control_buttons:
-                self.control_buttons["refresh"].draw(self.screen)
-            
+            # Draw game-specific UI
             if not self.logic.game_over:
                 # Draw control panel
                 self.ui.draw_control_panel(self.control_buttons, self.logic)
                 
-                # Draw control panel buttons
-                self.control_buttons["confirm"].draw(self.screen)
+                # Draw confirm button
+                if "confirm" in self.control_buttons:
+                    self.control_buttons["confirm"].draw(self.screen)
                 
                 # Draw hints
                 self.ui.draw_hints()
             else:
-                # Draw game over screen
-                self.control_buttons["restart"].draw(self.screen)
+                # Draw restart button
+                if "restart" in self.control_buttons:
+                    self.control_buttons["restart"].draw(self.screen)
+            
+            # 最后绘制侧边栏，使其在最上层
+            self.sidebar.draw()
             
             pygame.display.flip()
             
@@ -322,6 +487,82 @@ class TakeCoinsGame(GameManager):
             print(f"Error in draw: {e}")
             import traceback
             traceback.print_exc()
+    
+    def draw_instructions(self):
+        """Draw game instructions overlay"""
+        # Draw semi-transparent overlay
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Draw instructions panel
+        panel_width = 800
+        panel_height = 550
+        panel_x = (SCREEN_WIDTH - panel_width) // 2
+        panel_y = (SCREEN_HEIGHT - panel_height) // 2
+        
+        # Panel background
+        pygame.draw.rect(self.screen, (35, 45, 60), (panel_x, panel_y, panel_width, panel_height), border_radius=15)
+        pygame.draw.rect(self.screen, ACCENT_COLOR, (panel_x, panel_y, panel_width, panel_height), 3, border_radius=15)
+        
+        # Title
+        title = self.font_manager.large.render("Take Coins Game - Instructions", True, TEXT_COLOR)
+        title_rect = title.get_rect(center=(SCREEN_WIDTH//2, panel_y + 40))
+        self.screen.blit(title, title_rect)
+        
+        # Close hint
+        close_hint = self.font_manager.small.render("Click anywhere or press ESC/I to close", True, (180, 200, 220))
+        close_rect = close_hint.get_rect(center=(SCREEN_WIDTH//2, panel_y + panel_height - 30))
+        self.screen.blit(close_hint, close_rect)
+        
+        # Draw instructions text with word wrapping
+        y_pos = panel_y + 80
+        instructions = self.game_instructions.strip().split('\n')
+        
+        for line in instructions:
+            if line.strip() == "":
+                y_pos += 15  # Extra space for paragraph breaks
+                continue
+                
+            # Determine font size based on line content
+            if line.strip().endswith(":"):  # Section headers
+                font = self.font_manager.medium
+                color = ACCENT_COLOR
+                y_pos += 10  # Extra space before section
+            elif line.strip().startswith("-"):  # Bullet points
+                line = "  • " + line[1:].strip()
+                font = self.font_manager.small
+                color = (220, 230, 240)
+            else:  # Regular text
+                font = self.font_manager.small
+                color = (200, 210, 220)
+            
+            # Word wrapping
+            words = line.split()
+            lines = []
+            current_line = []
+            
+            for word in words:
+                test_line = ' '.join(current_line + [word])
+                test_width = font.size(test_line)[0]
+                
+                if test_width <= panel_width - 80:
+                    current_line.append(word)
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                    current_line = [word]
+            
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            # Draw each line
+            for text_line in lines:
+                if y_pos < panel_y + panel_height - 60:
+                    text_surface = font.render(text_line, True, color)
+                    text_rect = text_surface.get_rect(left=panel_x + 40, top=y_pos)
+                    self.screen.blit(text_surface, text_rect)
+                    y_pos += font.get_linesize() + 2
     
     def get_game_info(self):
         """Return game information"""

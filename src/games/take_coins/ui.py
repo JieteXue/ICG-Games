@@ -303,11 +303,11 @@ class TakeCoinsUI:
                             self.font_manager, tooltip="Make move at selected position"),
             "restart": GameButton(SCREEN_WIDTH//2 - 80, 620, 160, 45, "New Game", 
                             self.font_manager, tooltip="Start a new game"),
-            "back": GameButton(20, 20, 45, 45, "", self.font_manager, icon='back', 
-                          tooltip="Back to mode selection"),
-            "home": GameButton(75, 20, 45, 45, "", self.font_manager, icon='home', 
-                          tooltip="Back to main menu"),
-            "refresh": GameButton(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game")
+            # "back": GameButton(20, 20, 45, 45, "", self.font_manager, icon='back', 
+            #               tooltip="Back to mode selection"),
+            # "home": GameButton(75, 20, 45, 45, "", self.font_manager, icon='home', 
+            #               tooltip="Back to main menu"),
+            # "refresh": GameButton(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game")
         }
         
         return buttons
