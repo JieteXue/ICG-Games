@@ -16,11 +16,14 @@ class CardNimUI:
     def draw_background(self):
         """Draw the background with gradient effect"""
         self.screen.fill(BACKGROUND_COLOR)
-        
-        for x in range(0, SCREEN_WIDTH, 40):
+
+        # 考虑侧边栏的偏移
+        sidebar_width = SIDEBAR_WIDTH  # 使用常量
+
+        for x in range(sidebar_width, SCREEN_WIDTH, 40):
             pygame.draw.line(self.screen, (35, 45, 55), (x, 0), (x, SCREEN_HEIGHT), 1)
         for y in range(0, SCREEN_HEIGHT, 40):
-            pygame.draw.line(self.screen, (35, 45, 55), (0, y), (SCREEN_WIDTH, y), 1)
+            pygame.draw.line(self.screen, (35, 45, 55), (sidebar_width, y), (SCREEN_WIDTH, y), 1)
     
     def draw_game_info(self, game_logic):
         """Draw game information panel with enhanced styling"""
@@ -287,6 +290,18 @@ class CardNimUI:
                     refresh_text = refresh_font.render("Refresh", True, icon_color)
                     refresh_rect = refresh_text.get_rect(center=self.rect.center)
                     surface.blit(refresh_text, refresh_rect)
+                
+                elif self.icon == 'info':
+                    # Draw info icon (i in a circle)
+                    center = (self.rect.centerx, self.rect.centery)
+                    radius = 10
+                    # Draw circle
+                    pygame.draw.circle(surface, icon_color, center, radius, 2)
+                    # Draw i
+                    font = pygame.font.SysFont('Arial', 16, bold=True)
+                    info_text = font.render("i", True, icon_color)
+                    text_rect = info_text.get_rect(center=center)
+                    surface.blit(info_text, text_rect)
             
             def _draw_text(self, surface):
                 text_color = (255, 255, 255) if self.enabled else (150, 150, 150)
@@ -316,7 +331,8 @@ class CardNimUI:
             "restart": GameButton(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 250, 240, 60, "New Game", self.font_manager, tooltip="Start a new game"),
             "back": GameButton(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back', tooltip="Back to mode selection"),
             "home": GameButton(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu"),
-            "refresh": GameButton(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game")
+            "refresh": GameButton(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game"),
+            "info": GameButton(SCREEN_WIDTH - 20 - nav_button_size * 2 - 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='info', tooltip="Game instructions (I)")
         }
         
         return buttons

@@ -1,5 +1,5 @@
 """
-Universal Game Manager Base Class - Updated with performance monitoring
+Universal Game Manager Base Class - Updated with sidebar integration
 """
 
 import pygame
@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod
 from .base_game import BaseGame
 from utils.constants import *
 from ui.menus import GameModeSelector
+from ui.components import Sidebar  # 修改：只导入 Sidebar
+from ui import InfoDialog  # 修改：从 ui 导入 InfoDialog
 from utils.config_manager import config_manager
 from utils.error_handler import handle_game_errors, log_logic_error
 from utils.resource_cache import resource_cache
@@ -24,10 +26,14 @@ class GameManager(BaseGame):
         self.ui = None
         self.input_handler = None
         
+        # New sidebar and info dialog components
+        self.sidebar = Sidebar(screen, font_manager)  # 新增
+        self.info_dialog = InfoDialog(screen, font_manager)  # 新增
+        
         # Common states
         self.buttons = {}
         self.ai_timer = 0
-        self.ai_delay_frames = 30  # Default, can be overridden
+        self.ai_delay_frames = 30
         
         # Game configuration
         self.game_config = None
@@ -39,6 +45,14 @@ class GameManager(BaseGame):
         
         # Ensure fonts are initialized
         self.font_manager.initialize_fonts()
+        
+        # Game instructions (to be set by specific games)
+        self.game_instructions = ""
+    
+    def set_game_instructions(self, instructions):
+        """Set game instructions for the info dialog"""
+        self.game_instructions = instructions
+        self.info_dialog.instructions = instructions
     
     @handle_game_errors
     def initialize_game_settings(self):
@@ -90,97 +104,117 @@ class GameManager(BaseGame):
         pass
     
     @handle_game_errors
-    def update_ai_turn(self):
-        """Universal AI turn update with configurable delay"""
-        if (hasattr(self.logic, 'game_mode') and 
-            self.logic.game_mode == "PVE" and 
-            hasattr(self.logic, 'current_player') and
-            self.logic.current_player == "AI" and 
-            not self.logic.game_over):
-            
-            self.ai_timer += 1
-            if self.ai_timer > self.ai_delay_frames:
-                with PerformanceProfiler("ai_update", performance_monitor):
-                    self.logic.ai_make_move()
-                self.ai_timer = 0
-    
-    @handle_game_errors
-    def update_button_states(self):
-        """Universal button states update"""
-        if hasattr(self.logic, 'game_mode') and hasattr(self.logic, 'current_player'):
-            if self.logic.game_mode == "PVE":
-                buttons_enabled = (self.logic.current_player == "Player 1")
-            else:
-                buttons_enabled = True
-            
-            # Update control buttons
-            if "confirm" in self.buttons:
-                can_confirm = hasattr(self.logic, 'selected_position') or hasattr(self.logic, 'selected_factor')
-                self.buttons["confirm"].enabled = buttons_enabled and can_confirm
-    
-    @handle_game_errors
-    def draw_navigation_buttons(self):
-        """Universal navigation buttons drawing"""
-        nav_buttons = ["back", "home", "refresh"]
-        for btn_name in nav_buttons:
-            if btn_name in self.buttons:
-                self.buttons[btn_name].draw(self.screen)
-    
-    @handle_game_errors
-    def handle_navigation_events(self, event):
-        """Universal navigation events handling"""
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if "refresh" in self.buttons and self.buttons["refresh"].is_clicked(event):
-                # Restart game logic
-                game_mode = getattr(self.logic, 'game_mode', "PVE")
-                difficulty = getattr(self.logic, 'difficulty', 2)
-                self.logic.initialize_game(game_mode, difficulty)
-                if hasattr(self.ui, 'scroll_offset'):
-                    self.ui.scroll_offset = 0
-                return "refresh"
-            
-            if "back" in self.buttons and self.buttons["back"].is_clicked(event):
-                return "back"
-            elif "home" in self.buttons and self.buttons["home"].is_clicked(event):
-                return "home"
-        
-        # Toggle performance overlay with F2
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
-            self.show_perf_overlay = not self.show_perf_overlay
-        
-        return None
-    
-    @handle_game_errors
     def handle_events(self):
-        """Default event handling - subclasses should override"""
+        """Default event handling with sidebar integration"""
         with PerformanceProfiler("event_handling", performance_monitor):
+            mouse_pos = pygame.mouse.get_pos()
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    return False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
-                    self.show_perf_overlay = not self.show_perf_overlay
+                
+                # Handle sidebar events first
+                sidebar_result = self.sidebar.handle_event(event, mouse_pos)
+                if sidebar_result:
+                    return self._handle_sidebar_action(sidebar_result)
+                
+                # Handle info dialog events
+                if self.info_dialog.visible:
+                    dialog_result = self.info_dialog.handle_event(event, mouse_pos)
+                    if dialog_result in ["close", "close_outside"]:
+                        continue  # Dialog was closed, continue with other events
+                    elif dialog_result:
+                        return True  # Event was handled by dialog
+                
+                # Handle other events (ESC for back, F2 for performance, etc.)
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return "back"
+                    elif event.key == pygame.K_F2:
+                        self.show_perf_overlay = not self.show_perf_overlay
+                    elif event.key == pygame.K_i and not self.info_dialog.visible:
+                        # Show info dialog when I key is pressed
+                        game_name = getattr(self, 'game_name', self._get_game_id().title())
+                        self.info_dialog.show(game_name, self.game_instructions)
+                        return True
+                
+                # Handle game-specific events if not in dialog
+                if not self.info_dialog.visible:
+                    # Delegate to subclass or specific handler
+                    result = self._handle_game_specific_events(event)
+                    if result is not None:
+                        return result
+            
+            return True
+    
+    def _handle_sidebar_action(self, action):
+        """Handle actions from sidebar buttons"""
+        if action == "toggle":
+            return True
+        elif action == "back":
+            return "back"
+        elif action == "home":
+            return "home"
+        elif action == "refresh":
+            # Restart the game
+            game_mode = getattr(self.logic, 'game_mode', "PVE")
+            difficulty = getattr(self.logic, 'difficulty', 2)
+            self.logic.initialize_game(game_mode, difficulty)
+            if hasattr(self.ui, 'scroll_offset'):
+                self.ui.scroll_offset = 0
+            return "refresh"
+        elif action == "info":
+            # Show game instructions
+            game_name = getattr(self, 'game_name', self._get_game_id().title())
+            self.info_dialog.show(game_name, self.game_instructions)
+            return True
+        elif action == "settings":
+            # TODO: Implement settings dialog
+            print("Settings button clicked")
+            return True
         
         return True
     
+    def _handle_game_specific_events(self, event):
+        """Handle game-specific events - to be overridden by subclasses"""
+        return None
+    
     @handle_game_errors
     def update(self):
-        """Default update - subclasses should override"""
-        pass
+        """Update game state with sidebar"""
+        self.sidebar.update()
+        
+        if not self.logic.game_over:
+            self.update_ai_turn()
+            self.update_button_states()
     
     @handle_game_errors
     def draw(self):
-        """Default draw - subclasses should override"""
+        """Draw game interface with sidebar"""
         self.screen.fill(BACKGROUND_COLOR)
+        
+        # Draw sidebar (always on top)
+        self.sidebar.draw()
+        
+        # Draw game content (adjust for sidebar width)
+        content_offset = self.sidebar.current_width
+        self._draw_game_content(content_offset)
+        
+        # Draw info dialog if visible (on top of everything)
+        if self.info_dialog.visible:
+            self.info_dialog.draw()
         
         # Draw performance overlay if enabled
         if self.show_perf_overlay:
             performance_monitor.draw_performance_overlay(self.screen, self.font_manager.small)
     
+    def _draw_game_content(self, offset):
+        """Draw game-specific content - to be overridden by subclasses"""
+        pass
+    
     @handle_game_errors
     def run(self):
-        """Universal game loop with performance monitoring"""
+        """Universal game loop with sidebar support"""
         if self.should_return_to_menu:
             return
         
@@ -192,8 +226,19 @@ class GameManager(BaseGame):
             try:
                 # Handle events with timing
                 with PerformanceProfiler("event_processing", performance_monitor):
-                    if not self.handle_events():
+                    result = self.handle_events()
+                    
+                    if result == False:
                         break
+                    elif result == "back":
+                        self.initialize_game_settings()
+                        continue
+                    elif result == "home":
+                        break
+                    elif result == "refresh":
+                        # Recreate components for refresh
+                        self.create_components()
+                        continue
                 
                 # Update game state with timing
                 with PerformanceProfiler("game_update", performance_monitor):
