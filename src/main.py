@@ -125,6 +125,20 @@ def register_games():
         except ImportError as e:
             print(f"❌ Could not import DawsonKaylesGame: {e}")
 
+        try:
+            from games.split_cards.game import SplitCardsGame
+            game_registry.register_game(
+                game_id="split_cards",
+                game_class=SplitCardsGame,
+                name="Magic Cards Split",
+                description="Strategic card splitting game with magical theme",
+                min_players=1,
+                max_players=2
+            )
+            print("✅ Split Cards game registered successfully")
+        except ImportError as e:
+            print(f"❌ Could not import SplitCardsGame: {e}")
+
         return True 
     except Exception as e:
         print(f"❌ Error registering games: {e}")

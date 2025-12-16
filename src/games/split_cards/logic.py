@@ -1,283 +1,281 @@
 """
 Split Cards Game Logic
-神秘魔术风格的卡牌分割游戏逻辑
 """
 
 import random
-import math
-from typing import List, Dict, Tuple, Optional
+from utils.constants import *  # 使用相对导入
 
 class SplitCardsLogic:
-    """Split Cards游戏逻辑"""
+    """Game logic for Split Cards game"""
     
     def __init__(self):
-        self.k = 0  # 每次最多可以拿的牌数
-        self.n = 0  # 初始牌数
-        self.cards = []  # 牌堆列表，每个元素表示一堆牌的数量
-        self.current_player = 1
+        self.card_piles = []  # List of card piles
+        self.max_take = 0  # Maximum number of cards that can be taken at once
+        self.selected_pile_index = None  # 添加缺失的属性
+        self.selected_action = None  # 'take' or 'split'
+        self.selected_count = 1
+        self.split_position = 0  # For split action, where to split
         self.game_over = False
         self.winner = None
         self.message = ""
-        self.game_mode = None
         self.difficulty = None
-        self.move_history = []  # 移动历史记录
-        self.selected_pile = None  # 选中的牌堆索引
-        self.selected_action = None  # 选中的动作类型 ('take' 或 'split')
-        # 移除selected_take_count和selected_split_point属性，使用字典存储临时选择
-        self._temp_selection = {}  # 临时存储选择参数
-        self.split_point = 1  # 分割点，默认1
+        self.game_mode = None
+        self.current_player = "Player 1"
+        self.auto_player = None
     
-    def initialize_game(self, game_mode: str, difficulty: Optional[int] = None):
-        """初始化新游戏"""
-        self.game_mode = game_mode
-        self.difficulty = difficulty
-        
-        # 随机生成初始牌数和最大拿牌数
-        self.n = random.randint(6, 20)  # 初始牌数
-        self.k = random.randint(2, 5)   # 每次最多拿牌数
-        self.cards = [self.n]  # 初始只有一堆牌
-        self.current_player = 1
-        self.game_over = False
-        self.winner = None
-        self.move_history = []
-        self.selected_pile = None
-        self.selected_action = None
-        self._temp_selection = {}
-        self.split_point = 1
-        
-        # 根据模式设置消息
-        if game_mode == "PVE":
-            difficulty_names = ["Easy", "Normal", "Hard", "Insane"]
-            diff_name = difficulty_names[difficulty-1] if difficulty else "Normal"
-            self.message = f"Magic begins! {self.n} cards in a pile. You can take 1-{self.k} cards or split a pile. Player 1's turn. Difficulty: {diff_name}"
+    def calculate_sg_value(self, n, k):
+        """Calculate Sprague-Grundy value for a pile"""
+        if n % (2**k) == 0:
+            return n - 1
+        elif n % (2**k) == 2**k - 1:
+            return n + 1
         else:
-            self.message = f"Magic begins! {self.n} cards in a pile. You can take 1-{self.k} cards or split a pile. Player 1's turn."
+            return n
     
-    def get_available_moves(self) -> List[Dict]:
-        """获取所有可用的移动"""
+    def is_winning_position(self):
+        """Check if current position is winning using SG theory"""
+        if not self.card_piles:
+            return False
+        
+        sg = 0
+        for pile in self.card_piles:
+            sg ^= self.calculate_sg_value(pile, self.max_take)
+        
+        return sg != 0
+    
+    def get_valid_moves(self):
+        """Get all valid moves for current position"""
         moves = []
         
-        for i, pile_size in enumerate(self.cards):
-            # 拿牌动作
-            for take_count in range(1, min(pile_size, self.k) + 1):
-                moves.append({
-                    'type': 'take',
-                    'pile_index': i,
-                    'take_count': take_count,
-                    'description': f"Take {take_count} card{'s' if take_count > 1 else ''} from pile {i+1}"
-                })
-            
-            # 分割动作（如果牌堆有2张或更多牌）
-            if pile_size >= 2:
-                # 所有可能的分割方式
-                for split_point in range(1, pile_size):
+        # Take moves
+        for i, pile in enumerate(self.card_piles):
+            if pile > 0:
+                for take_count in range(1, min(self.max_take, pile) + 1):
+                    moves.append({
+                        'type': 'take',
+                        'pile_index': i,
+                        'count': take_count
+                    })
+        
+        # Split moves
+        for i, pile in enumerate(self.card_piles):
+            if pile > 1:  # Can only split piles with more than 1 card
+                for split_point in range(1, pile):  # Split into two non-empty piles
                     moves.append({
                         'type': 'split',
                         'pile_index': i,
-                        'split_point': split_point,
-                        'new_pile_1': split_point,
-                        'new_pile_2': pile_size - split_point,
-                        'description': f"Split pile {i+1} into {split_point} and {pile_size - split_point} cards"
+                        'left_count': split_point,
+                        'right_count': pile - split_point
                     })
         
         return moves
     
-    def set_selection(self, pile_index: Optional[int] = None, action: Optional[str] = None, **kwargs):
-        """设置选择参数"""
-        self.selected_pile = pile_index
-        self.selected_action = action
-        self._temp_selection = kwargs
+    def find_winning_move(self):
+        """Find a winning move using SG theory"""
+        valid_moves = self.get_valid_moves()
         
-        # 更新分割点
-        if 'split_point' in kwargs:
-            self.split_point = kwargs['split_point']
-    
-    def get_selection_param(self, key: str, default=None):
-        """获取选择参数"""
-        return self._temp_selection.get(key, default)
-    
-    def make_move(self, move_info: Dict) -> bool:
-        """执行移动"""
-        move_type = move_info['type']
-        pile_index = move_info['pile_index']
-        
-        if move_type == 'take':
-            take_count = move_info['take_count']
-            # 检查是否有效
-            if pile_index >= len(self.cards) or take_count > self.cards[pile_index] or take_count > self.k:
-                return False
-            
-            # 记录移动
-            self.move_history.append({
-                'player': self.current_player,
-                'type': 'take',
-                'pile': pile_index,
-                'count': take_count,
-                'old_state': self.cards.copy()
-            })
-            
-            # 执行拿牌
-            self.cards[pile_index] -= take_count
-            
-            # 如果牌堆空了，移除它
-            if self.cards[pile_index] == 0:
-                self.cards.pop(pile_index)
-            
-            # 检查游戏是否结束
-            self._check_game_over()
-            
-            if not self.game_over:
-                # 切换玩家
-                self.current_player = 3 - self.current_player
-                self._update_message_after_move(move_info)
-            
-            return True
-            
-        elif move_type == 'split':
-            split_point = move_info['split_point']
-            pile_size = self.cards[pile_index]
-            
-            # 检查是否有效
-            if pile_index >= len(self.cards) or split_point <= 0 or split_point >= pile_size:
-                return False
-            
-            # 记录移动
-            self.move_history.append({
-                'player': self.current_player,
-                'type': 'split',
-                'pile': pile_index,
-                'split_point': split_point,
-                'old_state': self.cards.copy()
-            })
-            
-            # 执行分割 - 替换原牌堆，插入新牌堆
-            self.cards[pile_index] = split_point
-            self.cards.insert(pile_index + 1, pile_size - split_point)
-            
-            # 切换玩家
-            self.current_player = 3 - self.current_player
-            self._update_message_after_move(move_info)
-            
-            return True
-        
-        return False
-    
-    def _check_game_over(self):
-        """检查游戏是否结束"""
-        if not self.cards:  # 所有牌都被拿完了
-            self.game_over = True
-            self.winner = self.current_player  # 最后拿牌的玩家获胜
-    
-    def _update_message_after_move(self, move_info: Dict):
-        """移动后更新消息"""
-        move_type = move_info['type']
-        
-        if move_type == 'take':
-            player_name = "Player 1" if self.current_player == 1 else ("AI" if self.game_mode == "PVE" else "Player 2")
-            action_desc = move_info['description']
-            self.message = f"{action_desc}. {player_name}'s turn."
-        elif move_type == 'split':
-            player_name = "Player 1" if self.current_player == 1 else ("AI" if self.game_mode == "PVE" else "Player 2")
-            action_desc = move_info['description']
-            self.message = f"{action_desc}. {player_name}'s turn."
-    
-    def ai_make_move(self) -> bool:
-        """AI执行移动（PvE模式）"""
-        if self.game_mode != "PVE" or self.current_player != 2 or self.game_over:
-            return False
-        
-        available_moves = self.get_available_moves()
-        if not available_moves:
-            return False
-        
-        # 根据难度选择AI策略
-        if self.difficulty == 1:  # Easy
-            # 完全随机
-            move = random.choice(available_moves)
-        elif self.difficulty == 2:  # Normal
-            # 倾向于拿牌而不是分割
-            take_moves = [m for m in available_moves if m['type'] == 'take']
-            if take_moves:
-                move = random.choice(take_moves)
-            else:
-                move = random.choice(available_moves)
-        elif self.difficulty == 3:  # Hard
-            # 尝试寻找必胜策略
-            move = self._find_best_move(available_moves)
-        else:  # Insane
-            # 使用更复杂的策略
-            move = self._find_optimal_move(available_moves)
-        
-        return self.make_move(move)
-    
-    def _find_best_move(self, available_moves: List[Dict]) -> Dict:
-        """寻找最佳移动（Hard难度）"""
-        # 简单的策略：优先拿完一个牌堆
-        for move in available_moves:
+        for move in valid_moves:
+            # Simulate the move
             if move['type'] == 'take':
-                pile_idx = move['pile_index']
-                if move['take_count'] == self.cards[pile_idx]:
-                    return move  # 可以拿完整个牌堆
+                new_piles = self.card_piles.copy()
+                new_piles[move['pile_index']] -= move['count']
+                if new_piles[move['pile_index']] == 0:
+                    new_piles.pop(move['pile_index'])
+            else:  # split
+                new_piles = self.card_piles.copy()
+                old_pile = new_piles.pop(move['pile_index'])
+                new_piles.append(move['left_count'])
+                new_piles.append(move['right_count'])
+            
+            # Check if resulting position is losing for opponent
+            temp_logic = SplitCardsLogic()
+            temp_logic.card_piles = new_piles
+            temp_logic.max_take = self.max_take
+            if not temp_logic.is_winning_position():
+                return move
         
-        # 否则随机选择一个移动
-        return random.choice(available_moves)
+        return None
     
-    def _find_optimal_move(self, available_moves: List[Dict]) -> Dict:
-        """寻找最优移动（Insane难度）"""
-        # 这里可以实现更复杂的Nim策略计算
-        # 暂时使用Hard难度的策略
-        return self._find_best_move(available_moves)
-    
-    def judge_win(self) -> bool:
-        """判断当前玩家是否处于必胜局面"""
-        # 简化版的必胜判断，可以后续完善
-        total_cards = sum(self.cards)
-        if total_cards == 0:
-            return False  # 游戏结束
+    def initialize_game(self, game_mode, difficulty=None):
+        """Initialize a new game"""
+        self.game_mode = game_mode
+        self.difficulty = difficulty
         
-        # 简单的启发式判断：如果只剩一个牌堆且牌数小于等于k，则必胜
-        if len(self.cards) == 1 and self.cards[0] <= self.k:
+        # 重置所有状态属性
+        self.selected_pile_index = None
+        self.selected_action = None
+        self.selected_count = 1
+        self.split_position = 0
+        self.game_over = False
+        self.winner = None
+        self.current_player = "Player 1"
+        
+        # Set parameters based on difficulty
+        if self.game_mode == "PVP":
+            # PvP mode: medium settings
+            self.max_take = random.randint(3, 6)
+            initial_pile = random.randint(15, 25)
+            self.card_piles = [initial_pile]
+        else:
+            # PvE mode: difficulty-based settings
+            difficulty_ranges = {
+                1: {'max_take': (2, 4), 'initial_pile': (10, 15)},  # Easy
+                2: {'max_take': (3, 6), 'initial_pile': (15, 20)},  # Normal
+                3: {'max_take': (4, 8), 'initial_pile': (20, 25)},  # Hard
+                4: {'max_take': (5, 10), 'initial_pile': (25, 50)}  # Insane
+            }
+            
+            ranges = difficulty_ranges.get(self.difficulty, difficulty_ranges[2])
+            self.max_take = random.randint(ranges['max_take'][0], ranges['max_take'][1])
+            initial_pile = random.randint(ranges['initial_pile'][0], ranges['initial_pile'][1])
+            self.card_piles = [initial_pile]
+        
+        # Ensure it's a winning position for first player in PvE
+        if self.game_mode == "PVE" and not self.is_winning_position():
+            # Adjust max_take to make it winning
+            while not self.is_winning_position() and self.max_take > 1:
+                self.max_take -= 1
+        
+        # Set up AI for PvE mode
+        if self.game_mode == "PVE":
+            self.auto_player = SplitCardsAI(self)
+        
+        self.message = f"Game Started! {initial_pile} cards in one pile. Max take: {self.max_take}. {self.current_player}'s turn."
+    
+    def make_move(self, move_info):
+        """Execute a move"""
+        if self.game_over:
+            return False
+        
+        move_type = move_info.get('type')
+        
+        if move_type == 'take':
+            pile_idx = move_info.get('pile_index')
+            count = move_info.get('count')
+            
+            if (0 <= pile_idx < len(self.card_piles) and 
+                1 <= count <= min(self.max_take, self.card_piles[pile_idx])):
+                
+                self.card_piles[pile_idx] -= count
+                self.message = f"{self.current_player} took {count} card(s) from pile {pile_idx + 1}."
+                
+                # Remove empty piles
+                if self.card_piles[pile_idx] == 0:
+                    self.card_piles.pop(pile_idx)
+        elif move_type == 'split':
+            pile_idx = move_info.get('pile_index')
+            left_count = move_info.get('left_count')
+            right_count = move_info.get('right_count')
+            
+            if (0 <= pile_idx < len(self.card_piles) and
+                left_count > 0 and right_count > 0 and
+                left_count + right_count == self.card_piles[pile_idx]):
+                
+                # Remove the original pile and add two new piles
+                self.card_piles.pop(pile_idx)
+                self.card_piles.append(left_count)
+                self.card_piles.append(right_count)
+                self.message = f"{self.current_player} split pile {pile_idx + 1} into piles of {left_count} and {right_count} cards."
+        else:
+            return False
+        
+        # Check if game is over (no cards left)
+        if not any(self.card_piles):
+            self.game_over = True
+            self.winner = self.current_player
+            self.message = f"Game Over! {self.current_player} Wins!"
             return True
         
-        return False
+        # Switch player
+        self.switch_player()
+        return True
     
-    def get_game_state(self) -> Dict:
-        """返回游戏状态信息"""
-        return {
-            'n': self.n,
-            'k': self.k,
-            'cards': self.cards.copy(),
-            'current_player': self.current_player,
-            'game_over': self.game_over,
-            'winner': self.winner,
-            'available_moves': len(self.get_available_moves()),
-            'message': self.message,
-            'winning_position': self.judge_win(),
-            'total_cards': sum(self.cards)
-        }
+    def switch_player(self):
+        """Switch between players"""
+        if self.game_mode == "PVE":
+            if self.current_player == "Player 1":
+                self.current_player = "AI"
+                if not self.game_over:
+                    self.message += f" AI's turn. {len(self.card_piles)} piles remaining."
+            else:
+                self.current_player = "Player 1"
+                if not self.game_over:
+                    self.message += f" Your turn. {len(self.card_piles)} piles remaining."
+        else:
+            # PvP mode
+            if self.current_player == "Player 1":
+                self.current_player = "Player 2"
+                if not self.game_over:
+                    self.message += f" {self.current_player}'s turn. {len(self.card_piles)} piles remaining."
+            else:
+                self.current_player = "Player 1"
+                if not self.game_over:
+                    self.message += f" {self.current_player}'s turn. {len(self.card_piles)} piles remaining."
     
-    def get_card_piles_info(self) -> List[Dict]:
-        """获取牌堆的详细信息"""
-        piles_info = []
-        for i, count in enumerate(self.cards):
-            piles_info.append({
-                'index': i,
-                'count': count,
-                'position': (0, 0),  # 将在UI中设置
-                'can_take': count > 0,
-                'can_split': count >= 2
-            })
-        return piles_info
-    
-    def adjust_split_point(self, delta: int):
-        """调整分割点"""
-        if self.selected_pile is not None and self.selected_action == 'split':
-            pile_size = self.cards[self.selected_pile]
-            new_split_point = self.split_point + delta
+    def ai_make_move(self):
+        """Let AI make a move (only in PvE mode)"""
+        if (self.game_mode == "PVE" and 
+            self.current_player == "AI" and 
+            not self.game_over):
             
-            # 确保分割点在合理范围内（1到pile_size-1）
-            if 1 <= new_split_point < pile_size:
-                self.split_point = new_split_point
-                self.set_selection(self.selected_pile, 'split', split_point=new_split_point)
-                return True
+            move = self.auto_player.get_move()
+            if move:
+                return self.make_move(move)
         return False
+
+class SplitCardsAI:
+    """AI logic for Split Cards game"""
+    
+    def __init__(self, game_logic):
+        self.game_logic = game_logic
+        self.difficulty = game_logic.difficulty
+    
+    def get_move(self):
+        """Get AI move based on difficulty"""
+        valid_moves = self.game_logic.get_valid_moves()
+        
+        if not valid_moves:
+            return None
+        
+        # Based on difficulty, choose strategy
+        if self.difficulty == 1:  # Easy: mostly random
+            if random.random() < 0.7:  # 70% random
+                return random.choice(valid_moves)
+            else:
+                return self.find_winning_move(valid_moves)
+        elif self.difficulty == 2:  # Normal: mixed
+            if random.random() < 0.5:  # 50% random
+                return random.choice(valid_moves)
+            else:
+                return self.find_winning_move(valid_moves)
+        elif self.difficulty == 3:  # Hard: mostly optimal
+            if random.random() < 0.2:  # 20% random
+                return random.choice(valid_moves)
+            else:
+                return self.find_winning_move(valid_moves)
+        else:  # Insane: always optimal
+            return self.find_winning_move(valid_moves)
+    
+    def find_winning_move(self, valid_moves):
+        """Find a winning move if exists, otherwise random"""
+        for move in valid_moves:
+            # Test if this move leads to a losing position for opponent
+            test_game = SplitCardsLogic()
+            test_game.card_piles = self.game_logic.card_piles.copy()
+            test_game.max_take = self.game_logic.max_take
+            
+            if move['type'] == 'take':
+                test_game.card_piles[move['pile_index']] -= move['count']
+                if test_game.card_piles[move['pile_index']] == 0:
+                    test_game.card_piles.pop(move['pile_index'])
+            else:  # split
+                pile_idx = move['pile_index']
+                test_game.card_piles.pop(pile_idx)
+                test_game.card_piles.append(move['left_count'])
+                test_game.card_piles.append(move['right_count'])
+            
+            if not test_game.is_winning_position():
+                return move
+        
+        # No winning move found, return random
+        return random.choice(valid_moves)
