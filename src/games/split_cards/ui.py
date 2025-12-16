@@ -98,11 +98,11 @@ class SplitCardsUI:
             message_text = self.font_manager.medium.render(line, True, message_color)
             if i == 0:
                 message_bg_width = message_text.get_width() + 30
-                message_bg = pygame.Rect(SCREEN_WIDTH//2 - message_bg_width//2, 105, 
+                message_bg = pygame.Rect(SCREEN_WIDTH//2 - message_bg_width//2, 119, 
                                        message_bg_width, message_text.get_height() + 6)
                 pygame.draw.rect(self.screen, (50, 45, 40), message_bg, border_radius=8)
                 pygame.draw.rect(self.screen, (180, 150, 110), message_bg, 2, border_radius=8)
-            self.screen.blit(message_text, (SCREEN_WIDTH//2 - message_text.get_width()//2, 108 + i * 25))
+            self.screen.blit(message_text, (SCREEN_WIDTH//2 - message_text.get_width()//2, 121 + i * 25))
     
     def draw_card_piles(self, card_piles, selected_index, selected_action):
         """Draw all card piles on the table"""
