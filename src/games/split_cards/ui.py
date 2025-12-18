@@ -3,6 +3,7 @@ Split Cards Game UI Components
 """
 
 import pygame
+import math
 from utils.constants import *
 from utils.helpers import wrap_text
 
