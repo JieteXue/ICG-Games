@@ -35,11 +35,11 @@ class Button:
             return
             
         # Draw shadow
-        shadow_rect = self.rect.move(4, 4)
+        shadow_rect = self.rect.move(2, 2)
         pygame.draw.rect(surface, SHADOW_COLOR, shadow_rect, border_radius=self.corner_radius)
         
         # Draw button
-        color = BUTTON_HOVER_COLOR if self.hovered and self.enabled else BUTTON_COLOR
+        color = BUTTON_HOVER_COLOR_BEIGE if self.hovered and self.enabled else BUTTON_COLOR_BEIGE
         if not self.enabled:
             color = (100, 100, 120)
         

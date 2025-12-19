@@ -9,13 +9,21 @@ from games.split_cards.ui import SplitCardsUI
 from ui.components.sidebar import Sidebar
 from utils.constants import CARD_GAME_FPS, SCREEN_WIDTH, SCREEN_HEIGHT, ACCENT_COLOR, TEXT_COLOR
 from utils.key_repeat import KeyRepeatManager
-
 class SplitCardsInputHandler:
     """Handles input for Split Cards game"""
     
     def __init__(self, game_logic):
         self.game_logic = game_logic
         self.key_repeat_manager = KeyRepeatManager()
+    
+    def _create_key_callbacks(self):
+        """创建按键回调字典"""
+        return {
+            pygame.K_LEFT: self._select_previous_pile,
+            pygame.K_RIGHT: self._select_next_pile,
+            pygame.K_UP: self._increase_count,
+            pygame.K_DOWN: self._decrease_count
+        }
     
     def handle_mouse_click(self, event, pile_rects, buttons):
         """Handle mouse click events"""
@@ -118,81 +126,126 @@ class SplitCardsInputHandler:
     
     def handle_keyboard(self, event):
         """Handle keyboard events"""
-        if self.game_logic.game_over:  # 使用self.game_logic
+        if self.game_logic.game_over:
             return
         
         # Check if current player can interact
         can_interact = False
-        if self.game_logic.game_mode == "PVP":  # 使用self.game_logic
+        if self.game_logic.game_mode == "PVP":
             can_interact = True
-        elif self.game_logic.game_mode == "PVE" and self.game_logic.current_player == "Player 1":  # 使用self.game_logic
+        elif self.game_logic.game_mode == "PVE" and self.game_logic.current_player == "Player 1":
             can_interact = True
         
-        if can_interact and self.game_logic.selected_pile_index is not None and self.game_logic.selected_action:  # 使用self.game_logic
-            callbacks = {
-                pygame.K_LEFT: self._decrease_count,
-                pygame.K_RIGHT: self._increase_count,
-                pygame.K_UP: self._increase_count,
-                pygame.K_DOWN: self._decrease_count
-            }
+        if can_interact:
+            callbacks = self._create_key_callbacks()
             
+            # 处理方向键（带重复）
             self.key_repeat_manager.handle_key_event(event, callbacks)
             
+            # 处理回车键（不需要重复）
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                if self.game_logic.selected_action == 'take':  # 使用self.game_logic
-                    move_info = {
-                        'type': 'take',
-                        'pile_index': self.game_logic.selected_pile_index,  # 使用self.game_logic
-                        'count': self.game_logic.selected_count  # 使用self.game_logic
-                    }
-                else:  # split
-                    pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]  # 使用self.game_logic
-                    move_info = {
-                        'type': 'split',
-                        'pile_index': self.game_logic.selected_pile_index,  # 使用self.game_logic
-                        'left_count': self.game_logic.selected_count,  # 使用self.game_logic
-                        'right_count': pile_size - self.game_logic.selected_count  # 使用self.game_logic
-                    }
-                
-                if self.game_logic.make_move(move_info):  # 使用self.game_logic
-                    self.game_logic.selected_pile_index = None
-                    self.game_logic.selected_action = None
-                    self.key_repeat_manager._reset_state()
+                if (self.game_logic.selected_pile_index is not None and 
+                    self.game_logic.selected_action):
+                    
+                    if self.game_logic.selected_action == 'take':
+                        move_info = {
+                            'type': 'take',
+                            'pile_index': self.game_logic.selected_pile_index,
+                            'count': self.game_logic.selected_count
+                        }
+                    else:  # split
+                        pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]
+                        move_info = {
+                            'type': 'split',
+                            'pile_index': self.game_logic.selected_pile_index,
+                            'left_count': self.game_logic.selected_count,
+                            'right_count': pile_size - self.game_logic.selected_count
+                        }
+                    
+                    if self.game_logic.make_move(move_info):
+                        self.game_logic.selected_pile_index = None
+                        self.game_logic.selected_action = None
+                        self.key_repeat_manager._reset_state()
     
     def update_key_repeat(self):
         """Update key repeat state"""
-        if (not self.game_logic.game_over and  # 使用self.game_logic
-            ((self.game_logic.game_mode == "PVP") or  # 使用self.game_logic
-             (self.game_logic.game_mode == "PVE" and self.game_logic.current_player == "Player 1"))):  # 使用self.game_logic
+        if (not self.game_logic.game_over and
+            ((self.game_logic.game_mode == "PVP") or 
+             (self.game_logic.game_mode == "PVE" and self.game_logic.current_player == "Player 1"))):
             
-            if self.game_logic.selected_pile_index is not None and self.game_logic.selected_action:  # 使用self.game_logic
-                callbacks = {
-                    pygame.K_LEFT: self._decrease_count,
-                    pygame.K_RIGHT: self._increase_count,
-                    pygame.K_UP: self._increase_count,
-                    pygame.K_DOWN: self._decrease_count
-                }
-                self.key_repeat_manager.update(callbacks)
+            callbacks = self._create_key_callbacks()
+            self.key_repeat_manager.update(callbacks)
+    
+    def _select_previous_pile(self):
+        """Select the previous available pile"""
+        if not self.game_logic.card_piles:
+            return
+        
+        if self.game_logic.selected_pile_index is None:
+            # 如果没有选中的牌堆，选择最后一个可用的牌堆
+            for i in range(len(self.game_logic.card_piles)-1, -1, -1):
+                if self.game_logic.card_piles[i] > 0:
+                    self.game_logic.selected_pile_index = i
+                    self.game_logic.selected_action = None
+                    self.game_logic.selected_count = 1
+                    self.game_logic.message = f"Selected pile {i + 1}. Choose action: Take or Split."
+                    break
+        else:
+            # 从当前选中的牌堆向左循环选择
+            new_index = self.game_logic.selected_pile_index
+            for i in range(1, len(self.game_logic.card_piles)):
+                new_index = (self.game_logic.selected_pile_index - i) % len(self.game_logic.card_piles)
+                if self.game_logic.card_piles[new_index] > 0:
+                    self.game_logic.selected_pile_index = new_index
+                    self.game_logic.selected_action = None
+                    self.game_logic.selected_count = 1
+                    self.game_logic.message = f"Selected pile {new_index + 1}. Choose action: Take or Split."
+                    break
+    
+    def _select_next_pile(self):
+        """Select the next available pile"""
+        if not self.game_logic.card_piles:
+            return
+        
+        if self.game_logic.selected_pile_index is None:
+            # 如果没有选中的牌堆，选择第一个可用的牌堆
+            for i in range(len(self.game_logic.card_piles)):
+                if self.game_logic.card_piles[i] > 0:
+                    self.game_logic.selected_pile_index = i
+                    self.game_logic.selected_action = None
+                    self.game_logic.selected_count = 1
+                    self.game_logic.message = f"Selected pile {i + 1}. Choose action: Take or Split."
+                    break
+        else:
+            # 从当前选中的牌堆向右循环选择
+            new_index = self.game_logic.selected_pile_index
+            for i in range(1, len(self.game_logic.card_piles)):
+                new_index = (self.game_logic.selected_pile_index + i) % len(self.game_logic.card_piles)
+                if self.game_logic.card_piles[new_index] > 0:
+                    self.game_logic.selected_pile_index = new_index
+                    self.game_logic.selected_action = None
+                    self.game_logic.selected_count = 1
+                    self.game_logic.message = f"Selected pile {new_index + 1}. Choose action: Take or Split."
+                    break
     
     def _increase_count(self):
         """Increase selected count"""
-        if self.game_logic.selected_pile_index is not None and self.game_logic.selected_action:  # 使用self.game_logic
-            pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]  # 使用self.game_logic
+        if self.game_logic.selected_pile_index is not None and self.game_logic.selected_action:
+            pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]
             
-            if self.game_logic.selected_action == 'take':  # 使用self.game_logic
-                max_take = min(self.game_logic.max_take, pile_size)  # 使用self.game_logic
-                if self.game_logic.selected_count < max_take:  # 使用self.game_logic
-                    self.game_logic.selected_count += 1  # 使用self.game_logic
+            if self.game_logic.selected_action == 'take':
+                max_take = min(self.game_logic.max_take, pile_size)
+                if self.game_logic.selected_count < max_take:
+                    self.game_logic.selected_count += 1
             else:  # split
-                if self.game_logic.selected_count < pile_size - 1:  # 使用self.game_logic
-                    self.game_logic.selected_count += 1  # 使用self.game_logic
+                if self.game_logic.selected_count < pile_size - 1:
+                    self.game_logic.selected_count += 1
     
     def _decrease_count(self):
         """Decrease selected count"""
-        if self.game_logic.selected_pile_index is not None and self.game_logic.selected_action:  # 使用self.game_logic
-            if self.game_logic.selected_count > 1:  # 使用self.game_logic
-                self.game_logic.selected_count -= 1  # 使用self.game_logic
-
+        if self.game_logic.selected_pile_index is not None and self.game_logic.selected_action:
+            if self.game_logic.selected_count > 1:
+                self.game_logic.selected_count -= 1
 
 class SplitCardsGame(GameManager):
     """Split Cards Game implementation with Sidebar"""
@@ -266,7 +319,7 @@ Tips:
 
 Good luck and have fun!
 """
-        
+#添加setting功能：可以关闭输赢指示器，还未制作        
         # 信息对话框状态
         self.showing_instructions = False
         
@@ -535,18 +588,18 @@ Good luck and have fun!
                 else:
                     self.buttons["minus"].visible = False
                     self.buttons["plus"].visible = False
-                
-                # Draw hints
+            # Draw hints
                 hints = [
+                    "Use LEFT/RIGHT arrows to select piles",
                     "Select a pile, then choose action: Take or Split",
                     "Use UP/DOWN arrows to adjust count, ENTER to confirm",
                     "The player who takes the last card wins!"
                 ]
-                
                 hint_y = self.ui.table_rect.bottom + 180
                 for i, hint in enumerate(hints):
                     hint_text = self.font_manager.small.render(hint, True, (200, 190, 170))
                     self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, hint_y + i * 20))
+               
             else:
                 # Draw game over screen
                 self.buttons["restart"].draw(self.screen)
@@ -636,3 +689,14 @@ Good luck and have fun!
                     text_rect = text_surface.get_rect(left=panel_x + 40, top=y_pos)
                     self.screen.blit(text_surface, text_rect)
                     y_pos += font.get_linesize() + 2
+    def run(self):
+        """Run the main game loop"""
+        self.running = True
+        while self.running:
+            if not self.handle_events():
+                break
+            
+            self.update()
+            self.input_handler.update_key_repeat()  # 确保调用按键重复更新
+            self.draw()
+            self.clock.tick(CARD_GAME_FPS)

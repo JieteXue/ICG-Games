@@ -3,6 +3,8 @@ Game constants and configuration
 """
 
 # Screen dimensions
+
+
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
 FPS = 60
@@ -12,7 +14,10 @@ CARD_GAME_FPS = 24
 BACKGROUND_COLOR = (25, 35, 45)
 TEXT_COLOR = (220, 230, 240)
 BUTTON_COLOR = (80, 120, 180)
+BUTTON_COLOR_BEIGE = (215, 203, 141)
+# I want a different color for my split cards game buttons
 BUTTON_HOVER_COLOR = (100, 150, 220)
+BUTTON_HOVER_COLOR_BEIGE = (235, 223, 161)
 ACCENT_COLOR = (100, 180, 255)
 SHADOW_COLOR = (15, 25, 35)
 
