@@ -165,3 +165,200 @@ class Scrollbar:
             return True
         
         return False
+    
+class ScrollablePanel:
+    """Scrollable panel for displaying text content"""
+    
+    def __init__(self, x, y, width, height, font_manager, bg_color=(25, 30, 45)):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.font_manager = font_manager
+        self.bg_color = bg_color
+        
+        # Content management
+        self.lines = []  # List of (text, color, font_size)
+        self.line_heights = []  # Pre-calculated line heights
+        self.content_height = 0
+        self.scroll_offset = 0
+        self.max_scroll = 0
+        
+        # Scrollbar properties
+        self.scrollbar_width = 10
+        self.scrollbar_rect = pygame.Rect(
+            x + width - self.scrollbar_width,
+            y,
+            self.scrollbar_width,
+            height
+        )
+        self.scrollbar_handle_height = 100
+        self.is_dragging = False
+        
+        # Performance optimization
+        self.cached_surface = None
+        self.needs_redraw = True
+    
+    def add_line(self, text, color, font_size='medium', centered=False):
+        """Add a line of text to the panel"""
+        self.lines.append({
+            'text': text,
+            'color': color,
+            'font_size': font_size,
+            'centered': centered
+        })
+        self.needs_redraw = True
+        self._calculate_content_height()
+    
+    def add_spacing(self, pixels):
+        """Add empty spacing"""
+        self.lines.append({
+            'text': '',
+            'color': (0, 0, 0),
+            'font_size': 'small',
+            'spacing': pixels,
+            'centered': False
+        })
+        self.needs_redraw = True
+        self._calculate_content_height()
+    
+    def clear_content(self):
+        """Clear all content from the panel"""
+        self.lines = []
+        self.line_heights = []
+        self.content_height = 0
+        self.scroll_offset = 0
+        self.max_scroll = 0
+        self.needs_redraw = True
+    
+    def _calculate_content_height(self):
+        """Calculate total content height and line positions"""
+        self.line_heights = []
+        self.content_height = 0
+        
+        for line in self.lines:
+            if 'spacing' in line:
+                height = line['spacing']
+            else:
+                font = self._get_font(line['font_size'])
+                _, line_height = font.size(line['text'])
+                height = line_height + 5  # Add some padding
+            
+            self.line_heights.append(height)
+            self.content_height += height
+        
+        self.max_scroll = max(0, self.content_height - self.rect.height)
+    
+    def _get_font(self, font_size):
+        """Get font object based on size name"""
+        if font_size == 'small':
+            return self.font_manager.small
+        elif font_size == 'medium':
+            return self.font_manager.medium
+        elif font_size == 'large':
+            return self.font_manager.large
+        else:
+            return self.font_manager.medium
+    
+    def handle_event(self, event):
+        """Handle events for the scrollable panel"""
+        mouse_pos = pygame.mouse.get_pos()
+        
+        if event.type == pygame.MOUSEWHEEL:
+            # Scroll with mouse wheel
+            self.scroll_offset = max(0, min(
+                self.max_scroll,
+                self.scroll_offset - event.y * 20
+            ))
+            self.needs_redraw = True
+            return True
+        
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click
+                # Check if clicking on scrollbar
+                scrollbar_handle = self._get_scrollbar_handle_rect()
+                if scrollbar_handle.collidepoint(mouse_pos):
+                    self.is_dragging = True
+                    self.drag_start_y = mouse_pos[1]
+                    self.drag_start_offset = self.scroll_offset
+                    return True
+        
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                self.is_dragging = False
+                return True
+        
+        elif event.type == pygame.MOUSEMOTION:
+            if self.is_dragging:
+                # Calculate new scroll offset based on drag
+                delta_y = mouse_pos[1] - self.drag_start_y
+                scroll_ratio = delta_y / self.rect.height
+                new_offset = self.drag_start_offset + (scroll_ratio * self.content_height)
+                self.scroll_offset = max(0, min(self.max_scroll, new_offset))
+                self.needs_redraw = True
+                return True
+        
+        return False
+    
+    def _get_scrollbar_handle_rect(self):
+        """Get rectangle for scrollbar handle"""
+        if self.max_scroll == 0:
+            return pygame.Rect(0, 0, 0, 0)
+        
+        # Calculate handle position based on scroll offset
+        handle_y_ratio = self.scroll_offset / self.max_scroll
+        handle_y = self.rect.y + (handle_y_ratio * (self.rect.height - self.scrollbar_handle_height))
+        
+        return pygame.Rect(
+            self.scrollbar_rect.x,
+            handle_y,
+            self.scrollbar_width,
+            self.scrollbar_handle_height
+        )
+    
+    def draw(self, screen):
+        """Draw the scrollable panel"""
+        # Draw background
+        pygame.draw.rect(screen, self.bg_color, self.rect, border_radius=8)
+        pygame.draw.rect(screen, (60, 70, 100), self.rect, 1, border_radius=8)
+        
+        # Create clipping area
+        clip_rect = screen.get_clip()
+        screen.set_clip(self.rect)
+        
+        # Draw content
+        current_y = self.rect.y - self.scroll_offset
+        
+        for i, line in enumerate(self.lines):
+            line_height = self.line_heights[i]
+            
+            # Only draw if line is visible
+            if (current_y + line_height >= self.rect.y and 
+                current_y <= self.rect.y + self.rect.height):
+                
+                if 'spacing' in line:
+                    # This is just spacing, skip drawing
+                    pass
+                else:
+                    # Draw text line
+                    font = self._get_font(line['font_size'])
+                    text_surface = font.render(line['text'], True, line['color'])
+                    
+                    if line['centered']:
+                        text_x = self.rect.x + (self.rect.width - text_surface.get_width()) // 2
+                    else:
+                        text_x = self.rect.x + 10
+                    
+                    screen.blit(text_surface, (text_x, current_y))
+            
+            current_y += line_height
+        
+        # Reset clipping
+        screen.set_clip(clip_rect)
+        
+        # Draw scrollbar if needed
+        if self.max_scroll > 0:
+            # Scrollbar background
+            pygame.draw.rect(screen, (40, 45, 65), self.scrollbar_rect, border_radius=5)
+            
+            # Scrollbar handle
+            handle_rect = self._get_scrollbar_handle_rect()
+            pygame.draw.rect(screen, (80, 90, 130), handle_rect, border_radius=5)
+            pygame.draw.rect(screen, (100, 110, 150), handle_rect, 1, border_radius=5)

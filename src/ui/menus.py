@@ -15,6 +15,7 @@ from utils.error_handler import handle_game_errors, log_resource_error, error_re
 from utils.resource_cache import resource_cache
 from utils.performance_monitor import performance_monitor, PerformanceProfiler
 from utils.optimization_tools import optimize_game_performance, memory_optimizer
+from ui.components.help_dialog import HelpDialog
 
 def get_icon_path(icon_filename):
     """Get icon file path using resource cache"""
@@ -61,6 +62,10 @@ class MainMenu:
         # Initialize game registry as None (lazy loading)
         self.game_registry = None
         
+        # Add help button and dialog
+        self.help_button = None
+        self.help_dialog = HelpDialog(SCREEN_WIDTH, SCREEN_HEIGHT, self.font_manager)
+
         # Performance monitoring
         self.show_perf_overlay = False
         self.last_optimization_time = 0
@@ -109,7 +114,7 @@ class MainMenu:
         grid_height = 2 * button_size + button_spacing
         grid_start_x = (SCREEN_WIDTH - grid_width) // 2
         grid_start_y = 170
-        
+
         # Define button configurations
         button_configs = [
             {"id": "take_coins", "name": "Take Coins", "icon": "G1ICON.jpg"},
@@ -119,59 +124,72 @@ class MainMenu:
             {"id": "subtract_factor", "name": "Subtract Factor", "icon": "G5ICON.jpg"},
             {"id": "coming_soon", "name": "Coming Soon", "icon": "G6ICON.jpg"}
         ]
-        
+
         buttons = {}
-        
+
         # Create all buttons
         for i in range(6):
             row = i // 3
             col = i % 3
             x = grid_start_x + col * (button_size + button_spacing)
             y = grid_start_y + row * (button_size + button_spacing)
-            
+
             config = button_configs[i]
             game_id = config["id"]
             icon_filename = config["icon"]
-            
+
             # Get icon path
             icon_path = get_icon_path(icon_filename) if icon_filename else None
-            
+
             # Create button
             btn = IconButton(x, y, button_size, config["name"], self.font_manager,
                            icon_path=icon_path, tooltip="Click to start game")
-            
+
             # Disable coming_soon button
             if game_id == "coming_soon":
                 btn.enabled = False
                 btn.tooltip = "New game coming soon"
-            
+
             buttons[game_id] = btn
-        
-        # Create info button
+
+        # 创建信息按钮 - 使用图标
         info_button_size = 40
         self.info_button = GameButton(
             SCREEN_WIDTH - 20 - info_button_size, 20,
             info_button_size, info_button_size,
-            "", self.font_manager, icon='info', tooltip="Game Information (F1)"
+            "", self.font_manager, 
+            icon='info',  # 使用图标名称
+            tooltip="Game Information (F1)"
         )
-        
-        # Create performance button (new)
+
+        # 创建性能按钮 - 使用图标
         self.performance_button = GameButton(
             SCREEN_WIDTH - 80 - info_button_size, 20,
             info_button_size, info_button_size,
-            "", self.font_manager, icon='performance', tooltip="Performance Info (F2)"
+            "", self.font_manager,
+            icon='performance',  # 使用图标名称
+            tooltip="Performance Info (F2)"
         )
-        
+
+        # 创建帮助按钮 - 使用图标
+        self.help_button = GameButton(
+            SCREEN_WIDTH - 140 - info_button_size, 20,
+            info_button_size, info_button_size,
+            "", self.font_manager,
+            icon='help',  # 使用图标名称
+            tooltip="Game Help & Guide (H)"
+        )
+
         # Create quit button
         quit_y = grid_start_y + grid_height + 30
         quit_width = 200
         quit_x = self.layout.center_x(quit_width)
         buttons["quit"] = GameButton(quit_x, quit_y, quit_width, 60, 
                                    "Quit", self.font_manager, tooltip="Exit the game (ESC)")
-        
+
         # Update button states based on available games
         self._update_button_states(buttons)
-        
+
         return buttons
     
     def _update_button_states(self, buttons):
@@ -264,21 +282,30 @@ class MainMenu:
         """Handle menu events with error handling"""
         with PerformanceProfiler("menu_handle_events", performance_monitor):
             mouse_pos = pygame.mouse.get_pos()
-            
-            # Update button hover states
+
+            # 更新按钮悬停状态
             for button in self.buttons.values():
                 button.update_hover(mouse_pos)
-            
+
             if self.info_button:
                 self.info_button.update_hover(mouse_pos)
-            
+
             if self.performance_button:
                 self.performance_button.update_hover(mouse_pos)
-            
+
+            if self.help_button:
+                self.help_button.update_hover(mouse_pos)
+
+            # 先处理帮助对话框事件
             for event in pygame.event.get():
+                if self.help_dialog.visible:
+                    if self.help_dialog.handle_event(event):
+                        return True
+
+                # 现有的事件处理代码
                 if event.type == pygame.QUIT:
                     return False
-                
+
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return False
@@ -290,8 +317,15 @@ class MainMenu:
                     elif event.key == pygame.K_F3:
                         performance_monitor.enabled = not performance_monitor.enabled
                         print(f"📊 Performance monitor: {'ENABLED' if performance_monitor.enabled else 'DISABLED'}")
-                
+                    elif event.key == pygame.K_h or event.key == pygame.K_F4:  # 添加H键和F4键
+                        self.help_dialog.toggle()
+
                 elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # 检查帮助按钮
+                    if self.help_button and self.help_button.is_clicked(event):
+                        self.help_dialog.toggle()
+                        return True
+                    
                     # Check performance button first
                     if self.performance_button and self.performance_button.is_clicked(event):
                         self.showing_performance = True
@@ -562,37 +596,45 @@ class MainMenu:
         with PerformanceProfiler("menu_draw_main", performance_monitor):
             self.draw_background()
             self.draw_title()
-            
+
             # Draw buttons
             for button in self.buttons.values():
                 button.draw(self.screen)
-            
+
             # Draw info button
             if self.info_button:
                 self.info_button.draw(self.screen)
-            
+
             # Draw performance button
             if self.performance_button:
                 self.performance_button.draw(self.screen)
-            
+
+            # Draw help button
+            if self.help_button:
+                self.help_button.draw(self.screen)
+
+            # Draw help dialog (if visible)
+            self.help_dialog.draw(self.screen)
+
             # Draw info panel
             self.draw_info_panel()
-            
+
             # Draw performance overlay
             self.draw_performance_overlay()
-            
+
             # Draw error message
             self.draw_error_message()
-            
+
             # Draw footer with performance info
             fps_info = f" | FPS: {self.clock.get_fps():.1f}" if self.show_perf_overlay else ""
+
             footer_text = self.font_manager.small.render(
-                f"© 2025 ICG Games - Interactive Card Games Collection | F1: Info | F2: Perf{fps_info} | ESC: Quit", 
+                f"© 2025 ICG Games - Interactive Card Games Collection | F1: Info | F2: Perf | H: Help{fps_info} | ESC: Quit", 
                 True, (150, 170, 190))
             self.screen.blit(footer_text, 
                             (SCREEN_WIDTH//2 - footer_text.get_width()//2, 
                              SCREEN_HEIGHT - 40))
-            
+
             pygame.display.flip()
     
     @handle_game_errors
