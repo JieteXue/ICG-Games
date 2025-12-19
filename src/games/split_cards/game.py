@@ -218,7 +218,7 @@ Take the last card! Players alternate taking cards or splitting piles.
 
 How to Play:
 1. Start with one pile of cards
-2. On your turn, either:
+2. On your turn, either
    - TAKE: Take 1 to M cards from one pile
    - SPLIT: Split a pile into two non-empty piles
 3. The player who takes the last card wins!
@@ -256,6 +256,7 @@ Navigation:
 - Home (🏠): Return to main menu  
 - Refresh (↻): Restart current game
 - Info (i): Show these instructions
+- Settings (⚙): Open settings menu
 
 Tips:
 - Look for patterns in pile sizes
@@ -526,11 +527,11 @@ Good luck and have fun!
                     # Draw count display
                     count_display = str(self.logic.selected_count)
                     count_text = self.font_manager.large.render(count_display, True, (240, 230, 220))
-                    count_bg = pygame.Rect(control_x + 265, control_y +10, 50, 40)
+                    count_bg = pygame.Rect(control_x + 265, control_y -10, 50, 40)
                     pygame.draw.rect(self.screen, (50, 45, 40), count_bg, border_radius=8)
                     pygame.draw.rect(self.screen, (180, 150, 110), count_bg, 2, border_radius=8)
                     self.screen.blit(count_text, (control_x + 290 - count_text.get_width()//2, 
-                                                 control_y +30 - count_text.get_height()//2))
+                                                 control_y +10 - count_text.get_height()//2))
                 else:
                     self.buttons["minus"].visible = False
                     self.buttons["plus"].visible = False
