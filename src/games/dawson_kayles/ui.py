@@ -394,7 +394,6 @@ class DawsonKaylesUI:
             pygame.draw.rect(self.screen, (20, 30, 50, 150), hint_bg, border_radius=6)
             pygame.draw.rect(self.screen, (0, 100, 180), hint_bg, 1, border_radius=6)
             self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, hint_y + 2 + i * 22))
-    
     def draw_control_panel(self, game_logic):
         """绘制控制面板 - 新增输入框功能"""
         control_y = 560
@@ -412,51 +411,70 @@ class DawsonKaylesUI:
         panel_title = self.font_manager.medium.render("LASER CONTROL PANEL", True, (0, 255, 220))
         self.screen.blit(panel_title, (SCREEN_WIDTH//2 - panel_title.get_width()//2, control_y - 5))
         
-        # 输入框标签
-        input_label = self.font_manager.small.render("Enter tower number (1 to {}) to connect n and n+1:".format(len(game_logic.towers)-1), 
-                                                     True, (180, 220, 255))
-        self.screen.blit(input_label, (control_x, control_y + 20))
+        # 获取可用的最大i值
+        max_i = len(game_logic.towers) - 2  # i的最大值是n-2
         
-        # 创建或更新输入框
-        input_box_width = 120
-        input_box_height = 40
-        input_box_x = control_x + input_label.get_width() + 15
-        input_box_y = control_y + 15
-        
-        if self.input_box is None:
-            # 创建输入框
-            self.input_box = InputBox(
-                input_box_x, input_box_y,
-                input_box_width, input_box_height,
-                self.font_manager,
-                initial_value="1",
-                max_length=3,
-                is_numeric=True
-            )
-        else:
-            # 更新输入框位置
-            self.input_box.rect = pygame.Rect(input_box_x, input_box_y, input_box_width, input_box_height)
+        if max_i >= 0 and not game_logic.game_over:
+            # 只有有可用移动且游戏未结束时才显示输入框
+            input_label = self.font_manager.small.render(f"Enter tower index (0 to {max_i}) to connect i and i+1:", 
+                                                        True, (180, 220, 255))
+            self.screen.blit(input_label, (control_x, control_y + 20))
             
-        # 绘制输入框
-        self.input_box.draw(self.screen)
-        
-        # 连接按钮
-        connect_button_rect = pygame.Rect(input_box_x + input_box_width + 15, input_box_y, 100, input_box_height)
-        
-        # 按钮背景（科技风格）
-        button_color = (0, 150, 220) if connect_button_rect.collidepoint(pygame.mouse.get_pos()) else (0, 100, 180)
-        pygame.draw.rect(self.screen, button_color, connect_button_rect, border_radius=8)
-        pygame.draw.rect(self.screen, (0, 255, 220), connect_button_rect, 2, border_radius=8)
-        
-        # 按钮文字
-        connect_text = self.font_manager.small.render("CONNECT", True, (255, 255, 255))
-        self.screen.blit(connect_text, (connect_button_rect.centerx - connect_text.get_width()//2, 
-                                      connect_button_rect.centery - connect_text.get_height()//2))
-        
-        # 仪表盘装饰
-        self._draw_control_panel_decoration(control_bg)
-        
-        return connect_button_rect
+            # 创建或更新输入框
+            input_box_width = 120
+            input_box_height = 40
+            input_box_x = control_x + input_label.get_width() + 15
+            input_box_y = control_y + 15
+            
+            if self.input_box is None:
+                # 创建输入框 - 初始值为0
+                self.input_box = InputBox(
+                    input_box_x, input_box_y,
+                    input_box_width, input_box_height,
+                    self.font_manager,
+                    initial_value="0",  # 从0开始
+                    max_length=3,
+                    is_numeric=True
+                )
+            else:
+                # 更新输入框位置
+                self.input_box.rect = pygame.Rect(input_box_x, input_box_y, input_box_width, input_box_height)
+                
+            # 绘制输入框
+            self.input_box.draw(self.screen)
+            
+            # 连接按钮
+            connect_button_rect = pygame.Rect(input_box_x + input_box_width + 15, input_box_y, 100, input_box_height)
+            
+            # 按钮背景（科技风格）
+            mouse_pos = pygame.mouse.get_pos()
+            button_hovered = connect_button_rect.collidepoint(mouse_pos)
+            button_color = (0, 150, 220) if button_hovered else (0, 100, 180)
+            pygame.draw.rect(self.screen, button_color, connect_button_rect, border_radius=8)
+            pygame.draw.rect(self.screen, (0, 255, 220), connect_button_rect, 2, border_radius=8)
+            
+            # 按钮文字
+            connect_text = self.font_manager.small.render("CONNECT", True, (255, 255, 255))
+            self.screen.blit(connect_text, (connect_button_rect.centerx - connect_text.get_width()//2, 
+                                        connect_button_rect.centery - connect_text.get_height()//2))
+            
+            # 快捷键提示
+            shortcut_hint = self.font_manager.small.render("Press 'C' for quick connect", True, (150, 200, 255))
+            self.screen.blit(shortcut_hint, (control_x, control_y + 60))
+            
+            # 仪表盘装饰
+            self._draw_control_panel_decoration(control_bg)
+            
+            return connect_button_rect
+        else:
+            # 没有可用移动或游戏已结束
+            no_moves_text = self.font_manager.small.render("No available moves left!", True, (255, 100, 100))
+            self.screen.blit(no_moves_text, (control_x, control_y + 20))
+            
+            # 仪表盘装饰
+            self._draw_control_panel_decoration(control_bg)
+            
+            return None
     
     def _draw_control_panel_decoration(self, panel_rect):
         """绘制控制面板装饰"""
