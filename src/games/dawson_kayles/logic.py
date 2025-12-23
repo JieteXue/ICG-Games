@@ -99,23 +99,42 @@ class DawsonKaylesLogic:
         if self.game_mode == "PVP":
             # PvP模式：固定范围
             min_towers, max_towers = (8, 15)
+            self.num_towers = random.randint(min_towers, max_towers)
+            self.towers = [1 for _ in range(self.num_towers)]
+            self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn."
         else:
             # PvE模式：根据难度使用范围
             min_towers, max_towers = DIFFICULTY_POSITION_RANGES.get(self.difficulty, (8, 15))
+            
+            # 如果是PVE模式，确保初始状态是Winning position
+            max_attempts = 100  # 最大尝试次数，避免无限循环
+            attempts = 0
+            
+            while attempts < max_attempts:
+                self.num_towers = random.randint(min_towers, max_towers)
+                self.towers = [1 for _ in range(self.num_towers)]
+                
+                # 检查当前状态是否为Winning position
+                self.winning_cache = {}  # 清空缓存以便重新计算
+                is_winning = self.judge_win()
+                
+                if is_winning:
+                    # 找到Winning position，跳出循环
+                    break
+                else:
+                    attempts += 1
+                    # 如果是最后一次尝试，记录信息
+                    if attempts == max_attempts:
+                        self.message = f"Warning: Could not find winning position after {max_attempts} attempts. Using current position."
+            
+            difficulty_names = ["Easy", "Normal", "Hard", "Insane"]
+            self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn. Difficulty: {difficulty_names[self.difficulty-1]}"
+            self.auto_player = DawsonKaylesAutoPlayer(self.towers)
         
-        self.num_towers = random.randint(min_towers, max_towers)
-        self.towers = [1 for _ in range(self.num_towers)]
         self.lasers = []
         self.current_player = "Player 1"
         self.game_over = False
         self.winner = None
-        
-        if self.game_mode == "PVE":
-            self.auto_player = DawsonKaylesAutoPlayer(self.towers)
-            difficulty_names = ["Easy", "Normal", "Hard", "Insane"]
-            self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn. Difficulty: {difficulty_names[self.difficulty-1]}"
-        else:
-            self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn."
     
     def get_available_moves(self):
         """获取所有可用的移动（相邻炮塔对）"""
