@@ -57,6 +57,18 @@ class HelpDialog:
         
         # Current content
         self.current_content = []
+
+        # 添加当前选择状态
+        self.current_selection = {
+            'tab': 0,  # 0: Gameplay, 1: Controls
+            'game': "take_coins",  # 当前选中的游戏
+            'control_section': "keyboard"  # 当前选中的控制部分
+        }
+        
+        # 高亮颜色
+        self.highlight_color = (255, 255, 100, 150)  # 半透明黄色
+        self.active_border_color = (255, 200, 50)   # 激活边框颜色
+        self.active_bg_color = (80, 100, 160, 200)  # 激活背景色
     
     def _adjust_layout(self):
         """调整布局，确保不拥挤"""
