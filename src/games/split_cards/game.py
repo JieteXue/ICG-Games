@@ -25,9 +25,18 @@ class SplitCardsInputHandler:
             pygame.K_DOWN: self._decrease_count
         }
     
-    def handle_mouse_click(self, event, pile_rects, buttons):
+    def handle_mouse_click(self, event, pile_rects, buttons, input_box):
         """Handle mouse click events"""
         mouse_pos = pygame.mouse.get_pos()
+        
+        # 检查输入框点击
+        if input_box and input_box.handle_event(event):
+            # 输入框处理了事件
+            if not input_box.is_active():
+                # 输入框已确认，更新游戏逻辑中的选择数量
+                new_value = input_box.get_int_value()
+                self._validate_and_set_count(new_value)
+            return "input_box"
         
         # Check if game is over
         if self.game_logic.game_over:
@@ -75,21 +84,10 @@ class SplitCardsInputHandler:
                         pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]  # 使用self.game_logic
                         
                         if buttons["minus"].is_clicked(event):
-                            if self.game_logic.selected_action == 'take':  # 使用self.game_logic
-                                if self.game_logic.selected_count > 1:  # 使用self.game_logic
-                                    self.game_logic.selected_count -= 1  # 使用self.game_logic
-                            else:  # split
-                                if self.game_logic.selected_count > 1:  # 使用self.game_logic
-                                    self.game_logic.selected_count -= 1  # 使用self.game_logic
+                            self._decrease_count()
                         
                         elif buttons["plus"].is_clicked(event):
-                            if self.game_logic.selected_action == 'take':  # 使用self.game_logic
-                                max_take = min(self.game_logic.max_take, pile_size)  # 使用self.game_logic
-                                if self.game_logic.selected_count < max_take:  # 使用self.game_logic
-                                    self.game_logic.selected_count += 1  # 使用self.game_logic
-                            else:  # split
-                                if self.game_logic.selected_count < pile_size - 1:  # 使用self.game_logic
-                                    self.game_logic.selected_count += 1  # 使用self.game_logic
+                            self._increase_count()
                     
                     # Check confirm button
                     if buttons["confirm_btn"].is_clicked(event) and self.game_logic.selected_action:  # 使用self.game_logic
@@ -123,6 +121,25 @@ class SplitCardsInputHandler:
             self.key_repeat_manager._reset_state()
         
         return None
+    
+    def _validate_and_set_count(self, new_value):
+        """验证并设置选择的数量"""
+        if self.game_logic.selected_pile_index is not None and self.game_logic.selected_action:
+            pile_size = self.game_logic.card_piles[self.game_logic.selected_pile_index]
+            
+            if self.game_logic.selected_action == 'take':
+                max_take = min(self.game_logic.max_take, pile_size)
+                if new_value < 1:
+                    new_value = 1
+                elif new_value > max_take:
+                    new_value = max_take
+            else:  # split
+                if new_value < 1:
+                    new_value = 1
+                elif new_value > pile_size - 1:
+                    new_value = pile_size - 1
+            
+            self.game_logic.selected_count = new_value
     
     def handle_keyboard(self, event):
         """Handle keyboard events"""
@@ -292,11 +309,13 @@ Strategies:
 
 Controls:
 - Mouse: Click on piles and action buttons
+- Click on number box: Direct number input
 - Arrow Keys: Adjust count (LEFT/RIGHT/UP/DOWN)
 - ENTER: Confirm move
+- ESC: Cancel input or go back
 - R: Restart game
 - I: Show these instructions
-- ESC: Back to mode selection
+- ESC (when input active): Cancel input
 
 Difficulty Levels:
 - Easy: Smaller piles, easier to analyze
@@ -319,7 +338,7 @@ Tips:
 
 Good luck and have fun!
 """
-#添加setting功能：可以关闭输赢指示器，还未制作        
+        
         # 信息对话框状态
         self.showing_instructions = False
         
@@ -408,6 +427,38 @@ Good luck and have fun!
                 else:
                     return True  # 忽略其他事件当显示说明时
 
+            # 获取输入框实例
+            input_box = self.ui.get_input_box()
+            
+            # 处理输入框事件（优先处理）
+            if input_box and input_box.handle_event(event):
+                # 输入框处理了事件
+                if not input_box.is_active():
+                    # 输入框已确认，更新游戏逻辑中的选择数量
+                    new_value = input_box.get_int_value()
+                    if self.logic.selected_pile_index is not None and self.logic.selected_action:
+                        pile_size = self.logic.card_piles[self.logic.selected_pile_index]
+                        
+                        if self.logic.selected_action == 'take':
+                            max_take = min(self.logic.max_take, pile_size)
+                            if new_value < 1:
+                                new_value = 1
+                            elif new_value > max_take:
+                                new_value = max_take
+                        else:  # split
+                            if new_value < 1:
+                                new_value = 1
+                            elif new_value > pile_size - 1:
+                                new_value = pile_size - 1
+                        
+                        self.logic.selected_count = new_value
+                return True
+            
+            # 如果输入框激活，不处理其他事件（除了ESC和回车已经在输入框处理了）
+            if input_box and input_box.is_active():
+                # 输入框激活时，只允许处理ESC和回车（已在上面处理）
+                continue
+
             # 处理导航事件
             nav_result = self.handle_navigation_events(event)
             if nav_result == "back":
@@ -431,7 +482,7 @@ Good luck and have fun!
                         self.input_handler.key_repeat_manager._reset_state()
                     return True
 
-                result = self.input_handler.handle_mouse_click(event, self.pile_rects, self.buttons)
+                result = self.input_handler.handle_mouse_click(event, self.pile_rects, self.buttons, input_box)
                 if result == "back":
                     # Reinitialize game settings
                     self.initialize_game_settings()
@@ -503,6 +554,9 @@ Good luck and have fun!
         # 更新侧边栏
         self.sidebar.update()
         
+        # 更新输入框状态
+        self.ui.update_input_box()
+        
         # AI's turn (only in PvE mode)
         if (self.logic.game_mode == "PVE" and 
             self.logic.current_player == "AI" and 
@@ -513,6 +567,9 @@ Good luck and have fun!
             if self.ai_timer > 30:
                 self.logic.ai_make_move()
                 self.ai_timer = 0
+        else:
+            # 更新按键重复状态（仅当不是AI回合时）
+            self.input_handler.update_key_repeat()
     
     def draw(self):
         """Draw the complete game interface"""
@@ -577,19 +634,13 @@ Good luck and have fun!
                     self.buttons["minus"].draw(self.screen)
                     self.buttons["plus"].draw(self.screen)
                     
-                    # Draw count display
-                    count_display = str(self.logic.selected_count)
-                    count_text = self.font_manager.large.render(count_display, True, (240, 230, 220))
-                    count_bg = pygame.Rect(control_x + 265, control_y -10, 50, 40)
-                    pygame.draw.rect(self.screen, (50, 45, 40), count_bg, border_radius=8)
-                    pygame.draw.rect(self.screen, (180, 150, 110), count_bg, 2, border_radius=8)
-                    self.screen.blit(count_text, (control_x + 290 - count_text.get_width()//2, 
-                                                 control_y +10 - count_text.get_height()//2))
+                    # 注意：数字显示已在draw_control_panel中通过输入框绘制
                 else:
                     self.buttons["minus"].visible = False
                     self.buttons["plus"].visible = False
             # Draw hints
                 hints = [
+                    "点击数字框直接输入数字，回车确认，ESC取消",
                     "Use LEFT/RIGHT arrows to select piles",
                     "Select a pile, then choose action: Take or Split",
                     "Use UP/DOWN arrows to adjust count, ENTER to confirm",
@@ -697,6 +748,5 @@ Good luck and have fun!
                 break
             
             self.update()
-            self.input_handler.update_key_repeat()  # 确保调用按键重复更新
             self.draw()
             self.clock.tick(CARD_GAME_FPS)

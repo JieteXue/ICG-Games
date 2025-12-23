@@ -5,6 +5,7 @@ Card Nim Game UI Components
 import pygame
 from utils.constants import *
 from utils.helpers import wrap_text
+from ui.components.input_box import InputBox  # 新增导入
 
 class CardNimUI:
     """Handles all UI rendering for Card Nim game"""
@@ -12,6 +13,8 @@ class CardNimUI:
     def __init__(self, screen, font_manager):
         self.screen = screen
         self.font_manager = font_manager
+        self.input_box = None  # 新增：输入框实例
+        self.count_rect = None  # 新增：数字显示区域矩形
     
     def draw_background(self):
         """Draw the background with gradient effect"""
@@ -192,20 +195,36 @@ class CardNimUI:
         pygame.draw.rect(self.screen, (35, 45, 60), control_bg, border_radius=15)
         pygame.draw.rect(self.screen, ACCENT_COLOR, control_bg, 3, border_radius=15)
         
-        # Draw count display with background
-        count_display = str(selected_count) if selected_position_index is not None else "-"
-        count_text = self.font_manager.large.render(count_display, True, TEXT_COLOR)
-        count_bg = pygame.Rect(control_x + control_width//2 - 35, control_y-5, 70, 60)
-        pygame.draw.rect(self.screen, (40, 60, 80), count_bg, border_radius=12)
-        pygame.draw.rect(self.screen, ACCENT_COLOR, count_bg, 3, border_radius=12)
-        self.screen.blit(count_text, 
-                        (control_x + control_width//2 - count_text.get_width()//2, 
-                         control_y + 25 - count_text.get_height()//2))
+        # 新增：创建输入框（如果不存在）
+        if self.input_box is None:
+            # 数字显示区域的位置和尺寸
+            self.count_rect = pygame.Rect(control_x + control_width//2 - 35, control_y - 5, 70, 60)
+            self.input_box = InputBox(
+                self.count_rect.x, self.count_rect.y,
+                self.count_rect.width, self.count_rect.height,
+                self.font_manager,
+                initial_value=str(selected_count),
+                max_length=3,
+                is_numeric=True
+            )
+        
+        # 更新输入框的值
+        if not self.input_box.is_active():
+            self.input_box.set_value(selected_count)
+        
+        # 绘制输入框
+        self.input_box.draw(self.screen)
+        
+        # 如果输入框激活，显示提示
+        if self.input_box.active:
+            hint_text = self.font_manager.small.render("输入数字，回车确认，ESC取消", True, (180, 200, 220))
+            self.screen.blit(hint_text, (control_x + control_width//2 - hint_text.get_width()//2, control_y + 70))
     
     def draw_hints(self):
         """Draw operation hints separately below control panel"""
         hint_y = POSITION_HEIGHT + 290
         hints = [
+            "点击数字框直接输入数字，回车确认，ESC取消",
             "Use UP/DOWN arrows to adjust number, ENTER to confirm",
             "Use LEFT/RIGHT arrows to switch between positions", 
             "Click on card stacks to select them"
@@ -336,3 +355,12 @@ class CardNimUI:
         }
         
         return buttons
+    
+    def get_input_box(self):
+        """获取输入框实例"""
+        return self.input_box
+    
+    def update_input_box(self):
+        """更新输入框状态"""
+        if self.input_box:
+            self.input_box.update()
