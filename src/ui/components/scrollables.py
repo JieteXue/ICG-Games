@@ -189,7 +189,7 @@ class ScrollablePanel:
             self.scrollbar_width,
             height
         )
-        self.scrollbar_handle_height = 100
+        self.min_handle_height = 20  # 最小手柄高度
         self.is_dragging = False
         
         # Performance optimization
@@ -279,6 +279,18 @@ class ScrollablePanel:
                     self.drag_start_y = mouse_pos[1]
                     self.drag_start_offset = self.scroll_offset
                     return True
+                # 点击滚动条轨道进行快速跳转
+                elif self.scrollbar_rect.collidepoint(mouse_pos):
+                    # 获取手柄矩形
+                    handle_rect = self._get_scrollbar_handle_rect()
+                    # 点击在手柄上方
+                    if mouse_pos[1] < handle_rect.top:
+                        self.scroll_offset = max(0, self.scroll_offset - self.rect.height)
+                    # 点击在手柄下方
+                    else:
+                        self.scroll_offset = min(self.max_scroll, self.scroll_offset + self.rect.height)
+                    self.needs_redraw = True
+                    return True
         
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
@@ -287,57 +299,89 @@ class ScrollablePanel:
         
         elif event.type == pygame.MOUSEMOTION:
             if self.is_dragging:
-                # Calculate new scroll offset based on drag
+                # 计算新的滚动偏移量基于拖拽
+                handle_height = self._calculate_handle_height()
                 delta_y = mouse_pos[1] - self.drag_start_y
-                scroll_ratio = delta_y / self.rect.height
-                new_offset = self.drag_start_offset + (scroll_ratio * self.content_height)
-                self.scroll_offset = max(0, min(self.max_scroll, new_offset))
+                
+                # 计算拖拽比例：鼠标移动距离 / (轨道高度 - 手柄高度)
+                track_space = self.rect.height - handle_height
+                if track_space > 0:
+                    drag_ratio = delta_y / track_space
+                    new_offset = self.drag_start_offset + (drag_ratio * self.max_scroll)
+                    self.scroll_offset = max(0, min(self.max_scroll, new_offset))
+                else:
+                    # 如果轨道空间太小，直接跳转到顶部或底部
+                    if delta_y < 0:
+                        self.scroll_offset = 0
+                    else:
+                        self.scroll_offset = self.max_scroll
+                
                 self.needs_redraw = True
                 return True
         
         return False
     
+    def _calculate_handle_height(self):
+        """计算滚动条手柄高度，使其与可见内容比例一致"""
+        if self.content_height <= self.rect.height:
+            return self.rect.height
+        
+        # 计算可见内容占总内容的比例
+        visible_ratio = self.rect.height / self.content_height
+        
+        # 手柄高度 = 滚动条轨道高度 × 可见比例
+        handle_height = self.rect.height * visible_ratio
+        
+        # 确保手柄高度不小于最小值
+        return max(self.min_handle_height, handle_height)
+    
     def _get_scrollbar_handle_rect(self):
-        """Get rectangle for scrollbar handle"""
+        """获取滚动条手柄矩形"""
         if self.max_scroll == 0:
             return pygame.Rect(0, 0, 0, 0)
         
-        # Calculate handle position based on scroll offset
-        handle_y_ratio = self.scroll_offset / self.max_scroll
-        handle_y = self.rect.y + (handle_y_ratio * (self.rect.height - self.scrollbar_handle_height))
+        # 计算手柄高度
+        handle_height = self._calculate_handle_height()
+        
+        # 计算手柄位置基于滚动偏移量
+        if self.max_scroll > 0:
+            scroll_ratio = self.scroll_offset / self.max_scroll
+            handle_y = self.rect.y + (scroll_ratio * (self.rect.height - handle_height))
+        else:
+            handle_y = self.rect.y
         
         return pygame.Rect(
             self.scrollbar_rect.x,
             handle_y,
             self.scrollbar_width,
-            self.scrollbar_handle_height
+            handle_height
         )
     
     def draw(self, screen):
-        """Draw the scrollable panel"""
-        # Draw background
+        """绘制滚动面板"""
+        # 绘制背景
         pygame.draw.rect(screen, self.bg_color, self.rect, border_radius=8)
         pygame.draw.rect(screen, (60, 70, 100), self.rect, 1, border_radius=8)
         
-        # Create clipping area
+        # 创建裁剪区域
         clip_rect = screen.get_clip()
         screen.set_clip(self.rect)
         
-        # Draw content
+        # 绘制内容
         current_y = self.rect.y - self.scroll_offset
         
         for i, line in enumerate(self.lines):
             line_height = self.line_heights[i]
             
-            # Only draw if line is visible
+            # 仅绘制可见行
             if (current_y + line_height >= self.rect.y and 
                 current_y <= self.rect.y + self.rect.height):
                 
                 if 'spacing' in line:
-                    # This is just spacing, skip drawing
+                    # 这是间距，跳过绘制
                     pass
                 else:
-                    # Draw text line
+                    # 绘制文本行
                     font = self._get_font(line['font_size'])
                     text_surface = font.render(line['text'], True, line['color'])
                     
@@ -350,15 +394,15 @@ class ScrollablePanel:
             
             current_y += line_height
         
-        # Reset clipping
+        # 重置裁剪区域
         screen.set_clip(clip_rect)
         
-        # Draw scrollbar if needed
+        # 如果需要，绘制滚动条
         if self.max_scroll > 0:
-            # Scrollbar background
+            # 滚动条背景
             pygame.draw.rect(screen, (40, 45, 65), self.scrollbar_rect, border_radius=5)
             
-            # Scrollbar handle
+            # 滚动条手柄
             handle_rect = self._get_scrollbar_handle_rect()
             pygame.draw.rect(screen, (80, 90, 130), handle_rect, border_radius=5)
             pygame.draw.rect(screen, (100, 110, 150), handle_rect, 1, border_radius=5)
