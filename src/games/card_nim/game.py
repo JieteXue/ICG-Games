@@ -30,7 +30,7 @@ Take cards from stacks. The player who takes the last card wins!
 
 How to Play:
 1. Click on a card stack to select it
-2. Use UP/DOWN arrows or buttons to select how many cards to take
+2. Click on the number box to input count directly, or use UP/DOWN arrows/buttons
 3. Press CONFIRM or ENTER to make your move
 4. Try to leave your opponent in a losing position
 
@@ -46,10 +46,12 @@ Strategies:
 Controls:
 - Mouse: Click to select stacks and buttons
 - Arrow Keys: Navigate between stacks and adjust card count
+- Click on number box: Direct number input
 - ENTER: Confirm move
+- ESC: Cancel input or go back
 - R: Restart game
 - I: Show these instructions
-- ESC: Back to mode selection
+- ESC (when input active): Cancel input
 
 Difficulty Levels:
 - Easy: AI makes more random moves
@@ -141,6 +143,32 @@ Good luck and have fun!
                 else:
                     return True  # 忽略其他事件当显示说明时
             
+            # 获取输入框实例
+            input_box = self.ui.get_input_box()
+            
+            # 处理输入框事件（优先处理）
+            if input_box and input_box.handle_event(event):
+                # 输入框处理了事件，更新选择的数量
+                if not input_box.is_active():
+                    # 输入框已确认，更新逻辑中的选择数量
+                    new_value = input_box.get_int_value()
+                    
+                    # 验证数值范围
+                    if self.logic.selected_position_index is not None:
+                        max_count = self.logic.positions[self.logic.selected_position_index]
+                        if new_value < 1:
+                            new_value = 1
+                        elif new_value > max_count:
+                            new_value = max_count
+                        
+                        self.logic.selected_count = new_value
+                return True
+            
+            # 如果输入框激活，不处理其他事件（除了ESC和回车已经在输入框处理了）
+            if input_box and input_box.is_active():
+                # 输入框激活时，只允许处理ESC和回车（已在上面处理）
+                continue
+            
             # Handle navigation events
             nav_result = self.handle_navigation_events(event)
             if nav_result == "back":
@@ -224,6 +252,11 @@ Good luck and have fun!
         """Update game state"""
         self.sidebar.update()
 
+        # 更新输入框状态（光标闪烁等）
+        input_box = self.ui.get_input_box()
+        if input_box:
+            input_box.update()
+        
         if not self.logic.game_over:
             self.update_ai_turn()
             self.update_button_states()
@@ -233,7 +266,6 @@ Good luck and have fun!
             self.logic.positions, self.logic.selected_position_index
         )
     
-# 修改 draw 方法，绘制侧边栏：
     def draw(self):
         """Draw game interface"""
         # Draw background
@@ -254,6 +286,8 @@ Good luck and have fun!
         # Draw game-specific UI
         if not self.logic.game_over:
             self.ui.draw_control_panel(self.buttons, self.logic.selected_count, self.logic.selected_position_index)
+            
+            # 只绘制加减按钮和确认按钮（数字显示已在control_panel中绘制）
             for button_name in ["minus", "plus", "confirm"]:
                 if button_name in self.buttons:
                     self.buttons[button_name].draw(self.screen)
