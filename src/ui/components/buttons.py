@@ -61,6 +61,8 @@ class BaseButton(ABC):
         else:
             self.tooltip_timer = 0
 
+# buttons.py - 修改 GameButton 类
+
 class GameButton(BaseButton):
     """Universal game button with enhanced styling"""
     
@@ -69,52 +71,53 @@ class GameButton(BaseButton):
         self.icon = icon
         self.corner_radius = 12
         self.icon_surface = None
+        self.is_active = False  # 添加激活状态
+        self.active_bg_color = (80, 100, 160)  # 激活背景色
+        self.active_border_color = (255, 200, 50)  # 激活边框色
+        self.highlight_color = (255, 255, 100, 100)  # 高亮颜色
         
         if self.icon:
             self._load_icon()
-    
-    def _load_icon(self):
-        """Load and cache icon surface"""
-        if self.icon:
-            icon_size = min(self.rect.width, self.rect.height) * 3 // 5
-            icon_color = (255, 255, 255) if self.enabled else (150, 150, 150)
-            self.icon_surface = IconRenderer.get_icon(self.icon, icon_size, icon_color)
     
     def draw(self, surface):
         """Draw the game button with icon"""
-        FontHelper.ensure_initialized(self.font_manager)
-        
-        if hasattr(self.font_manager, 'ensure_initialized'):
-            # 如果 font_manager 是 FontManager 且有这个方法
-            self.font_manager.ensure_initialized()
-        elif hasattr(self.font_manager, 'initialize_fonts'):
-            # 如果 font_manager 是 FontManager 但有不同方法名
-            if not hasattr(self.font_manager, 'small') or self.font_manager.small is None:
-                self.font_manager.initialize_fonts()
+        # 根据激活状态选择颜色
+        if self.is_active:
+            # 激活状态：使用高亮颜色
+            bg_color = self.active_bg_color
+            border_color = self.active_border_color
+            
+            # 绘制高亮效果
+            highlight_rect = self.rect.inflate(8, 8)  # 稍微放大
+            highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(highlight_surface, self.highlight_color, 
+                           (0, 0, highlight_rect.width, highlight_rect.height), 
+                           border_radius=self.corner_radius + 4)
+            surface.blit(highlight_surface, highlight_rect)
+            
         else:
-            # 其他情况，假设字体已经初始化
-            pass
+            # 非激活状态：正常颜色
+            bg_color = BUTTON_HOVER_COLOR if self.hovered and self.enabled else BUTTON_COLOR
+            border_color = ACCENT_COLOR if self.hovered and self.enabled else (100, 140, 200)
         
-        # 如果状态改变，重新加载图标
-        if self.icon_surface is None and self.icon:
-            self._load_icon()
+        if not self.enabled:
+            bg_color = (100, 100, 120)
+            border_color = (80, 80, 100)
         
         # Draw shadow
         shadow_rect = self.rect.move(4, 4)
         pygame.draw.rect(surface, SHADOW_COLOR, shadow_rect, border_radius=self.corner_radius)
         
-        # Draw button
-        color = BUTTON_HOVER_COLOR if self.hovered and self.enabled else BUTTON_COLOR
-        if not self.enabled:
-            color = (100, 100, 120)
+        # Draw button background
+        pygame.draw.rect(surface, bg_color, self.rect, border_radius=self.corner_radius)
         
-        pygame.draw.rect(surface, color, self.rect, border_radius=self.corner_radius)
+        # Draw border (激活状态时边框更粗)
+        border_width = 4 if self.is_active else 3
+        pygame.draw.rect(surface, border_color, self.rect, border_width, border_radius=self.corner_radius)
         
-        # Draw border
-        border_color = ACCENT_COLOR if self.hovered and self.enabled else (100, 140, 200)
-        if not self.enabled:
-            border_color = (80, 80, 100)
-        pygame.draw.rect(surface, border_color, self.rect, 3, border_radius=self.corner_radius)
+        # 如果状态改变，重新加载图标
+        if self.icon_surface is None and self.icon:
+            self._load_icon()
         
         # Draw icon and/or text
         if self.icon_surface and self.text:
@@ -130,6 +133,13 @@ class GameButton(BaseButton):
         # Draw tooltip
         self._draw_tooltip(surface)
     
+    def _load_icon(self):
+        """Load and cache icon surface"""
+        if self.icon:
+            icon_size = min(self.rect.width, self.rect.height) * 3 // 5
+            icon_color = (255, 255, 255) if self.enabled else (150, 150, 150)
+            self.icon_surface = IconRenderer.get_icon(self.icon, icon_size, icon_color)
+
     def _draw_icon_and_text(self, surface):
         """Draw both icon and text"""
         if not self.icon_surface:
