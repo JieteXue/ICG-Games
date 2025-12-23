@@ -1,5 +1,5 @@
 """
-Card Nim Game UI Components
+Card Nim Game UI Components - 更新以支持胜利指示器开关
 """
 
 import pygame
@@ -21,15 +21,17 @@ class CardNimUI:
         self.screen.fill(BACKGROUND_COLOR)
 
         # 考虑侧边栏的偏移
-        sidebar_width = SIDEBAR_WIDTH  # 使用常量
+        sidebar_width = SIDEBAR_EXPANDED_WIDTH  # 使用常量
 
         for x in range(sidebar_width, SCREEN_WIDTH, 40):
             pygame.draw.line(self.screen, (35, 45, 55), (x, 0), (x, SCREEN_HEIGHT), 1)
         for y in range(0, SCREEN_HEIGHT, 40):
             pygame.draw.line(self.screen, (35, 45, 55), (sidebar_width, y), (SCREEN_WIDTH, y), 1)
     
-    def draw_game_info(self, game_logic):
-        """Draw game information panel with enhanced styling"""
+    def draw_game_info(self, game_logic, show_win_indicator=True):
+        """Draw game information panel with enhanced styling
+           show_win_indicator: 是否显示胜利/失败位置指示器
+        """
         # Draw header background
         header_rect = pygame.Rect(0, 0, SCREEN_WIDTH, 180)
         pygame.draw.rect(self.screen, (35, 45, 60), header_rect)
@@ -103,8 +105,8 @@ class CardNimUI:
                 True, ACCENT_COLOR)
             self.screen.blit(select_info, (SCREEN_WIDTH//2 - select_info.get_width()//2, 130))
         
-        # Game state indicator (winning/losing position)
-        if not game_logic.game_over:
+        # Game state indicator (winning/losing position) - 根据设置决定是否显示
+        if not game_logic.game_over and show_win_indicator:
             game_state = "Winning Position" if game_logic.judge_win() else "Losing Position"
             state_color = WIN_COLOR if game_logic.judge_win() else LOSE_COLOR
             state_text = self.font_manager.small.render(game_state, True, state_color)
@@ -114,6 +116,17 @@ class CardNimUI:
             pygame.draw.rect(self.screen, (40, 50, 65), state_bg, border_radius=6)
             pygame.draw.rect(self.screen, state_color, state_bg, 2, border_radius=6)
             self.screen.blit(state_text, (SCREEN_WIDTH//2 - state_text.get_width()//2, 158))
+        elif not show_win_indicator and not game_logic.game_over:
+            # 显示提示：指示器已关闭
+            indicator_text = self.font_manager.small.render(
+                "Win/Lose Indicator: OFF (Settings)", True, (150, 150, 150)
+            )
+            indicator_bg = pygame.Rect(SCREEN_WIDTH//2 - indicator_text.get_width()//2 - 10, 155,
+                                     indicator_text.get_width() + 20, indicator_text.get_height() + 6)
+            pygame.draw.rect(self.screen, (40, 50, 65), indicator_bg, border_radius=6)
+            pygame.draw.rect(self.screen, (150, 150, 150), indicator_bg, 2, border_radius=6)
+            self.screen.blit(indicator_text, (SCREEN_WIDTH//2 - indicator_text.get_width()//2, 158))
+
     
     def draw_card_positions(self, positions, selected_position_index):
         """Draw all card positions and return their clickable rectangles"""

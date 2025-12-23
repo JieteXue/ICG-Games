@@ -1,5 +1,5 @@
 """
-Split Cards Game UI Components
+Split Cards Game UI Components - 更新以支持胜利指示器开关
 """
 
 import pygame
@@ -124,7 +124,6 @@ class Button:
         
         surface.blit(text_surface, text_rect)
 
-
 class SplitCardsUI:
     """Handles all UI rendering for Split Cards game"""
     
@@ -134,7 +133,6 @@ class SplitCardsUI:
         self.table_color = (210, 180, 140)  # Beige table color
         self.table_rect = pygame.Rect(50, 150, SCREEN_WIDTH - 100, 400)
         self.input_box = None  # 新增：输入框实例
-    
     def draw_background(self):
         """Draw the background with table"""
         # Draw dark background
@@ -157,11 +155,12 @@ class SplitCardsUI:
         
         # Draw table edge
         pygame.draw.rect(self.screen, (180, 150, 110), self.table_rect, 5, border_radius=20)
-      
-        
+ 
     
-    def draw_game_info(self, game_logic):
-        """Draw game information panel"""
+    def draw_game_info(self, game_logic, show_win_indicator=True):
+        """Draw game information panel
+           show_win_indicator: 是否显示胜利/失败位置指示器
+        """
         # Draw header
         header_rect = pygame.Rect(0, 0, SCREEN_WIDTH, 120)
         pygame.draw.rect(self.screen, (40, 35, 30), header_rect)
@@ -207,8 +206,8 @@ class SplitCardsUI:
         pygame.draw.rect(self.screen, player_color, player_bg, 2, border_radius=8)
         self.screen.blit(player_text, (SCREEN_WIDTH - player_text.get_width() - 30, 80))
         
-        # 添加状态指示器（必胜/必败）
-        if not game_logic.game_over:
+        # 添加状态指示器（必胜/必败）- 根据设置决定是否显示
+        if not game_logic.game_over and show_win_indicator:
             # 计算当前是否为必胜位置
             is_winning = game_logic.is_winning_position()
             position_text = "Winning Position" if is_winning else "Losing Position"
@@ -220,6 +219,16 @@ class SplitCardsUI:
             pygame.draw.rect(self.screen, (50, 45, 40), position_bg, border_radius=8)
             pygame.draw.rect(self.screen, position_color, position_bg, 2, border_radius=8)
             self.screen.blit(position_display, (SCREEN_WIDTH//2 - position_display.get_width()//2, 95))
+        elif not show_win_indicator and not game_logic.game_over:
+            # 显示提示：指示器已关闭
+            indicator_text = self.font_manager.small.render(
+                "Win/Lose Indicator: OFF (Settings)", True, (150, 150, 150)
+            )
+            indicator_bg = pygame.Rect(SCREEN_WIDTH//2 - indicator_text.get_width()//2 - 10, 92,
+                                     indicator_text.get_width() + 20, indicator_text.get_height() + 6)
+            pygame.draw.rect(self.screen, (50, 45, 40), indicator_bg, border_radius=8)
+            pygame.draw.rect(self.screen, (150, 150, 150), indicator_bg, 2, border_radius=8)
+            self.screen.blit(indicator_text, (SCREEN_WIDTH//2 - indicator_text.get_width()//2, 95))
         
         # Game message
         message_color = (100, 200, 100) if game_logic.game_over and game_logic.winner == "Player 1" \
@@ -236,7 +245,7 @@ class SplitCardsUI:
                 pygame.draw.rect(self.screen, (50, 45, 40), message_bg, border_radius=8)
                 pygame.draw.rect(self.screen, (180, 150, 110), message_bg, 2, border_radius=8)
             self.screen.blit(message_text, (SCREEN_WIDTH//2 - message_text.get_width()//2, 121 + i * 25))
-        
+            
     def draw_card_piles(self, card_piles, selected_index, selected_action):
         """Draw all card piles on the table"""
         if not card_piles:
