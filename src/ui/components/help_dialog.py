@@ -115,7 +115,7 @@ class HelpDialog:
             button = GameButton(
                 x, y, tab_button_width, tab_button_height,
                 tab["name"], self.font_manager,
-                icon='game' if tab["id"] == "gameplay" else 'controls',
+                # icon='game' if tab["id"] == "gameplay" else 'controls',
                 tooltip=f"Switch to {tab['name']} tab"
             )
             button.tab_index = i
@@ -128,7 +128,7 @@ class HelpDialog:
         game_names = ["Take Coins", "Split Cards", "Card Nim", 
                      "Laser Defense", "Subtract Factor"]
         
-        game_button_width = 120
+        game_button_width = 140
         game_button_height = 35
         game_button_start_x = self.x + 20
         game_button_y = self.y + 125
