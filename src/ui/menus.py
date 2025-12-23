@@ -173,7 +173,7 @@ class MainMenu:
 
         # 创建帮助按钮 - 使用图标
         self.help_button = GameButton(
-            SCREEN_WIDTH - 140 - info_button_size, 20,
+            SCREEN_WIDTH - 90 - info_button_size, 40,
             info_button_size, info_button_size,
             "", self.font_manager,
             icon='help',  # 使用图标名称
