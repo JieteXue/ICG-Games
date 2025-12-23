@@ -6,6 +6,8 @@ import pygame
 import math
 from abc import ABC, abstractmethod
 from utils.constants import *
+from utils.icon_renderer import IconRenderer
+from utils.font_helper import FontHelper
 
 class BaseButton(ABC):
     """Base button class"""
@@ -59,6 +61,8 @@ class BaseButton(ABC):
         else:
             self.tooltip_timer = 0
 
+# buttons.py - 修改 GameButton 类
+
 class GameButton(BaseButton):
     """Universal game button with enhanced styling"""
     
@@ -66,82 +70,146 @@ class GameButton(BaseButton):
         super().__init__(x, y, width, height, text, font_manager, tooltip)
         self.icon = icon
         self.corner_radius = 12
+        self.icon_surface = None
+        self.is_active = False  # 添加激活状态
+        self.active_bg_color = (80, 100, 160)  # 激活背景色
+        self.active_border_color = (255, 200, 50)  # 激活边框色
+        self.highlight_color = (255, 255, 100, 100)  # 高亮颜色
+        
+        if self.icon:
+            self._load_icon()
     
     def draw(self, surface):
-        """Draw the game button with enhanced styling"""
-        self.font_manager.ensure_initialized()
+        """Draw the game button with icon"""
+        # 根据激活状态选择颜色
+        if self.is_active:
+            # 激活状态：使用高亮颜色
+            bg_color = self.active_bg_color
+            border_color = self.active_border_color
+            
+            # 绘制高亮效果
+            highlight_rect = self.rect.inflate(8, 8)  # 稍微放大
+            highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(highlight_surface, self.highlight_color, 
+                           (0, 0, highlight_rect.width, highlight_rect.height), 
+                           border_radius=self.corner_radius + 4)
+            surface.blit(highlight_surface, highlight_rect)
+            
+        else:
+            # 非激活状态：正常颜色
+            bg_color = BUTTON_HOVER_COLOR if self.hovered and self.enabled else BUTTON_COLOR
+            border_color = ACCENT_COLOR if self.hovered and self.enabled else (100, 140, 200)
+        
+        if not self.enabled:
+            bg_color = (100, 100, 120)
+            border_color = (80, 80, 100)
         
         # Draw shadow
         shadow_rect = self.rect.move(4, 4)
         pygame.draw.rect(surface, SHADOW_COLOR, shadow_rect, border_radius=self.corner_radius)
         
-        # Draw button
-        color = BUTTON_HOVER_COLOR if self.hovered and self.enabled else BUTTON_COLOR
-        if not self.enabled:
-            color = (100, 100, 120)
+        # Draw button background
+        pygame.draw.rect(surface, bg_color, self.rect, border_radius=self.corner_radius)
         
-        pygame.draw.rect(surface, color, self.rect, border_radius=self.corner_radius)
+        # Draw border (激活状态时边框更粗)
+        border_width = 4 if self.is_active else 3
+        pygame.draw.rect(surface, border_color, self.rect, border_width, border_radius=self.corner_radius)
         
-        # Draw border
-        border_color = ACCENT_COLOR if self.hovered and self.enabled else (100, 140, 200)
-        if not self.enabled:
-            border_color = (80, 80, 100)
-        pygame.draw.rect(surface, border_color, self.rect, 3, border_radius=self.corner_radius)
+        # 如果状态改变，重新加载图标
+        if self.icon_surface is None and self.icon:
+            self._load_icon()
         
-        # Draw icon or text
-        if self.icon:
-            self._draw_icon(surface)
+        # Draw icon and/or text
+        if self.icon_surface and self.text:
+            # Both icon and text
+            self._draw_icon_and_text(surface)
+        elif self.icon_surface:
+            # Icon only
+            self._draw_icon_only(surface)
         else:
-            self._draw_text(surface)
+            # Text only
+            self._draw_text_only(surface)
         
         # Draw tooltip
         self._draw_tooltip(surface)
     
-    def _draw_icon(self, surface):
-        """Draw button icon"""
-        icon_color = (255, 255, 255) if self.enabled else (150, 150, 150)
-        
-        if self.icon == 'back':
-            # Draw back arrow
-            pygame.draw.polygon(surface, icon_color, [
-                (self.rect.centerx - 8, self.rect.centery),
-                (self.rect.centerx + 2, self.rect.centery - 8),
-                (self.rect.centerx + 2, self.rect.centery - 4),
-                (self.rect.centerx + 8, self.rect.centery - 4),
-                (self.rect.centerx + 8, self.rect.centery + 4),
-                (self.rect.centerx + 2, self.rect.centery + 4),
-                (self.rect.centerx + 2, self.rect.centery + 8)
-            ])
-        elif self.icon == 'home':
-            # Draw home icon
-            pygame.draw.polygon(surface, icon_color, [
-                (self.rect.centerx, self.rect.centery - 8),
-                (self.rect.centerx - 10, self.rect.centery + 2),
-                (self.rect.centerx - 6, self.rect.centery + 2),
-                (self.rect.centerx - 6, self.rect.centery + 8),
-                (self.rect.centerx + 6, self.rect.centery + 8),
-                (self.rect.centerx + 6, self.rect.centery + 2),
-                (self.rect.centerx + 10, self.rect.centery + 2)
-            ])
-        elif self.icon == 'refresh':
-            # Draw refresh icon as text
-            refresh_font = pygame.font.SysFont('Arial', 12, bold=True)
-            refresh_text = refresh_font.render("Refresh", True, icon_color)
-            refresh_rect = refresh_text.get_rect(center=self.rect.center)
-            surface.blit(refresh_text, refresh_rect)
-    
-    def _draw_text(self, surface):
-        """Draw button text"""
+    def _load_icon(self):
+        """Load and cache icon surface"""
+        if self.icon:
+            icon_size = min(self.rect.width, self.rect.height) * 3 // 5
+            icon_color = (255, 255, 255) if self.enabled else (150, 150, 150)
+            self.icon_surface = IconRenderer.get_icon(self.icon, icon_size, icon_color)
+
+    def _draw_icon_and_text(self, surface):
+        """Draw both icon and text"""
+        if not self.icon_surface:
+            return
+
+        # 安全地获取小字体
+        if hasattr(self.font_manager, 'small'):
+            small_font = self.font_manager.small
+        elif isinstance(self.font_manager, pygame.font.Font):
+            # 如果是字体对象，计算小号字体
+            small_font = pygame.font.Font(None, 20)  # 创建小号字体
+        else:
+            small_font = pygame.font.SysFont(None, 20)
+
+        # Calculate positions
+        total_height = self.icon_surface.get_height() + small_font.get_height() + 5
+        icon_y = self.rect.centery - total_height // 2
+        icon_x = self.rect.centerx - self.icon_surface.get_width() // 2
+
+        # Draw icon
+        surface.blit(self.icon_surface, (icon_x, icon_y))
+
+        # Draw text
         text_color = (255, 255, 255) if self.enabled else (150, 150, 150)
-        text_surface = self.font_manager.medium.render(self.text, True, text_color)
-        text_rect = text_surface.get_rect(center=self.rect.center)
-        
+        text_surface = small_font.render(self.text, True, text_color)
+        text_rect = text_surface.get_rect(center=(self.rect.centerx, 
+                                                icon_y + self.icon_surface.get_height() + 
+                                                small_font.get_height()//2 + 5))
+
         # Text shadow
         if self.enabled:
-            shadow_surface = self.font_manager.medium.render(self.text, True, (0, 0, 0, 100))
+            shadow_surface = small_font.render(self.text, True, (0, 0, 0, 100))
+            shadow_rect = text_rect.move(1, 1)
+            surface.blit(shadow_surface, shadow_rect)
+
+        surface.blit(text_surface, text_rect)
+    
+    def _draw_icon_only(self, surface):
+        """Draw icon only (centered)"""
+        if not self.icon_surface:
+            return
+        
+        icon_x = self.rect.centerx - self.icon_surface.get_width() // 2
+        icon_y = self.rect.centery - self.icon_surface.get_height() // 2
+        surface.blit(self.icon_surface, (icon_x, icon_y))
+    
+    def _draw_text_only(self, surface):
+        """Draw text only (centered)"""
+        text_color = (255, 255, 255) if self.enabled else (150, 150, 150)
+
+        # 安全地获取字体
+        if hasattr(self.font_manager, 'medium'):
+            # font_manager 是 FontManager 实例
+            font = self.font_manager.medium
+        elif isinstance(self.font_manager, pygame.font.Font):
+            # font_manager 是 pygame.font.Font 实例
+            font = self.font_manager
+        else:
+            # 回退到系统字体
+            font = pygame.font.SysFont(None, 32)
+
+        text_surface = font.render(self.text, True, text_color)
+        text_rect = text_surface.get_rect(center=self.rect.center)
+
+        # Text shadow
+        if self.enabled:
+            shadow_surface = font.render(self.text, True, (0, 0, 0, 100))
             shadow_rect = text_rect.move(2, 2)
             surface.blit(shadow_surface, shadow_rect)
-        
+
         surface.blit(text_surface, text_rect)
 
 class IconButton(GameButton):
