@@ -17,17 +17,20 @@ class HelpDialog:
         self.screen_height = screen_height
         self.font_manager = font_manager
         self.visible = False
-        
-        # Dialog dimensions
-        self.width = min(800, screen_width - 100)
-        self.height = min(600, screen_height - 100)
+
+        # 显著增大对话框
+        self.width = min(950, screen_width - 50)  # 增大宽度
+        self.height = min(750, screen_height - 50)  # 增大高度
+
         self.x = (screen_width - self.width) // 2
         self.y = (screen_height - self.height) // 2
-        
-        # Create scrollable panel
+
+        # 优化滚动面板
         self.scroll_panel = ScrollablePanel(
-            self.x + 20, self.y + 130,
-            self.width - 40, self.height - 180,
+            self.x + 40,  # 更大的左边距
+            self.y + 180,  # 更大的顶部间距
+            self.width - 80,  # 更大的内容宽度
+            self.height - 250,  # 更大的内容高度
             font_manager
         )
         
@@ -54,7 +57,38 @@ class HelpDialog:
         
         # Current content
         self.current_content = []
-        
+    
+    def _adjust_layout(self):
+        """调整布局，确保不拥挤"""
+        # 确保tab按钮水平居中
+        total_tab_width = len(self.tab_buttons) * 160 + (len(self.tab_buttons) - 1) * 20
+        tab_start_x = self.x + (self.width - total_tab_width) // 2
+
+        for i, button in enumerate(self.tab_buttons):
+            button.rect.x = tab_start_x + i * (160 + 20)
+            button.rect.y = self.y + 60
+
+        # 确保游戏按钮水平居中或换行显示
+        total_game_width = len(self.game_buttons) * 140 + (len(self.game_buttons) - 1) * 15
+        if total_game_width <= self.width - 80:
+            # 一行可以放下，居中显示
+            game_start_x = self.x + (self.width - total_game_width) // 2
+            for i, button in enumerate(self.game_buttons):
+                button.rect.x = game_start_x + i * (140 + 15)
+                button.rect.y = self.y + 120
+        else:
+            # 分两行显示
+            buttons_per_row = (self.width - 60) // (140 + 15)
+            for i, button in enumerate(self.game_buttons):
+                row = i // buttons_per_row
+                col = i % buttons_per_row
+                button.rect.x = self.x + 30 + col * (140 + 15)
+                button.rect.y = self.y + 120 + row * (45 + 10)
+
+        # 调整关闭按钮位置
+        self.close_button.rect.x = self.x + self.width - 50 - 30
+        self.close_button.rect.y = self.y + 45
+
     def _create_buttons(self):
         """Create all buttons for the dialog"""
         tab_button_width = 140
@@ -63,7 +97,7 @@ class HelpDialog:
         
         for i, tab in enumerate(self.tabs):
             x = tab_start_x + i * (tab_button_width + 10)
-            y = self.y + 30
+            y = self.y + 80
             
             # 使用 GameButton 而不是 IconButton
             button = GameButton(
@@ -85,7 +119,7 @@ class HelpDialog:
         game_button_width = 120
         game_button_height = 35
         game_button_start_x = self.x + 20
-        game_button_y = self.y + 85
+        game_button_y = self.y + 125
         
         for i, (game_id, game_name) in enumerate(zip(game_ids, game_names)):
             x = game_button_start_x + i * (game_button_width + 10)
@@ -107,7 +141,7 @@ class HelpDialog:
         control_button_width = 140
         control_button_height = 35
         control_button_start_x = self.x + 20
-        control_button_y = self.y + 85
+        control_button_y = self.y + 125
         
         for i, (section_id, section_name) in enumerate(zip(control_sections, section_names)):
             x = control_button_start_x + i * (control_button_width + 10)

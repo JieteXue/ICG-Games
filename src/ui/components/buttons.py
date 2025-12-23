@@ -7,6 +7,7 @@ import math
 from abc import ABC, abstractmethod
 from utils.constants import *
 from utils.icon_renderer import IconRenderer
+from utils.font_helper import FontHelper
 
 class BaseButton(ABC):
     """Base button class"""
@@ -81,7 +82,18 @@ class GameButton(BaseButton):
     
     def draw(self, surface):
         """Draw the game button with icon"""
-        self.font_manager.ensure_initialized()
+        FontHelper.ensure_initialized(self.font_manager)
+        
+        if hasattr(self.font_manager, 'ensure_initialized'):
+            # 如果 font_manager 是 FontManager 且有这个方法
+            self.font_manager.ensure_initialized()
+        elif hasattr(self.font_manager, 'initialize_fonts'):
+            # 如果 font_manager 是 FontManager 但有不同方法名
+            if not hasattr(self.font_manager, 'small') or self.font_manager.small is None:
+                self.font_manager.initialize_fonts()
+        else:
+            # 其他情况，假设字体已经初始化
+            pass
         
         # 如果状态改变，重新加载图标
         if self.icon_surface is None and self.icon:
@@ -122,28 +134,37 @@ class GameButton(BaseButton):
         """Draw both icon and text"""
         if not self.icon_surface:
             return
-        
+
+        # 安全地获取小字体
+        if hasattr(self.font_manager, 'small'):
+            small_font = self.font_manager.small
+        elif isinstance(self.font_manager, pygame.font.Font):
+            # 如果是字体对象，计算小号字体
+            small_font = pygame.font.Font(None, 20)  # 创建小号字体
+        else:
+            small_font = pygame.font.SysFont(None, 20)
+
         # Calculate positions
-        total_height = self.icon_surface.get_height() + self.font_manager.small.get_height() + 5
+        total_height = self.icon_surface.get_height() + small_font.get_height() + 5
         icon_y = self.rect.centery - total_height // 2
         icon_x = self.rect.centerx - self.icon_surface.get_width() // 2
-        
+
         # Draw icon
         surface.blit(self.icon_surface, (icon_x, icon_y))
-        
+
         # Draw text
         text_color = (255, 255, 255) if self.enabled else (150, 150, 150)
-        text_surface = self.font_manager.small.render(self.text, True, text_color)
+        text_surface = small_font.render(self.text, True, text_color)
         text_rect = text_surface.get_rect(center=(self.rect.centerx, 
                                                 icon_y + self.icon_surface.get_height() + 
-                                                self.font_manager.small.get_height()//2 + 5))
-        
+                                                small_font.get_height()//2 + 5))
+
         # Text shadow
         if self.enabled:
-            shadow_surface = self.font_manager.small.render(self.text, True, (0, 0, 0, 100))
+            shadow_surface = small_font.render(self.text, True, (0, 0, 0, 100))
             shadow_rect = text_rect.move(1, 1)
             surface.blit(shadow_surface, shadow_rect)
-        
+
         surface.blit(text_surface, text_rect)
     
     def _draw_icon_only(self, surface):
@@ -158,15 +179,27 @@ class GameButton(BaseButton):
     def _draw_text_only(self, surface):
         """Draw text only (centered)"""
         text_color = (255, 255, 255) if self.enabled else (150, 150, 150)
-        text_surface = self.font_manager.medium.render(self.text, True, text_color)
+
+        # 安全地获取字体
+        if hasattr(self.font_manager, 'medium'):
+            # font_manager 是 FontManager 实例
+            font = self.font_manager.medium
+        elif isinstance(self.font_manager, pygame.font.Font):
+            # font_manager 是 pygame.font.Font 实例
+            font = self.font_manager
+        else:
+            # 回退到系统字体
+            font = pygame.font.SysFont(None, 32)
+
+        text_surface = font.render(self.text, True, text_color)
         text_rect = text_surface.get_rect(center=self.rect.center)
-        
+
         # Text shadow
         if self.enabled:
-            shadow_surface = self.font_manager.medium.render(self.text, True, (0, 0, 0, 100))
+            shadow_surface = font.render(self.text, True, (0, 0, 0, 100))
             shadow_rect = text_rect.move(2, 2)
             surface.blit(shadow_surface, shadow_rect)
-        
+
         surface.blit(text_surface, text_rect)
 
 class IconButton(GameButton):
