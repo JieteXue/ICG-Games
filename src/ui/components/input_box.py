@@ -1,8 +1,5 @@
-
-"""
-通用文本输入框组件
-支持手动输入数字，带验证功能
-"""
+# [file name]: ui/components/input_box.py
+"""通用文本输入框组件支持手动输入数字，带验证功能"""
 
 import pygame
 from utils.constants import *
@@ -11,8 +8,9 @@ class InputBox:
     """通用文本输入框组件"""
     
     def __init__(self, x, y, width, height, font_manager, 
-                 initial_value="1", max_length=4, 
-                 validate_func=None, is_numeric=True):
+                 initial_value="0", max_length=4, 
+                 validate_func=None, is_numeric=True, 
+                 validation_type="generic"):
         """
         初始化输入框
         
@@ -20,10 +18,11 @@ class InputBox:
             x, y: 位置
             width, height: 尺寸
             font_manager: 字体管理器
-            initial_value: 初始值
+            initial_value: 初始值 (默认改为"0")
             max_length: 最大长度
-            validate_func: 验证函数，返回(验证结果, 处理后的值)
+            validate_func: 自定义验证函数
             is_numeric: 是否为数字输入框
+            validation_type: 验证类型 ("generic", "dawson_kayles", "split_cards")
         """
         self.rect = pygame.Rect(x, y, width, height)
         self.font_manager = font_manager
@@ -32,6 +31,10 @@ class InputBox:
         self.max_length = max_length
         self.validate_func = validate_func
         self.is_numeric = is_numeric
+        self.validation_type = validation_type
+        
+        # 游戏特定参数（在set_game_params中设置）
+        self.game_params = {}
         
         # 输入框样式
         self.bg_color = (40, 50, 65)
@@ -54,6 +57,10 @@ class InputBox:
         
         # 工具提示
         self.tooltip = "点击输入数字，回车确认，ESC取消"
+    
+    def set_game_params(self, params):
+        """设置游戏特定参数"""
+        self.game_params = params
     
     def handle_event(self, event):
         """处理事件"""
@@ -106,24 +113,95 @@ class InputBox:
         return True  # 非数字输入框接受任何字符
     
     def _apply_validation(self):
-        """应用验证"""
+        """应用验证 - 根据验证类型调用不同的验证函数"""
         if self.validate_func:
+            # 使用自定义验证函数
             is_valid, validated_value = self.validate_func(self.value)
             if is_valid:
                 self.value = validated_value
             else:
-                # 验证失败，使用默认值
-                self.value = "1"
+                self.value = "0"
+        elif self.validation_type == "dawson_kayles":
+            # Dawson-Kayles 特定验证
+            is_valid, validated_value = self._apply_validation_dawson()
+            if is_valid:
+                self.value = validated_value
+            else:
+                self.value = "0"
+        elif self.validation_type == "split_cards":
+            # Split Cards 特定验证
+            is_valid, validated_value = self._apply_validation_split_cards()
+            if is_valid:
+                self.value = validated_value
+            else:
+                self.value = "0"
         elif self.is_numeric:
             # 默认的数字验证
-            try:
-                num = int(self.value)
-                if num < 1:
-                    self.value = "1"
-            except ValueError:
-                self.value = "1"
+            is_valid, validated_value = self._apply_validation_generic()
+            if is_valid:
+                self.value = validated_value
+            else:
+                self.value = "0"
         
         self._update_text_surface()
+    
+    def _apply_validation_generic(self):
+        """通用数字验证"""
+        try:
+            num = int(self.value)
+            if num < 0:
+                return False, "0"
+            return True, str(num)
+        except ValueError:
+            return False, "0"
+    
+    def _apply_validation_dawson(self):
+        """Dawson-Kayles 游戏验证"""
+        try:
+            num = int(self.value)
+            
+            # 从游戏参数获取验证所需信息
+            towers = self.game_params.get('towers', [])
+            available_moves = self.game_params.get('available_moves', [])
+            max_i = len(towers) - 2 if towers else 0
+            
+            # 检查是否在有效范围内
+            if num < 0 or (max_i >= 0 and num > max_i):
+                return False, "0"
+            
+            # 检查是否是有效移动（可选，可以在点击连接按钮时检查）
+            # if num not in available_moves:
+            #     return False, "0"
+            
+            return True, str(num)
+        except ValueError:
+            return False, "0"
+    
+    def _apply_validation_split_cards(self):
+        """Split Cards 游戏验证"""
+        try:
+            num = int(self.value)
+            
+            # 从游戏参数获取验证所需信息
+            selected_pile_index = self.game_params.get('selected_pile_index', None)
+            selected_action = self.game_params.get('selected_action', None)
+            card_piles = self.game_params.get('card_piles', [])
+            max_take = self.game_params.get('max_take', 0)
+            
+            if selected_pile_index is not None and selected_action:
+                pile_size = card_piles[selected_pile_index]
+                
+                if selected_action == 'take':
+                    max_valid = min(max_take, pile_size)
+                    if num < 1 or num > max_valid:
+                        return False, "1"
+                else:  # split
+                    if num < 1 or num > pile_size - 1:
+                        return False, "1"
+            
+            return True, str(num)
+        except ValueError:
+            return False, "1"
     
     def _update_text_surface(self):
         """更新文本表面"""
@@ -170,7 +248,7 @@ class InputBox:
         try:
             return int(self.value)
         except ValueError:
-            return 1
+            return 0  # 默认返回0
     
     def set_value(self, value):
         """设置值"""
@@ -180,50 +258,11 @@ class InputBox:
     def is_active(self):
         """检查是否激活"""
         return self.active
-
-
-class InputBoxManager:
-    """输入框管理器，用于管理多个输入框"""
     
-    def __init__(self):
-        self.input_boxes = []
-    
-    def add_input_box(self, input_box):
-        """添加输入框"""
-        self.input_boxes.append(input_box)
-    
-    def handle_events(self, event):
-        """处理所有输入框的事件"""
-        for input_box in self.input_boxes:
-            if input_box.handle_event(event):
-                # 如果事件被处理，停用其他输入框
-                for other_box in self.input_boxes:
-                    if other_box != input_box and other_box.active:
-                        other_box.active = False
-                        other_box._apply_validation()
-                return input_box
-        return None
-    
-    def update(self):
-        """更新所有输入框"""
-        for input_box in self.input_boxes:
-            input_box.update()
-    
-    def draw(self, screen):
-        """绘制所有输入框"""
-        for input_box in self.input_boxes:
-            input_box.draw(screen)
-    
-    def get_active_box(self):
-        """获取当前激活的输入框"""
-        for input_box in self.input_boxes:
-            if input_box.active:
-                return input_box
-        return None
-    
-    def deactivate_all(self):
-        """停用所有输入框"""
-        for input_box in self.input_boxes:
-            if input_box.active:
-                input_box.active = False
-                input_box._apply_validation()
+    def reset_to_default(self):
+        """重置为默认值"""
+        if self.validation_type == "split_cards":
+            self.value = "1"
+        else:
+            self.value = "0"
+        self._update_text_surface()

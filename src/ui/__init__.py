@@ -8,7 +8,7 @@ from .menus import MainMenu, GameModeSelector
 from .layout import UILayout
 from .components import BaseButton, GameButton, IconButton, Panel, InfoPanel, ControlPanel
 from .components.info_dialog import InfoDialog
-from .components.input_box import InputBox, InputBoxManager
+from .components.input_box import InputBox
 # from .components.scrollable_list import ScrollableList, Scrollbar
 
 __all__ = [
@@ -17,5 +17,5 @@ __all__ = [
     'Panel', 'InfoPanel', 'ControlPanel',
     'ScrollableList', 'Scrollbar',
     'Sidebar', 'SidebarButton',
-    'InfoDialog','InputBox', 'InputBoxManager'
+    'InfoDialog','InputBox'
 ]

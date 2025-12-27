@@ -373,27 +373,7 @@ class DawsonKaylesUI:
         for button in self.scroll_buttons:
             button.draw(self.screen)
     
-    def draw_hints(self):
-        """绘制操作提示 - 保持原始功能"""
-        hint_y = 610
-        hints = [
-            "CLICK ADJACENT TOWERS TO CONNECT LASERS",
-            "LAST PLAYER TO MAKE A MOVE WINS THE GAME",
-            "USE MOUSE WHEEL OR ARROW KEYS TO SCROLL",
-            "CONNECTED TOWERS DISPLAY PLAYER COLORS"
-        ]
-        
-        for i, hint in enumerate(hints):
-            hint_text = self.font_manager.small.render(hint, True, (150, 200, 255))
-            hint_bg = pygame.Rect(
-                SCREEN_WIDTH//2 - hint_text.get_width()//2 - 10,
-                hint_y + i * 22,
-                hint_text.get_width() + 20,
-                hint_text.get_height() + 4
-            )
-            pygame.draw.rect(self.screen, (20, 30, 50, 150), hint_bg, border_radius=6)
-            pygame.draw.rect(self.screen, (0, 100, 180), hint_bg, 1, border_radius=6)
-            self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, hint_y + 2 + i * 22))
+
     def draw_control_panel(self, game_logic):
         """绘制控制面板 - 新增输入框功能"""
         control_y = 560
@@ -427,18 +407,24 @@ class DawsonKaylesUI:
             input_box_y = control_y + 15
             
             if self.input_box is None:
-                # 创建输入框 - 初始值为0
+                # 创建输入框 - 使用 Dawson-Kayles 特定验证
                 self.input_box = InputBox(
                     input_box_x, input_box_y,
                     input_box_width, input_box_height,
                     self.font_manager,
                     initial_value="0",  # 从0开始
                     max_length=3,
+                    validation_type="dawson_kayles",  # 指定验证类型
                     is_numeric=True
                 )
-            else:
-                # 更新输入框位置
+            
+            # 设置游戏参数
+            if self.input_box:
                 self.input_box.rect = pygame.Rect(input_box_x, input_box_y, input_box_width, input_box_height)
+                self.input_box.set_game_params({
+                    'towers': game_logic.towers,
+                    'available_moves': game_logic.get_available_moves()
+                })
                 
             # 绘制输入框
             self.input_box.draw(self.screen)
@@ -468,7 +454,10 @@ class DawsonKaylesUI:
             return connect_button_rect
         else:
             # 没有可用移动或游戏已结束
-            no_moves_text = self.font_manager.small.render("No available moves left!", True, (255, 100, 100))
+            if game_logic.game_over:
+                no_moves_text = self.font_manager.small.render("Game Over!", True, (255, 100, 100))
+            else:
+                no_moves_text = self.font_manager.small.render("No available moves left!", True, (255, 100, 100))
             self.screen.blit(no_moves_text, (control_x, control_y + 20))
             
             # 仪表盘装饰

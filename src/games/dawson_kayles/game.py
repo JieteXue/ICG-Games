@@ -9,7 +9,7 @@ from games.dawson_kayles.logic import DawsonKaylesLogic
 from games.dawson_kayles.ui import DawsonKaylesUI, TowerButton
 from utils.constants import CARD_GAME_FPS, SCREEN_WIDTH, SCREEN_HEIGHT
 from ui.components.sidebar import Sidebar  # 新增导入
-from ui.components.input_box import InputBox,InputBoxManager  # 新增导入
+from ui.components.input_box import InputBox  # 新增导入
 
 class DawsonKaylesInputHandler:
     """Handles input for Dawson-Kayles game"""
@@ -75,15 +75,16 @@ class DawsonKaylesInputHandler:
                         return None
         
         return None
+
     def _handle_connect_button_click(self, input_box):
         """处理连接按钮点击"""
         if not input_box:
             return
             
-        # 获取输入值 - 现在输入的是i（0索引）
+        # 获取输入值 - 输入框已经验证过范围
         tower_i = input_box.get_int_value()
         
-        # 验证输入范围
+        # 验证输入范围（输入框已经做了基本验证，这里做更详细的验证）
         max_i = len(self.game_logic.towers) - 2  # i的最大值是n-2
         if max_i < 0:  # 如果没有可用的移动
             self.game_logic.message = "No available moves left!"
@@ -113,20 +114,21 @@ class DawsonKaylesInputHandler:
         self.selected_position = None
 
     def _validate_input_box_value(self, input_box):
-        """验证输入框的值"""
+        """验证输入框的值 - 现在大部分验证在输入框内部完成"""
         if not input_box:
             return
             
+        # 输入框内部已经有完整的验证，这里只需要确保值在合理范围内
         tower_i = input_box.get_int_value()
         max_i = len(self.game_logic.towers) - 2
         
-        # 基本验证
+        # 基本验证 - 允许0
         if tower_i < 0:
             input_box.set_value(0)
-        elif max_i >= 0 and tower_i > max_i:  # 确保max_i是非负的
-            input_box.set_value(max_i)
-   
-    
+        elif max_i >= 0 and tower_i > max_i:
+            input_box.set_value(max_i if max_i > 0 else 0)
+
+
     def handle_tower_click(self, tower_id):
         """Handle tower click"""
         available_moves = self.game_logic.get_available_moves()
@@ -303,7 +305,30 @@ Good luck commander!
         except Exception as e:
             print(f"Error initializing game settings: {e}")
             self.logic.initialize_game("PVE", 2)
-    
+    def handle_navigation_events(self, event):
+        """Universal navigation events handling"""
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # 不再检查导航按钮，因为这些现在在侧边栏中
+            pass
+        
+        # 按 I 键显示信息
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            return "info"
+        # 按 R 键重启游戏
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+            return "refresh"
+        # 按 C 键/enter键触发连接按钮
+        elif event.type == pygame.KEYDOWN and (event.key == pygame.K_c or event.key==pygame.K_RETURN):
+            # 触发连接按钮
+            input_box = self.ui.get_input_box()
+            if input_box and not self.logic.game_over:
+                self.input_handler._handle_connect_button_click(input_box)
+            return None
+        # Toggle performance overlay with F2
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
+            self.show_perf_overlay = not self.show_perf_overlay
+        
+        return None
     def handle_events(self):
         """Handle game events"""
         if self.should_return_to_menu:
@@ -352,17 +377,7 @@ Good luck commander!
             
             # 处理输入框事件（优先处理）
             if input_box and input_box.handle_event(event):
-                # 输入框处理了事件
-                if not input_box.is_active():
-                    # 输入框已确认，验证输入值
-                    tower_i = input_box.get_int_value()
-                    max_i = len(self.logic.towers) - 2
-                    
-                    # 基本验证
-                    if tower_i < 0:
-                        input_box.set_value(0)
-                    elif max_i >= 0 and tower_i > max_i:
-                        input_box.set_value(max_i if max_i > 0 else 0)
+                # 输入框处理了事件 - 验证已经在输入框内部完成
                 return True
             
             # 如果输入框激活，不处理其他事件（除了ESC和回车已经在输入框处理了）
@@ -370,12 +385,15 @@ Good luck commander!
                 # 输入框激活时，只允许处理ESC和回车（已在上面处理）
                 continue
             
-            # Handle navigation events
-            nav_result = self.handle_navigation_events(event)
+            # Handle navigation events - 修复这里的方法名
+            nav_result = self.handle_navigation_events(event)  # 将 _events 改为 handle_navigation_events
             if nav_result == "back":
                 self.initialize_game_settings()
                 self.ui.scroll_offset = 0
                 self.input_handler.selected_position = None
+                # 重置输入框
+                if input_box:
+                    input_box.reset_to_default()
                 return True
             elif nav_result == "home":
                 return False
@@ -386,6 +404,9 @@ Good luck commander!
                 self.logic.initialize_game(game_mode, difficulty)
                 self.ui.scroll_offset = 0
                 self.input_handler.selected_position = None
+                # 重置输入框
+                if input_box:
+                    input_box.reset_to_default()
                 return True
             elif nav_result == "info":
                 self.showing_instructions = True
@@ -398,6 +419,9 @@ Good luck commander!
                 # 检查是否重启了游戏
                 if result == "restart":
                     self.create_components()
+                    # 重置输入框
+                    if input_box:
+                        input_box.reset_to_default()
                     return True
             
             elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
@@ -405,6 +429,9 @@ Good luck commander!
                 # 检查是否重启了游戏
                 if result == "restart":
                     self.create_components()
+                    # 重置输入框
+                    if input_box:
+                        input_box.reset_to_default()
                     return True
             
             elif event.type == pygame.MOUSEWHEEL:
@@ -412,31 +439,6 @@ Good luck commander!
                 self.ui.handle_mouse_wheel(event, len(self.logic.towers))
         
         return True
-    def handle_navigation_events(self, event):
-        """Universal navigation events handling"""
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            # 不再检查导航按钮，因为这些现在在侧边栏中
-            pass
-        
-        # 按 I 键显示信息
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
-            return "info"
-        # 按 R 键重启游戏
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            return "refresh"
-        # 按 C 键触发连接按钮
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_c:
-            # 触发连接按钮
-            input_box = self.ui.get_input_box()
-            if input_box and not self.logic.game_over:
-                self.input_handler._handle_connect_button_click(input_box)
-            return None
-        # Toggle performance overlay with F2
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
-            self.show_perf_overlay = not self.show_perf_overlay
-        
-        return None
-    
     def _handle_sidebar_action(self, action):
         """处理侧边栏按钮点击"""
         if action == "toggle":
@@ -524,8 +526,7 @@ Good luck commander!
                 self.connect_button_rect = self.ui.draw_control_panel(self.logic)
                 self.input_handler.connect_button_rect = self.connect_button_rect
                 
-                # Draw hints
-                self.ui.draw_hints()
+                
                 
                 # 在 DawsonKaylesGame 类的 draw 方法中修改提示部分：
 
