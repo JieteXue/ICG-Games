@@ -204,11 +204,15 @@ Objective:
 Connect adjacent towers with lasers. The player who makes the last move wins!
 
 How to Play:
-1. Click on an available tower (highlighted in blue)
-2. Click on an adjacent available tower to create a laser connection
-3. Both connected towers are removed from play
-4. Players alternate turns until no moves remain
-5. The player who makes the last move wins the game
+1. Direct Selection Method:
+   - Click on an available tower (highlighted in blue)
+   - Click on an adjacent available tower to create a laser connection
+
+2. Direct Input Method:
+   - Use the control panel at the bottom to directly enter tower indices
+   - Enter index i (0 to n-2) to connect towers i and i+1
+   - Press GO button or C key to execute
+   - Invalid inputs will show error messages
 
 Game Rules:
 - You can only connect towers that are directly adjacent
@@ -217,12 +221,6 @@ Game Rules:
   - Player 1: Blue-Green
   - Player 2/AI: Orange-Gold
 - The game ends when no adjacent towers remain
-
-NEW: Direct Input:
-- Use the control panel at the bottom to directly enter tower indices
-- Enter index i (0 to n-2) to connect towers i and i+1
-- Press CONNECT button or C key to execute
-- Invalid inputs will show error messages
 
 Game Modes:
 - Player vs Player: Play against another person
@@ -235,21 +233,26 @@ Strategies:
 - Look for moves that create isolated towers
 
 Controls:
-- Mouse: Click to select towers and create lasers
+Mouse Controls:
+- Click to select towers and create lasers
+- Scroll Wheel: Scroll through towers
+- Click CONNECT button: Execute direct input move
+
+Keyboard Shortcuts:
 - LEFT/RIGHT Arrow Keys: Scroll through towers
 - ENTER: Complete move when a tower is selected
-- C: Connect using input box value
+- C: Quick connect using input box value
 - R: Restart game
 - I: Show these instructions
-- ESC: Back to mode selection
+- ESC: Toggle sidebar / Cancel input
 
-Difficulty Levels:
-- Easy: AI makes mostly random moves
-- Normal: Balanced AI difficulty
-- Hard: AI uses basic winning strategies
-- Insane: AI plays nearly perfect game
+Panel Controls:
+- Power LED (Green): System active
+- Ready LED (Yellow): Input accepted
+- Active LED (Red): Processing move
 
 Navigation:
+- Toggle Sidebar (☰): Show/hide navigation
 - Back (←): Return to mode selection
 - Home (🏠): Return to main menu  
 - Restart: Restart current game

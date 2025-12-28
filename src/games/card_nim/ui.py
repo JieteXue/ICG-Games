@@ -217,14 +217,14 @@ class CardNimUI:
         
         # 如果输入框激活，显示提示
         if self.input_box.active:
-            hint_text = self.font_manager.small.render("输入数字，回车确认，ESC取消", True, (180, 200, 220))
+            hint_text = self.font_manager.small.render("Input number, ENTER to confirm, ESC to cancel", True, (180, 200, 220))
             self.screen.blit(hint_text, (control_x + control_width//2 - hint_text.get_width()//2, control_y + 70))
     
     def draw_hints(self):
         """Draw operation hints separately below control panel"""
         hint_y = POSITION_HEIGHT + 290
         hints = [
-            "点击数字框直接输入数字，回车确认，ESC取消",
+            "Click on the number box to input a number, ENTER to confirm, ESC to cancel",
             "Use UP/DOWN arrows to adjust number, ENTER to confirm",
             "Use LEFT/RIGHT arrows to switch between positions", 
             "Click on card stacks to select them"

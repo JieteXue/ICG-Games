@@ -140,7 +140,6 @@ class ScrollButton:
                 self.hovered and 
                 self.enabled)
 
-
 class DawsonKaylesUI:
     """Dawson-Kayles游戏UI管理器 - 保持完全兼容性"""
     
@@ -373,9 +372,8 @@ class DawsonKaylesUI:
         for button in self.scroll_buttons:
             button.draw(self.screen)
     
-
     def draw_control_panel(self, game_logic):
-        """绘制控制面板 - 新增输入框功能"""
+        """绘制控制面板 - 简化版本，移除文字提示"""
         control_y = 560
         control_width = 500
         control_x = (SCREEN_WIDTH - control_width) // 2
@@ -395,26 +393,26 @@ class DawsonKaylesUI:
         max_i = len(game_logic.towers) - 2  # i的最大值是n-2
         
         if max_i >= 0 and not game_logic.game_over:
-            # 只有有可用移动且游戏未结束时才显示输入框
-            input_label = self.font_manager.small.render(f"Enter tower index (0 to {max_i}) to connect i and i+1:", 
+            # 输入框标签（简洁版）
+            input_label = self.font_manager.small.render(f"Connect i & i+1 (0 to {max_i}):", 
                                                         True, (180, 220, 255))
             self.screen.blit(input_label, (control_x, control_y + 20))
             
             # 创建或更新输入框
-            input_box_width = 120
+            input_box_width = 80  # 减小宽度
             input_box_height = 40
-            input_box_x = control_x + input_label.get_width() + 15
+            input_box_x = control_x + input_label.get_width() + 10
             input_box_y = control_y + 15
             
             if self.input_box is None:
-                # 创建输入框 - 使用 Dawson-Kayles 特定验证
+                # 创建输入框
                 self.input_box = InputBox(
                     input_box_x, input_box_y,
                     input_box_width, input_box_height,
                     self.font_manager,
-                    initial_value="0",  # 从0开始
+                    initial_value="0",
                     max_length=3,
-                    validation_type="dawson_kayles",  # 指定验证类型
+                    validation_type="dawson_kayles",
                     is_numeric=True
                 )
             
@@ -430,7 +428,7 @@ class DawsonKaylesUI:
             self.input_box.draw(self.screen)
             
             # 连接按钮
-            connect_button_rect = pygame.Rect(input_box_x + input_box_width + 15, input_box_y, 100, input_box_height)
+            connect_button_rect = pygame.Rect(input_box_x + input_box_width + 15, input_box_y, 80, input_box_height)
             
             # 按钮背景（科技风格）
             mouse_pos = pygame.mouse.get_pos()
@@ -440,33 +438,33 @@ class DawsonKaylesUI:
             pygame.draw.rect(self.screen, (0, 255, 220), connect_button_rect, 2, border_radius=8)
             
             # 按钮文字
-            connect_text = self.font_manager.small.render("CONNECT", True, (255, 255, 255))
+            connect_text = self.font_manager.small.render("GO", True, (255, 255, 255))  # 改为"GO"
             self.screen.blit(connect_text, (connect_button_rect.centerx - connect_text.get_width()//2, 
                                         connect_button_rect.centery - connect_text.get_height()//2))
             
-            # 快捷键提示
-            shortcut_hint = self.font_manager.small.render("Press 'C' for quick connect", True, (150, 200, 255))
-            self.screen.blit(shortcut_hint, (control_x, control_y + 60))
-            
-            # 仪表盘装饰
+            # 仪表盘装饰（LED灯间距调整）
             self._draw_control_panel_decoration(control_bg)
+            
+            # 快捷方式提示（移到更下方，不与其他内容重叠）
+            shortcut_hint = self.font_manager.small.render("Press 'C' for quick connect", True, (100, 180, 255))
+            self.screen.blit(shortcut_hint, (control_bg.centerx - shortcut_hint.get_width()//2, control_y + 65))
             
             return connect_button_rect
         else:
             # 没有可用移动或游戏已结束
             if game_logic.game_over:
-                no_moves_text = self.font_manager.small.render("Game Over!", True, (255, 100, 100))
+                status_text = self.font_manager.small.render("GAME OVER", True, (255, 100, 100))
             else:
-                no_moves_text = self.font_manager.small.render("No available moves left!", True, (255, 100, 100))
-            self.screen.blit(no_moves_text, (control_x, control_y + 20))
+                status_text = self.font_manager.small.render("NO MOVES LEFT", True, (255, 100, 100))
+            self.screen.blit(status_text, (control_bg.centerx - status_text.get_width()//2, control_y + 20))
             
             # 仪表盘装饰
             self._draw_control_panel_decoration(control_bg)
             
             return None
-    
+
     def _draw_control_panel_decoration(self, panel_rect):
-        """绘制控制面板装饰"""
+        """绘制控制面板装饰 - 调整LED灯间距"""
         # 仪表盘角点装饰
         corner_size = 12
         corners = [
@@ -480,22 +478,26 @@ class DawsonKaylesUI:
             corner_rect = pygame.Rect(corner[0], corner[1], corner_size, corner_size)
             pygame.draw.rect(self.screen, (0, 200, 255), corner_rect, 2)
         
-        # 仪表盘LED指示灯
-        led_x = panel_rect.left + 15
+        # 仪表盘LED指示灯 - 增加间距
+        led_x = panel_rect.left + 20  # 增加左边距
         led_y = panel_rect.centery
         
-        # 绘制LED灯
+        # 绘制LED灯 - 间距从25增加到35
+        led_spacing = 35  # 增加间距
         for i in range(3):
-            led_pos = (led_x + i * 25, led_y)
+            led_pos = (led_x + i * led_spacing, led_y)
             led_color = (0, 255, 0) if i == 0 else (255, 255, 0) if i == 1 else (255, 0, 0)
-            pygame.draw.circle(self.screen, led_color, led_pos, 4)
-            pygame.draw.circle(self.screen, (255, 255, 255), led_pos, 4, 1)
+            
+            # LED灯光晕效果
+            pygame.draw.circle(self.screen, (*led_color, 50), led_pos, 8)
+            pygame.draw.circle(self.screen, led_color, led_pos, 6)
+            pygame.draw.circle(self.screen, (255, 255, 255), led_pos, 6, 1)
         
-        # LED标签
+        # LED标签 - 位置相应调整
         led_labels = ["PWR", "RDY", "ACT"]
         for i, label in enumerate(led_labels):
             label_text = self.font_manager.small.render(label, True, (150, 200, 255))
-            self.screen.blit(label_text, (led_x + i * 25 - label_text.get_width()//2, led_y + 10))
+            self.screen.blit(label_text, (led_x + i * led_spacing - label_text.get_width()//2, led_y + 12))  # 增加垂直间距
     
     def create_control_buttons(self):
         """创建控制按钮 - 保持原始接口兼容性"""

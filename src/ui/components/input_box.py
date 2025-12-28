@@ -1,4 +1,3 @@
-# [file name]: ui/components/input_box.py
 """通用文本输入框组件支持手动输入数字，带验证功能"""
 
 import pygame
@@ -56,7 +55,7 @@ class InputBox:
         self.original_value = initial_value
         
         # 工具提示
-        self.tooltip = "点击输入数字，回车确认，ESC取消"
+        self.tooltip = ""
     
     def set_game_params(self, params):
         """设置游戏特定参数"""
