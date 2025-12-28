@@ -37,10 +37,17 @@ POSITION_HEIGHT = 350
 
 # Game configuration
 DIFFICULTY_POSITION_RANGES = {
-    1: (6, 8),   # Easy
-    2: (9, 11),   # Normal  
-    3: (12, 14),   # Hard
-    4: (15, 17)    # Insane
+    1: (3, 5),   # Easy
+    2: (4, 6),   # Normal  
+    3: (5, 7),   # Hard
+    4: (6, 8)    # Insane
+}
+
+DIFFICULTY_POSITION_RANGES_FOR_DAWSON_KAYLES = {
+    1: (6, 9),   # Easy
+    2: (9, 12),   # Normal  
+    3: (12, 15),   # Hard
+    4: (15, 18)    # Insane
 }
 
 DIFFICULTY_RANDOM_RATES = {

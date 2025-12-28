@@ -5,7 +5,7 @@ Dawson-Kayles Game Logic
 
 import random
 from typing import List, Tuple
-from utils.constants import DIFFICULTY_RANDOM_RATES, DIFFICULTY_POSITION_RANGES
+from utils.constants import DIFFICULTY_RANDOM_RATES, DIFFICULTY_POSITION_RANGES_FOR_DAWSON_KAYLES
 
 class DawsonKaylesAutoPlayer:
     """Handles AI logic for Dawson-Kayles game"""
@@ -104,7 +104,7 @@ class DawsonKaylesLogic:
             self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn."
         else:
             # PvE模式：根据难度使用范围
-            min_towers, max_towers = DIFFICULTY_POSITION_RANGES.get(self.difficulty, (8, 15))
+            min_towers, max_towers = DIFFICULTY_POSITION_RANGES_FOR_DAWSON_KAYLES.get(self.difficulty, (8, 15))
             
             # 如果是PVE模式，确保初始状态是Winning position
             max_attempts = 100  # 最大尝试次数，避免无限循环
