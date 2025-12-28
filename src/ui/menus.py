@@ -282,35 +282,47 @@ class MainMenu:
         """Handle menu events with error handling"""
         with PerformanceProfiler("menu_handle_events", performance_monitor):
             mouse_pos = pygame.mouse.get_pos()
-
+    
             # 更新按钮悬停状态
             for button in self.buttons.values():
                 button.update_hover(mouse_pos)
-
+    
             if self.info_button:
                 self.info_button.update_hover(mouse_pos)
-
+    
             if self.performance_button:
                 self.performance_button.update_hover(mouse_pos)
-
+    
             if self.help_button:
                 self.help_button.update_hover(mouse_pos)
-
-            # 先处理帮助对话框事件
+    
+            # 处理所有事件
             for event in pygame.event.get():
+                # 如果帮助对话框可见，优先让它处理键盘事件
                 if self.help_dialog.visible:
+                    # 特别是方向键和选择键，要确保帮助对话框能接收到
+                    if event.type == pygame.KEYDOWN:
+                        # 这些键由帮助对话框处理
+                        if event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, 
+                                        pygame.K_RIGHT, pygame.K_RETURN, pygame.K_SPACE, 
+                                        pygame.K_TAB, pygame.K_ESCAPE, pygame.K_h]:
+                            if self.help_dialog.handle_event(event):
+                                continue  # 如果帮助对话框处理了，继续下一个事件
+                            
+                    # 其他事件正常传递
                     if self.help_dialog.handle_event(event):
                         return True
-
+    
                 # 现有的事件处理代码
                 if event.type == pygame.QUIT:
                     return False
-
+    
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        # 如果帮助对话框可见，先关闭它
+                        # 如果帮助对话框可见，优先由它处理
                         if self.help_dialog.visible:
-                            self.help_dialog.hide()
+                            # ESC已经在上面的help_dialog.handle_event中处理了
+                            continue
                         else:
                             return False
                     elif event.key == pygame.K_F1:
@@ -320,21 +332,19 @@ class MainMenu:
                         print(f"📊 Performance overlay: {'ON' if self.show_perf_overlay else 'OFF'}")
                     elif event.key == pygame.K_F3:
                         performance_monitor.enabled = not performance_monitor.enabled
-                        print(f"📊 Performance monitor: {'ENABLED' if performance_monitor.enabled else 'DISABLED'}")
-                    elif event.key == pygame.K_h or event.key == pygame.K_F4:  # 添加H键和F4键
+                    elif event.key == pygame.K_h or event.key == pygame.K_F4:
                         self.help_dialog.toggle()
-                    # 添加其他可能的快捷键处理
                     elif event.key == pygame.K_i:  # I键也打开信息
                         self.showing_info = not self.showing_info
                     elif event.key == pygame.K_p:  # P键也打开性能
                         self.show_perf_overlay = not self.show_perf_overlay
-
+    
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     # 检查帮助按钮
                     if self.help_button and self.help_button.is_clicked(event):
                         self.help_dialog.toggle()
                         return True
-
+    
                     # 如果帮助对话框可见，点击对话框外区域不应关闭菜单
                     if self.help_dialog.visible:
                         # 检查是否点击在对话框内
@@ -346,21 +356,21 @@ class MainMenu:
                     if self.performance_button and self.performance_button.is_clicked(event):
                         self.showing_performance = True
                         return self.show_performance_screen()
-
+    
                     # Check info button
                     if self.info_button and self.info_button.is_clicked(event):
                         self.showing_info = not self.showing_info
                         return True
-
+    
                     # If showing info, clicking anywhere else should close it
                     if self.showing_info:
                         self.showing_info = False
                         return True
-
+    
                     # Check game buttons
                     game_ids = ["take_coins", "split_cards", "card_nim", 
                                "dawson_kayles", "subtract_factor", "coming_soon"]
-
+    
                     for game_id in game_ids:
                         if game_id in self.buttons and self.buttons[game_id].is_clicked(event):
                             if not self.buttons[game_id].enabled:
@@ -368,17 +378,17 @@ class MainMenu:
                             else:
                                 self.start_game(game_id)
                             return True
-
+    
                     # Check quit button
                     if self.buttons["quit"].is_clicked(event):
                         return False
-
+    
             # Update error timer
             if self.error_timer > 0:
                 self.error_timer -= 1
                 if self.error_timer <= 0:
                     self.error_message = None
-
+    
             return True
     
     @handle_game_errors
