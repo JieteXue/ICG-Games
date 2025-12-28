@@ -92,10 +92,13 @@ class PygameSplash:
         game_names = ["Take Coins", "Split Cards", "Card Nim", "Laser Defense", "Subtract Factor"]
         icon_y = 170
         
-        for i, (name, loaded) in enumerate(zip(game_names, self.loaded_games)):
+        for i, name in enumerate(game_names):
             x = width//2 - 200 + i * 100
             
-            if not loaded:
+            # 根据进度判断是否显示打勾
+            should_show_check = self.progress >= ((i + 1) * 20)
+            
+            if not should_show_check:
                 # Rotating loading circle
                 angle = self.animation_time * 2 + i * 0.5
                 radius = 15
@@ -200,32 +203,35 @@ class PygameSplash:
         
         # Animation steps
         steps = [
-            (10, "Initializing Pygame game engine..."),
-            (25, "Loading Take Coins game module...", 0),
-            (40, "Loading Split Cards game module...", 1),
-            (55, "Loading Card Nim game module...", 2),
-            (70, "Loading Laser Defense game module...", 3),
-            (85, "Loading Subtract Factor game module...", 4),
-            (95, "Initializing performance monitoring system..."),
-            (100, "Preparing to start main menu...")
+            (20, "Loading Take Coins game module..."),
+            (40, "Loading Split Cards game module..."),
+            (60, "Loading Card Nim game module..."),
+            (80, "Loading Laser Defense game module..."),
+            (100, "Loading Subtract Factor game module...")
         ]
         
         running = True
         start_time = time.time()
-        skip_animation = False  # Skip animation flag
+        skip_animation = False
         
-        for target_progress, status, *game_index in steps:
+        for target_progress, status in steps:
             while self.progress < target_progress and running and not skip_animation:
                 # Update time
                 self.animation_time = (time.time() - start_time) * 2
 
-                # Random speed progress increase
-                random_increment = random.uniform(0.5, 3.0)
+                # 改进的随机增量：更大的波动范围 + 偶尔的跳跃
+                if random.random() < 0.15:  # 15%的概率出现大跳跃
+                    random_increment = random.uniform(3.0, 8.0)
+                else:
+                    random_increment = random.uniform(0.1, 3.0)
+                
+                # 在接近目标时减慢
+                remaining = target_progress - self.progress
+                if remaining < 5:
+                    random_increment = random_increment * (remaining / 5)
+                
                 self.progress = min(target_progress, self.progress + random_increment)
                 self.status = status
-                
-                if game_index:
-                    self.loaded_games[game_index[0]] = True
                 
                 # Draw window
                 self.draw_window()
@@ -240,11 +246,10 @@ class PygameSplash:
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
                             running = False
-                        elif event.key == pygame.K_SPACE:  # Detect spacebar
+                        elif event.key == pygame.K_SPACE:
                             skip_animation = True
                             print("Space pressed - skipping animation")
                 
-                # Small delay (if not skipping)
                 if not skip_animation:
                     time.sleep(0.02)
             
@@ -259,14 +264,13 @@ class PygameSplash:
             if not running:
                 break
         
-        # Brief pause after completion (if not skipping)
+        # Brief pause after completion
         if running and not skip_animation:
             for _ in range(30):
                 self.animation_time = (time.time() - start_time) * 2
                 self.draw_window()
                 self.clock.tick(60)
                 
-                # Handle events
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
