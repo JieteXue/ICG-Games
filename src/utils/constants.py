@@ -67,3 +67,16 @@ SIDEBAR_EXPANDED_COLOR = (30, 40, 60)
 SIDEBAR_ANIMATION_SPEED = 30
 SIDEBAR_TOGGLE_SIZE = 50
 SIDEBAR_COLLAPSED_WIDTH = 50
+
+KEY_NAVIGATION_COLORS = {
+    'selection_bg': (100, 180, 255, 150),      # 键盘选中背景色（半透明）
+    'selection_border': (150, 220, 255),       # 键盘选中边框色
+    'active_bg': (80, 100, 160, 200),          # 激活背景色
+    'active_border': (255, 200, 50),           # 激活边框色
+    'highlight': (255, 255, 100, 150)          # 鼠标高亮色
+}
+
+KEY_REPEAT_DELAYS = {
+    'initial': 15,     # 初始重复延迟（帧数）
+    'continuous': 5    # 连续重复延迟（帧数）
+}

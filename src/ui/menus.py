@@ -308,7 +308,11 @@ class MainMenu:
 
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        return False
+                        # 如果帮助对话框可见，先关闭它
+                        if self.help_dialog.visible:
+                            self.help_dialog.hide()
+                        else:
+                            return False
                     elif event.key == pygame.K_F1:
                         self.showing_info = not self.showing_info
                     elif event.key == pygame.K_F2:
@@ -319,32 +323,44 @@ class MainMenu:
                         print(f"📊 Performance monitor: {'ENABLED' if performance_monitor.enabled else 'DISABLED'}")
                     elif event.key == pygame.K_h or event.key == pygame.K_F4:  # 添加H键和F4键
                         self.help_dialog.toggle()
+                    # 添加其他可能的快捷键处理
+                    elif event.key == pygame.K_i:  # I键也打开信息
+                        self.showing_info = not self.showing_info
+                    elif event.key == pygame.K_p:  # P键也打开性能
+                        self.show_perf_overlay = not self.show_perf_overlay
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     # 检查帮助按钮
                     if self.help_button and self.help_button.is_clicked(event):
                         self.help_dialog.toggle()
                         return True
-                    
+
+                    # 如果帮助对话框可见，点击对话框外区域不应关闭菜单
+                    if self.help_dialog.visible:
+                        # 检查是否点击在对话框内
+                        if not self.help_dialog._is_inside_dialog(mouse_pos):
+                            # 点击在对话框外，但不要关闭菜单，让对话框处理点击
+                            continue
+                        
                     # Check performance button first
                     if self.performance_button and self.performance_button.is_clicked(event):
                         self.showing_performance = True
                         return self.show_performance_screen()
-                    
+
                     # Check info button
                     if self.info_button and self.info_button.is_clicked(event):
                         self.showing_info = not self.showing_info
                         return True
-                    
+
                     # If showing info, clicking anywhere else should close it
                     if self.showing_info:
                         self.showing_info = False
                         return True
-                    
+
                     # Check game buttons
                     game_ids = ["take_coins", "split_cards", "card_nim", 
                                "dawson_kayles", "subtract_factor", "coming_soon"]
-                    
+
                     for game_id in game_ids:
                         if game_id in self.buttons and self.buttons[game_id].is_clicked(event):
                             if not self.buttons[game_id].enabled:
@@ -352,17 +368,17 @@ class MainMenu:
                             else:
                                 self.start_game(game_id)
                             return True
-                    
+
                     # Check quit button
                     if self.buttons["quit"].is_clicked(event):
                         return False
-            
+
             # Update error timer
             if self.error_timer > 0:
                 self.error_timer -= 1
                 if self.error_timer <= 0:
                     self.error_message = None
-            
+
             return True
     
     @handle_game_errors
@@ -644,6 +660,16 @@ class MainMenu:
         
         # Initialize performance monitor
         performance_monitor.enabled = True
+        
+        print("🚀 Main Menu started")
+        print("📋 Available shortcuts:")
+        print("   F1: Toggle game information")
+        print("   F2: Toggle performance overlay")
+        print("   F3: Toggle performance monitor")
+        print("   H/F4: Toggle help dialog")
+        print("   I: Toggle info panel")
+        print("   P: Toggle performance overlay")
+        print("   ESC: Exit")
         
         while self.running:
             try:

@@ -72,6 +72,7 @@ class GameButton(BaseButton):
         self.corner_radius = 12
         self.icon_surface = None
         self.is_active = False  # 添加激活状态
+        self.keyboard_hovered = False  # 添加键盘悬停状态
         self.active_bg_color = (80, 100, 160)  # 激活背景色
         self.active_border_color = (255, 200, 50)  # 激活边框色
         self.highlight_color = (255, 255, 100, 100)  # 高亮颜色
@@ -97,8 +98,13 @@ class GameButton(BaseButton):
             
         else:
             # 非激活状态：正常颜色
-            bg_color = BUTTON_HOVER_COLOR if self.hovered and self.enabled else BUTTON_COLOR
-            border_color = ACCENT_COLOR if self.hovered and self.enabled else (100, 140, 200)
+            # 如果键盘悬停，使用悬停颜色
+            if self.keyboard_hovered:
+                bg_color = BUTTON_HOVER_COLOR
+                border_color = ACCENT_COLOR
+            else:
+                bg_color = BUTTON_HOVER_COLOR if (self.hovered and self.enabled) else BUTTON_COLOR
+                border_color = ACCENT_COLOR if (self.hovered and self.enabled) else (100, 140, 200)
         
         if not self.enabled:
             bg_color = (100, 100, 120)

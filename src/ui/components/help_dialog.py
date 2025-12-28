@@ -53,6 +53,20 @@ class HelpDialog:
         
         # Create close button
         self.close_button = None
+        
+        # 键盘导航相关
+        self.keyboard_selected_index = -1  # -1表示没有选中，0: tab, 1: game/control, 2: close
+        self.keyboard_sub_index = 0        # 在当前类别中的索引
+
+        # 删除原有的按键重复机制，改为简单模式
+        # self.key_repeat_timer = 0
+        # self.key_repeat_delay = KEY_REPEAT_DELAYS['initial']
+        # self.last_key = None
+
+        # 添加：记录上次处理的按键
+        self.last_processed_key = None
+        self.key_process_delay = 10  # 处理延迟（帧数）
+        self.key_delay_counter = 0
         self._create_buttons()
         
         # Current content
@@ -66,9 +80,11 @@ class HelpDialog:
         }
         
         # 高亮颜色
-        self.highlight_color = (255, 255, 100, 150)  # 半透明黄色
-        self.active_border_color = (255, 200, 50)   # 激活边框颜色
-        self.active_bg_color = (80, 100, 160, 200)  # 激活背景色
+        self.highlight_color = KEY_NAVIGATION_COLORS['highlight']
+        self.active_border_color = KEY_NAVIGATION_COLORS['active_border']
+        self.active_bg_color = KEY_NAVIGATION_COLORS['active_bg']
+        self.keyboard_selection_color = KEY_NAVIGATION_COLORS['selection_bg']
+        self.keyboard_border_color = KEY_NAVIGATION_COLORS['selection_border']
     
     def _adjust_layout(self):
         """调整布局，确保不拥挤"""
@@ -115,11 +131,11 @@ class HelpDialog:
             button = GameButton(
                 x, y, tab_button_width, tab_button_height,
                 tab["name"], self.font_manager,
-                # icon='game' if tab["id"] == "gameplay" else 'controls',
                 tooltip=f"Switch to {tab['name']} tab"
             )
             button.tab_index = i
             button.is_active = (i == self.current_tab)
+            button.keyboard_hovered = False  # 添加键盘悬停状态
             self.tab_buttons.append(button)
         
         # Game selection buttons (only for gameplay tab)
@@ -144,6 +160,7 @@ class HelpDialog:
             )
             button.game_id = game_id
             button.is_active = (game_id == self.selected_game)
+            button.keyboard_hovered = False  # 添加键盘悬停状态
             self.game_buttons.append(button)
         
         # Control section buttons (only for controls tab)
@@ -166,6 +183,7 @@ class HelpDialog:
             )
             button.section_id = section_id
             button.is_active = (i == 0)  # First section active by default
+            button.keyboard_hovered = False  # 添加键盘悬停状态
             self.control_sections.append(button)
         
         # Close button
@@ -178,21 +196,232 @@ class HelpDialog:
             icon='close',
             tooltip="Close help (ESC)"
         )
+        self.close_button.keyboard_hovered = False  # 添加键盘悬停状态
     
     def show(self):
         """Show the help dialog"""
         self.visible = True
+        self._reset_keyboard_navigation()
         self._load_content()
+
+    def _reset_keyboard_navigation(self):
+        """重置键盘导航状态"""
+        self.keyboard_selected_index = 0  # 默认选中第一个tab按钮
+        self.keyboard_sub_index = 0
+        self.last_processed_key = None
+        self.key_delay_counter = 0
+
+        # 更新悬停状态
+        self._update_keyboard_hover()
     
     def hide(self):
         """Hide the help dialog"""
         self.visible = False
+        self.keyboard_selected_index = -1
+        self.keyboard_sub_index = 0
     
     def toggle(self):
         """Toggle visibility of help dialog"""
         self.visible = not self.visible
         if self.visible:
+            self._reset_keyboard_navigation()
             self._load_content()
+        else:
+            self.keyboard_selected_index = -1
+            self.keyboard_sub_index = 0
+    
+    def _update_keyboard_hover(self):
+        """更新键盘悬停状态"""
+        # 重置所有按钮的键盘悬停状态
+        for button in self.tab_buttons:
+            button.keyboard_hovered = False
+        
+        for button in self.game_buttons:
+            button.keyboard_hovered = False
+            
+        for button in self.control_sections:
+            button.keyboard_hovered = False
+        
+        self.close_button.keyboard_hovered = False
+        
+        # 根据当前选择设置悬停状态
+        if self.keyboard_selected_index == 0:  # Tab按钮
+            if 0 <= self.keyboard_sub_index < len(self.tab_buttons):
+                self.tab_buttons[self.keyboard_sub_index].keyboard_hovered = True
+        elif self.keyboard_selected_index == 1:  # 游戏/控制按钮
+            if self.current_tab == 0:  # Gameplay tab
+                if 0 <= self.keyboard_sub_index < len(self.game_buttons):
+                    self.game_buttons[self.keyboard_sub_index].keyboard_hovered = True
+            else:  # Controls tab
+                if 0 <= self.keyboard_sub_index < len(self.control_sections):
+                    self.control_sections[self.keyboard_sub_index].keyboard_hovered = True
+        elif self.keyboard_selected_index == 2:  # 关闭按钮
+            self.close_button.keyboard_hovered = True
+    
+    def _handle_keyboard_navigation(self, keys):
+        """处理键盘导航"""
+        if not self.visible:
+            return False
+        
+        # 检查是否应该处理键盘重复
+        should_handle = False
+        if any(keys[key] for key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT]):
+            if self.key_repeat_timer == 0:
+                should_handle = True
+                self.key_repeat_timer = self.key_repeat_delay
+            else:
+                self.key_repeat_timer -= 1
+        else:
+            self.key_repeat_timer = 0
+            self.key_repeat_delay = KEY_REPEAT_DELAYS['initial']
+        
+        if not should_handle:
+            return False
+        
+        handled = False
+        
+        # 向上/向下导航
+        if keys[pygame.K_UP]:
+            if self.keyboard_selected_index > 0:
+                self.keyboard_selected_index -= 1
+                self.keyboard_sub_index = 0  # 重置子索引
+                handled = True
+        elif keys[pygame.K_DOWN]:
+            if self.keyboard_selected_index < 2:
+                self.keyboard_selected_index += 1
+                self.keyboard_sub_index = 0  # 重置子索引
+                handled = True
+        
+        # 向左/向右导航（在当前层级内）
+        elif keys[pygame.K_LEFT]:
+            handled = self._move_left()
+        elif keys[pygame.K_RIGHT]:
+            handled = self._move_right()
+        
+        # 回车键选择
+        elif keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
+            handled = self._select_current_item()
+        
+        if handled:
+            self._update_keyboard_hover()
+        
+        return handled
+    
+    def _handle_simple_keyboard_navigation(self, key):
+        """简单的键盘导航处理（每次按键只处理一次）"""
+        if not self.visible:
+            return False
+
+        # 防重复处理：如果和上次按键相同且在延迟期内，跳过
+        if key == self.last_processed_key and self.key_delay_counter > 0:
+            self.key_delay_counter -= 1
+            return False
+
+        handled = False
+
+        # 如果没有当前选择，初始化到第一个tab
+        if self.keyboard_selected_index == -1:
+            self.keyboard_selected_index = 0
+            self.keyboard_sub_index = 0
+            self._update_keyboard_hover()
+            handled = True
+
+        # 向上导航
+        elif key == pygame.K_UP:
+            if self.keyboard_selected_index > 0:
+                self.keyboard_selected_index -= 1
+                self.keyboard_sub_index = 0  # 重置子索引
+                handled = True
+
+        # 向下导航
+        elif key == pygame.K_DOWN:
+            if self.keyboard_selected_index < 2:
+                self.keyboard_selected_index += 1
+                self.keyboard_sub_index = 0  # 重置子索引
+                handled = True
+
+        # 向左导航
+        elif key == pygame.K_LEFT:
+            handled = self._move_left()
+
+        # 向右导航
+        elif key == pygame.K_RIGHT:
+            handled = self._move_right()
+
+        # 回车或空格键选择
+        elif key == pygame.K_RETURN or key == pygame.K_SPACE:
+            handled = self._select_current_item()
+
+        # 更新状态
+        if handled:
+            self._update_keyboard_hover()
+            self.last_processed_key = key
+            self.key_delay_counter = self.key_process_delay
+
+        return handled
+
+    def _move_left(self):
+        """向左移动"""
+        if self.keyboard_selected_index == 0:  # Tab按钮
+            if self.keyboard_sub_index > 0:
+                self.keyboard_sub_index -= 1
+                return True
+        elif self.keyboard_selected_index == 1:  # 游戏/控制按钮
+            if self.keyboard_sub_index > 0:
+                self.keyboard_sub_index -= 1
+                return True
+        return False
+    
+    def _move_right(self):
+        """向右移动"""
+        if self.keyboard_selected_index == 0:  # Tab按钮
+            if self.keyboard_sub_index < len(self.tab_buttons) - 1:
+                self.keyboard_sub_index += 1
+                return True
+        elif self.keyboard_selected_index == 1:  # 游戏/控制按钮
+            max_index = len(self.game_buttons) - 1 if self.current_tab == 0 else len(self.control_sections) - 1
+            if self.keyboard_sub_index < max_index:
+                self.keyboard_sub_index += 1
+                return True
+        return False
+    
+    def _select_current_item(self):
+        """选择当前项目"""
+        if self.keyboard_selected_index == 0:  # Tab按钮
+            if 0 <= self.keyboard_sub_index < len(self.tab_buttons):
+                # 模拟点击tab按钮
+                button = self.tab_buttons[self.keyboard_sub_index]
+                # 更新active states
+                for btn in self.tab_buttons:
+                    btn.is_active = (btn == button)
+                self.current_tab = button.tab_index
+                self._load_content()
+                return True
+                
+        elif self.keyboard_selected_index == 1:  # 游戏/控制按钮
+            if self.current_tab == 0:  # Gameplay tab
+                if 0 <= self.keyboard_sub_index < len(self.game_buttons):
+                    button = self.game_buttons[self.keyboard_sub_index]
+                    # 更新active states
+                    for btn in self.game_buttons:
+                        btn.is_active = (btn == button)
+                    self.selected_game = button.game_id
+                    self._load_content()
+                    return True
+            else:  # Controls tab
+                if 0 <= self.keyboard_sub_index < len(self.control_sections):
+                    button = self.control_sections[self.keyboard_sub_index]
+                    # 更新active states
+                    for btn in self.control_sections:
+                        btn.is_active = (btn == button)
+                    self._load_content()
+                    return True
+                    
+        elif self.keyboard_selected_index == 2:  # 关闭按钮
+            self.hide()
+            return True
+        
+        return False
     
     def _load_content(self):
         """Load content based on current selection"""
@@ -273,6 +502,11 @@ class HelpDialog:
         self.close_button.update_hover(mouse_pos)
         
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # 点击时重置键盘导航
+            self.keyboard_selected_index = -1
+            self.keyboard_sub_index = 0
+            self._update_keyboard_hover()
+            
             # Check close button
             if self.close_button.is_clicked(event):
                 self.hide()
@@ -327,6 +561,9 @@ class HelpDialog:
             elif event.key == pygame.K_h:
                 self.hide()
                 return True
+            else:
+                # 处理键盘导航 - 简单模式
+                return self._handle_simple_keyboard_navigation(event.key)
         
         return False
     
@@ -354,10 +591,21 @@ class HelpDialog:
         
         # Draw tab buttons
         for button in self.tab_buttons:
+            # 如果按钮有键盘悬停状态，绘制高亮效果
+            if button.keyboard_hovered:
+                highlight_rect = button.rect.inflate(10, 10)
+                highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(highlight_surface, self.keyboard_selection_color, 
+                               (0, 0, highlight_rect.width, highlight_rect.height), 
+                               border_radius=button.corner_radius + 5)
+                screen.blit(highlight_surface, highlight_rect)
+                pygame.draw.rect(screen, self.keyboard_border_color, highlight_rect, 2, 
+                               border_radius=button.corner_radius + 5)
+            
             # Update button color based on active state
             if button.is_active:
-                button.base_color = (80, 100, 160)
-                button.hover_color = (100, 120, 180)
+                button.base_color = self.active_bg_color
+                button.hover_color = (self.active_bg_color[0]+20, self.active_bg_color[1]+20, self.active_bg_color[2]+20)
             else:
                 button.base_color = (60, 70, 100)
                 button.hover_color = (80, 90, 130)
@@ -366,10 +614,21 @@ class HelpDialog:
         # Draw game selection buttons (only for gameplay tab)
         if self.current_tab == 0:
             for button in self.game_buttons:
+                # 如果按钮有键盘悬停状态，绘制高亮效果
+                if button.keyboard_hovered:
+                    highlight_rect = button.rect.inflate(8, 8)
+                    highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(highlight_surface, self.keyboard_selection_color, 
+                                   (0, 0, highlight_rect.width, highlight_rect.height), 
+                                   border_radius=button.corner_radius + 4)
+                    screen.blit(highlight_surface, highlight_rect)
+                    pygame.draw.rect(screen, self.keyboard_border_color, highlight_rect, 2, 
+                                   border_radius=button.corner_radius + 4)
+                
                 # Update button color based on active state
                 if button.is_active:
-                    button.base_color = (70, 90, 150)
-                    button.hover_color = (90, 110, 170)
+                    button.base_color = self.active_bg_color
+                    button.hover_color = (self.active_bg_color[0]+20, self.active_bg_color[1]+20, self.active_bg_color[2]+20)
                 else:
                     button.base_color = (50, 60, 90)
                     button.hover_color = (70, 80, 120)
@@ -378,20 +637,41 @@ class HelpDialog:
         # Draw control section buttons (only for controls tab)
         if self.current_tab == 1:
             for button in self.control_sections:
+                # 如果按钮有键盘悬停状态，绘制高亮效果
+                if button.keyboard_hovered:
+                    highlight_rect = button.rect.inflate(8, 8)
+                    highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(highlight_surface, self.keyboard_selection_color, 
+                                   (0, 0, highlight_rect.width, highlight_rect.height), 
+                                   border_radius=button.corner_radius + 4)
+                    screen.blit(highlight_surface, highlight_rect)
+                    pygame.draw.rect(screen, self.keyboard_border_color, highlight_rect, 2, 
+                                   border_radius=button.corner_radius + 4)
+                
                 # Update button color based on active state
                 if button.is_active:
-                    button.base_color = (70, 90, 150)
-                    button.hover_color = (90, 110, 170)
+                    button.base_color = self.active_bg_color
+                    button.hover_color = (self.active_bg_color[0]+20, self.active_bg_color[1]+20, self.active_bg_color[2]+20)
                 else:
                     button.base_color = (50, 60, 90)
                     button.hover_color = (70, 80, 120)
                 button.draw(screen)
         
+        # Draw close button
+        if self.close_button.keyboard_hovered:
+            highlight_rect = self.close_button.rect.inflate(8, 8)
+            highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(highlight_surface, self.keyboard_selection_color, 
+                           (0, 0, highlight_rect.width, highlight_rect.height), 
+                           border_radius=self.close_button.corner_radius + 4)
+            screen.blit(highlight_surface, highlight_rect)
+            pygame.draw.rect(screen, self.keyboard_border_color, highlight_rect, 2, 
+                           border_radius=self.close_button.corner_radius + 4)
+        
+        self.close_button.draw(screen)
+        
         # Draw scroll panel
         self.scroll_panel.draw(screen)
-        
-        # Draw close button
-        self.close_button.draw(screen)
         
         # Draw instructions footer
         footer = self.font_manager.small.render(
@@ -400,3 +680,16 @@ class HelpDialog:
         )
         screen.blit(footer, (self.x + self.width//2 - footer.get_width()//2, 
                             self.y + self.height - 30))
+        
+        # 绘制键盘导航提示
+        if self.keyboard_selected_index >= 0:
+            nav_text = self.font_manager.small.render(
+                "↑/↓: Navigate between sections • ←/→: Select items • ENTER: Activate",
+                True, (180, 220, 255)
+            )
+            screen.blit(nav_text, (self.x + 20, self.y + self.height - 60))
+    
+    def _is_inside_dialog(self, pos):
+        """Check if a position is inside the dialog"""
+        return (self.x <= pos[0] <= self.x + self.width and 
+                self.y <= pos[1] <= self.y + self.height)
