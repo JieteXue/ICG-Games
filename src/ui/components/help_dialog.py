@@ -234,24 +234,46 @@ class HelpDialog:
         return True
     
     def _navigate_left_right(self, direction):
-        """Navigate left (-1) or right (+1) within current level"""
         level = self.keyboard_selection['level']
         index = self.keyboard_selection['index']
         buttons = self._get_current_button_group()
-        
+
         if not buttons:
             return False
-        
+
         new_index = index + direction
-        
-        # Wrap around within the button group
+
         if new_index < 0:
             new_index = len(buttons) - 1
         elif new_index >= len(buttons):
             new_index = 0
-        
+
         self.keyboard_selection['index'] = new_index
         self._update_button_states()
+
+        # Activate new selection
+        if level == 0:  # Tab按钮
+            button = self.tab_buttons[new_index]
+            if button.tab_index != self.current_tab:
+                self.current_tab = button.tab_index
+                for btn in self.tab_buttons:
+                    btn.is_active = (btn == button)
+                self._load_content()
+
+        elif level == 1:  # 内容按钮
+            if self.current_tab == 0:  # Gameplay
+                button = self.game_buttons[new_index]
+                if button.game_id != self.selected_game:
+                    self.selected_game = button.game_id
+                    for btn in self.game_buttons:
+                        btn.is_active = (btn == button)
+                    self._load_content()
+            else:  # Controls
+                button = self.control_buttons[new_index]
+                for btn in self.control_buttons:
+                    btn.is_active = (btn == button)
+                self._load_content()
+
         return True
     
     def _activate_current_selection(self):
