@@ -7,8 +7,9 @@ import pygame
 from core.game_manager import GameManager
 from games.dawson_kayles.logic import DawsonKaylesLogic
 from games.dawson_kayles.ui import DawsonKaylesUI, TowerButton
-from utils.constants import CARD_GAME_FPS
+from utils.constants import CARD_GAME_FPS, SCREEN_WIDTH, SCREEN_HEIGHT
 from ui.components.sidebar import Sidebar  # 新增导入
+from ui.components.input_box import InputBox  # 新增导入
 
 class DawsonKaylesInputHandler:
     """Handles input for Dawson-Kayles game"""
@@ -17,6 +18,7 @@ class DawsonKaylesInputHandler:
         self.game_logic = game_logic
         self.ui = ui
         self.selected_position = None
+        self.connect_button_rect = None  # 新增：连接按钮区域
     
     def handle_mouse_click(self, event, tower_buttons, scroll_buttons, control_buttons):
         """处理鼠标点击事件"""
@@ -30,6 +32,17 @@ class DawsonKaylesInputHandler:
                 else:
                     self.ui.scroll_right(len(self.game_logic.towers))
                 return None
+        
+        # 获取输入框实例
+        input_box = self.ui.get_input_box()
+        
+        # 处理输入框事件（优先处理）
+        if input_box and input_box.handle_event(event):
+            # 输入框处理了事件
+            if not input_box.is_active():
+                # 输入框已确认，验证输入值
+                self._validate_input_box_value(input_box)
+            return "input_box"
         
         # 如果不是导航按钮，再处理游戏逻辑
         if self.game_logic.game_over:
@@ -48,6 +61,13 @@ class DawsonKaylesInputHandler:
                 can_interact = True
             
             if can_interact:
+                # 检查连接按钮点击
+                if (self.connect_button_rect and 
+                    self.connect_button_rect.collidepoint(mouse_pos) and 
+                    event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
+                    self._handle_connect_button_click(input_box)
+                    return None
+                
                 # 检查炮塔选择
                 for button in tower_buttons:
                     if button.is_clicked(event) and self.game_logic.towers[button.tower_id] == 1:
@@ -55,7 +75,60 @@ class DawsonKaylesInputHandler:
                         return None
         
         return None
-    
+
+    def _handle_connect_button_click(self, input_box):
+        """处理连接按钮点击"""
+        if not input_box:
+            return
+            
+        # 获取输入值 - 输入框已经验证过范围
+        tower_i = input_box.get_int_value()
+        
+        # 验证输入范围（输入框已经做了基本验证，这里做更详细的验证）
+        max_i = len(self.game_logic.towers) - 2  # i的最大值是n-2
+        if max_i < 0:  # 如果没有可用的移动
+            self.game_logic.message = "No available moves left!"
+            return
+            
+        if tower_i < 0 or tower_i > max_i:
+            self.game_logic.message = f"Please check if your input is out of range. Valid range: 0 to {max_i}"
+            input_box.set_value(0)  # 重置为0
+            return
+        
+        # 检查炮塔是否已被连接
+        if self.game_logic.towers[tower_i] == 0 or self.game_logic.towers[tower_i + 1] == 0:
+            self.game_logic.message = f"Please check if the tower has been connected. Tower {tower_i} or {tower_i+1} is already used."
+            input_box.set_value(0)  # 重置为0
+            return
+        
+        # 检查是否是有效移动
+        available_moves = self.game_logic.get_available_moves()
+        if tower_i not in available_moves:
+            self.game_logic.message = f"Cannot connect tower {tower_i} and {tower_i+1}. They must be adjacent and available."
+            input_box.set_value(0)  # 重置为0
+            return
+        
+        # 执行移动
+        self.game_logic.make_move(tower_i)
+        input_box.set_value(0)  # 重置为0
+        self.selected_position = None
+
+    def _validate_input_box_value(self, input_box):
+        """验证输入框的值 - 现在大部分验证在输入框内部完成"""
+        if not input_box:
+            return
+            
+        # 输入框内部已经有完整的验证，这里只需要确保值在合理范围内
+        tower_i = input_box.get_int_value()
+        max_i = len(self.game_logic.towers) - 2
+        
+        # 基本验证 - 允许0
+        if tower_i < 0:
+            input_box.set_value(0)
+        elif max_i >= 0 and tower_i > max_i:
+            input_box.set_value(max_i if max_i > 0 else 0)
+
+
     def handle_tower_click(self, tower_id):
         """Handle tower click"""
         available_moves = self.game_logic.get_available_moves()
@@ -82,7 +155,12 @@ class DawsonKaylesInputHandler:
     def handle_keyboard(self, event):
         """Handle keyboard events"""
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
+            # 先检查输入框是否激活
+            input_box = self.ui.get_input_box()
+            if input_box and input_box.is_active():
+                # 如果输入框激活，只处理ESC和回车（已经在输入框中处理）
+                pass
+            elif event.key == pygame.K_LEFT:
                 self.ui.scroll_left(len(self.game_logic.towers))
             elif event.key == pygame.K_RIGHT:
                 self.ui.scroll_right(len(self.game_logic.towers))
@@ -100,6 +178,11 @@ class DawsonKaylesInputHandler:
                 self.ui.scroll_offset = 0
                 self.selected_position = None
                 return "restart"
+            elif event.key == pygame.K_c:
+                # 按C键触发连接按钮（快捷方式）
+                input_box = self.ui.get_input_box()
+                if input_box and not self.game_logic.game_over:
+                    self._handle_connect_button_click(input_box)
 
 class DawsonKaylesGame(GameManager):
     """Dawson-Kayles Game implementation with sidebar"""
@@ -112,6 +195,8 @@ class DawsonKaylesGame(GameManager):
         self.sidebar = Sidebar(screen, font_manager)  # 新增侧边栏
         
         # 游戏说明
+        # 在 DawsonKaylesGame 类的 game_instructions 字符串中，修改相关部分：
+
         self.game_instructions = """
 LASER DEFENSE SYSTEM - INSTRUCTIONS
 
@@ -119,11 +204,15 @@ Objective:
 Connect adjacent towers with lasers. The player who makes the last move wins!
 
 How to Play:
-1. Click on an available tower (highlighted in blue)
-2. Click on an adjacent available tower to create a laser connection
-3. Both connected towers are removed from play
-4. Players alternate turns until no moves remain
-5. The player who makes the last move wins the game
+1. Direct Selection Method:
+   - Click on an available tower (highlighted in blue)
+   - Click on an adjacent available tower to create a laser connection
+
+2. Direct Input Method:
+   - Use the control panel at the bottom to directly enter tower indices
+   - Enter index i (0 to n-2) to connect towers i and i+1
+   - Press GO button or C key to execute
+   - Invalid inputs will show error messages
 
 Game Rules:
 - You can only connect towers that are directly adjacent
@@ -144,20 +233,26 @@ Strategies:
 - Look for moves that create isolated towers
 
 Controls:
-- Mouse: Click to select towers and create lasers
+Mouse Controls:
+- Click to select towers and create lasers
+- Scroll Wheel: Scroll through towers
+- Click CONNECT button: Execute direct input move
+
+Keyboard Shortcuts:
 - LEFT/RIGHT Arrow Keys: Scroll through towers
 - ENTER: Complete move when a tower is selected
+- C: Quick connect using input box value
 - R: Restart game
 - I: Show these instructions
-- ESC: Back to mode selection
+- ESC: Toggle sidebar / Cancel input
 
-Difficulty Levels:
-- Easy: AI makes mostly random moves
-- Normal: Balanced AI difficulty
-- Hard: AI uses basic winning strategies
-- Insane: AI plays nearly perfect game
+Panel Controls:
+- Power LED (Green): System active
+- Ready LED (Yellow): Input accepted
+- Active LED (Red): Processing move
 
 Navigation:
+- Toggle Sidebar (☰): Show/hide navigation
 - Back (←): Return to mode selection
 - Home (🏠): Return to main menu  
 - Restart: Restart current game
@@ -187,6 +282,7 @@ Good luck commander!
         self.tower_buttons = []
         self.scroll_buttons = []
         self.ai_timer = 0
+        self.connect_button_rect = None  # 新增：连接按钮区域
     
     def initialize_game_settings(self):
         """Universal game settings initialization - 使用延迟导入"""
@@ -212,13 +308,39 @@ Good luck commander!
         except Exception as e:
             print(f"Error initializing game settings: {e}")
             self.logic.initialize_game("PVE", 2)
-    
+    def handle_navigation_events(self, event):
+        """Universal navigation events handling"""
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # 不再检查导航按钮，因为这些现在在侧边栏中
+            pass
+        
+        # 按 I 键显示信息
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            return "info"
+        # 按 R 键重启游戏
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+            return "refresh"
+        # 按 C 键/enter键触发连接按钮
+        elif event.type == pygame.KEYDOWN and (event.key == pygame.K_c or event.key==pygame.K_RETURN):
+            # 触发连接按钮
+            input_box = self.ui.get_input_box()
+            if input_box and not self.logic.game_over:
+                self.input_handler._handle_connect_button_click(input_box)
+            return None
+        # Toggle performance overlay with F2
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
+            self.show_perf_overlay = not self.show_perf_overlay
+        
+        return None
     def handle_events(self):
         """Handle game events"""
         if self.should_return_to_menu:
             return False
         
         mouse_pos = pygame.mouse.get_pos()
+        
+        # 在事件循环开始前获取输入框实例
+        input_box = self.ui.get_input_box()
         
         # 处理侧边栏事件
         sidebar_result = self.sidebar.handle_event(pygame.event.Event(pygame.MOUSEMOTION, {'pos': mouse_pos}), mouse_pos)
@@ -256,12 +378,25 @@ Good luck commander!
                 else:
                     return True  # 忽略其他事件当显示说明时
             
-            # Handle navigation events
-            nav_result = self.handle_navigation_events(event)
+            # 处理输入框事件（优先处理）
+            if input_box and input_box.handle_event(event):
+                # 输入框处理了事件 - 验证已经在输入框内部完成
+                return True
+            
+            # 如果输入框激活，不处理其他事件（除了ESC和回车已经在输入框处理了）
+            if input_box and input_box.is_active():
+                # 输入框激活时，只允许处理ESC和回车（已在上面处理）
+                continue
+            
+            # Handle navigation events - 修复这里的方法名
+            nav_result = self.handle_navigation_events(event)  # 将 _events 改为 handle_navigation_events
             if nav_result == "back":
                 self.initialize_game_settings()
                 self.ui.scroll_offset = 0
                 self.input_handler.selected_position = None
+                # 重置输入框
+                if input_box:
+                    input_box.reset_to_default()
                 return True
             elif nav_result == "home":
                 return False
@@ -272,6 +407,9 @@ Good luck commander!
                 self.logic.initialize_game(game_mode, difficulty)
                 self.ui.scroll_offset = 0
                 self.input_handler.selected_position = None
+                # 重置输入框
+                if input_box:
+                    input_box.reset_to_default()
                 return True
             elif nav_result == "info":
                 self.showing_instructions = True
@@ -284,6 +422,9 @@ Good luck commander!
                 # 检查是否重启了游戏
                 if result == "restart":
                     self.create_components()
+                    # 重置输入框
+                    if input_box:
+                        input_box.reset_to_default()
                     return True
             
             elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
@@ -291,6 +432,9 @@ Good luck commander!
                 # 检查是否重启了游戏
                 if result == "restart":
                     self.create_components()
+                    # 重置输入框
+                    if input_box:
+                        input_box.reset_to_default()
                     return True
             
             elif event.type == pygame.MOUSEWHEEL:
@@ -298,25 +442,6 @@ Good luck commander!
                 self.ui.handle_mouse_wheel(event, len(self.logic.towers))
         
         return True
-    
-    def handle_navigation_events(self, event):
-        """Universal navigation events handling"""
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            # 不再检查导航按钮，因为这些现在在侧边栏中
-            pass
-        
-        # 按 I 键显示信息
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
-            return "info"
-        # 按 R 键重启游戏
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            return "refresh"
-        # Toggle performance overlay with F2
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
-            self.show_perf_overlay = not self.show_perf_overlay
-        
-        return None
-    
     def _handle_sidebar_action(self, action):
         """处理侧边栏按钮点击"""
         if action == "toggle":
@@ -347,6 +472,9 @@ Good luck commander!
     def update(self):
         """Update game state"""
         self.sidebar.update()
+        
+        # 更新输入框状态
+        self.ui.update_input_box()
         
         # Update tower buttons
         self.tower_buttons = self.ui.create_tower_buttons(len(self.logic.towers))
@@ -395,12 +523,27 @@ Good luck commander!
             # Draw scroll bar
             self.ui.draw_scrollbar(len(self.logic.towers))
             
-            # Draw game state
+            # 绘制控制面板（包含输入框和连接按钮）
             if not self.logic.game_over:
-                # Draw control panel and hints
-                self.ui.draw_hints()
+                # 绘制控制面板并获取连接按钮区域
+                self.connect_button_rect = self.ui.draw_control_panel(self.logic)
+                self.input_handler.connect_button_rect = self.connect_button_rect
                 
-                # Draw restart button (游戏进行中不显示)
+                
+                
+                # 在 DawsonKaylesGame 类的 draw 方法中修改提示部分：
+
+                # 如果游戏进行中，显示输入提示
+                hints = [
+                    "Click on adjacent towers to connect them with lasers",
+                    f"Or use the control panel below: enter i (0 to {len(self.logic.towers)-2}) to connect towers i and i+1",
+                    "Press C key for quick connect, ESC to cancel input"
+                ]
+                hint_y = 630
+                for i, hint in enumerate(hints):
+                    hint_text = self.font_manager.small.render(hint, True, (180, 220, 255))
+                    self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, hint_y + i * 18))
+                
             else:
                 # Draw game over restart button
                 if "restart" in self.control_buttons:

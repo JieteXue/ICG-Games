@@ -147,6 +147,7 @@ class DawsonKaylesLogic:
     def make_move(self, start_index):
         """执行移动（连接两个相邻炮塔）"""
         if start_index not in self.get_available_moves():
+            self.message = f"Invalid move. Cannot connect tower {start_index} and {start_index+1}."
             return False
         
         # 添加激光连接
@@ -279,3 +280,18 @@ class DawsonKaylesLogic:
             'message': self.message,
             'winning_position': self.judge_win()
         }
+    
+    def validate_input_move(self, tower_n):
+        """验证输入框的移动是否有效"""
+        if tower_n < 1 or tower_n >= len(self.towers):
+            return False, f"Please check if your input is out of range. Valid range: 1 to {len(self.towers)-1}"
+        
+        move_index = tower_n - 1
+        
+        if self.towers[move_index] == 0 or self.towers[move_index + 1] == 0:
+            return False, "Please check if the tower has been connected."
+        
+        if move_index not in self.get_available_moves():
+            return False, f"Cannot connect tower {tower_n} and {tower_n+1}. They must be adjacent and available."
+        
+        return True, ""

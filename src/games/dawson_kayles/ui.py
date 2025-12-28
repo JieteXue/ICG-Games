@@ -1,4 +1,3 @@
-# [file name]: src/games/dawson_kayles/ui.py
 """
 Dawson-Kayles Game UI Components - 兼容版本，添加左右滑动按钮
 """
@@ -8,6 +7,7 @@ import math
 import random
 from utils.constants import *
 from utils.helpers import wrap_text
+from ui.components.input_box import InputBox  # 新增导入
 
 class TowerButton:
     """炮塔按钮类 - 完全兼容原始接口"""
@@ -140,7 +140,6 @@ class ScrollButton:
                 self.hovered and 
                 self.enabled)
 
-
 class DawsonKaylesUI:
     """Dawson-Kayles游戏UI管理器 - 保持完全兼容性"""
     
@@ -153,6 +152,7 @@ class DawsonKaylesUI:
         self.time = 0
         self.grid_offset = 0
         self.scroll_buttons = []  # 添加滚动按钮存储
+        self.input_box = None  # 新增：输入框实例
 
     def draw_background(self):
         """绘制科技风格背景 - 保持原始风格"""
@@ -372,27 +372,132 @@ class DawsonKaylesUI:
         for button in self.scroll_buttons:
             button.draw(self.screen)
     
-    def draw_hints(self):
-        """绘制操作提示 - 保持原始功能"""
-        hint_y = 610
-        hints = [
-            "CLICK ADJACENT TOWERS TO CONNECT LASERS",
-            "LAST PLAYER TO MAKE A MOVE WINS THE GAME",
-            "USE MOUSE WHEEL OR ARROW KEYS TO SCROLL",
-            "CONNECTED TOWERS DISPLAY PLAYER COLORS"
+    def draw_control_panel(self, game_logic):
+        """绘制控制面板 - 简化版本，移除文字提示"""
+        control_y = 560
+        control_width = 500
+        control_x = (SCREEN_WIDTH - control_width) // 2
+        
+        # 控制面板背景（仪表盘风格）
+        control_bg = pygame.Rect(control_x - 20, control_y - 15, control_width + 40, 100)
+        pygame.draw.rect(self.screen, (20, 30, 50, 180), control_bg, border_radius=12)
+        
+        # 仪表盘边框
+        pygame.draw.rect(self.screen, (0, 200, 255), control_bg, 3, border_radius=12)
+        
+        # 仪表盘标题
+        panel_title = self.font_manager.medium.render("LASER CONTROL PANEL", True, (0, 255, 220))
+        self.screen.blit(panel_title, (SCREEN_WIDTH//2 - panel_title.get_width()//2, control_y - 5))
+        
+        # 获取可用的最大i值
+        max_i = len(game_logic.towers) - 2  # i的最大值是n-2
+        
+        if max_i >= 0 and not game_logic.game_over:
+            # 输入框标签（简洁版）
+            input_label = self.font_manager.small.render(f"Connect i & i+1 (0 to {max_i}):", 
+                                                        True, (180, 220, 255))
+            self.screen.blit(input_label, (control_x, control_y + 20))
+            
+            # 创建或更新输入框
+            input_box_width = 80  # 减小宽度
+            input_box_height = 40
+            input_box_x = control_x + input_label.get_width() + 10
+            input_box_y = control_y + 15
+            
+            if self.input_box is None:
+                # 创建输入框
+                self.input_box = InputBox(
+                    input_box_x, input_box_y,
+                    input_box_width, input_box_height,
+                    self.font_manager,
+                    initial_value="0",
+                    max_length=3,
+                    validation_type="dawson_kayles",
+                    is_numeric=True
+                )
+            
+            # 设置游戏参数
+            if self.input_box:
+                self.input_box.rect = pygame.Rect(input_box_x, input_box_y, input_box_width, input_box_height)
+                self.input_box.set_game_params({
+                    'towers': game_logic.towers,
+                    'available_moves': game_logic.get_available_moves()
+                })
+                
+            # 绘制输入框
+            self.input_box.draw(self.screen)
+            
+            # 连接按钮
+            connect_button_rect = pygame.Rect(input_box_x + input_box_width + 15, input_box_y, 80, input_box_height)
+            
+            # 按钮背景（科技风格）
+            mouse_pos = pygame.mouse.get_pos()
+            button_hovered = connect_button_rect.collidepoint(mouse_pos)
+            button_color = (0, 150, 220) if button_hovered else (0, 100, 180)
+            pygame.draw.rect(self.screen, button_color, connect_button_rect, border_radius=8)
+            pygame.draw.rect(self.screen, (0, 255, 220), connect_button_rect, 2, border_radius=8)
+            
+            # 按钮文字
+            connect_text = self.font_manager.small.render("GO", True, (255, 255, 255))  # 改为"GO"
+            self.screen.blit(connect_text, (connect_button_rect.centerx - connect_text.get_width()//2, 
+                                        connect_button_rect.centery - connect_text.get_height()//2))
+            
+            # 仪表盘装饰（LED灯间距调整）
+            self._draw_control_panel_decoration(control_bg)
+            
+            # 快捷方式提示（移到更下方，不与其他内容重叠）
+            shortcut_hint = self.font_manager.small.render("Press 'C' for quick connect", True, (100, 180, 255))
+            self.screen.blit(shortcut_hint, (control_bg.centerx - shortcut_hint.get_width()//2, control_y + 65))
+            
+            return connect_button_rect
+        else:
+            # 没有可用移动或游戏已结束
+            if game_logic.game_over:
+                status_text = self.font_manager.small.render("GAME OVER", True, (255, 100, 100))
+            else:
+                status_text = self.font_manager.small.render("NO MOVES LEFT", True, (255, 100, 100))
+            self.screen.blit(status_text, (control_bg.centerx - status_text.get_width()//2, control_y + 20))
+            
+            # 仪表盘装饰
+            self._draw_control_panel_decoration(control_bg)
+            
+            return None
+
+    def _draw_control_panel_decoration(self, panel_rect):
+        """绘制控制面板装饰 - 调整LED灯间距"""
+        # 仪表盘角点装饰
+        corner_size = 12
+        corners = [
+            (panel_rect.left, panel_rect.top),  # 左上
+            (panel_rect.right - corner_size, panel_rect.top),  # 右上
+            (panel_rect.left, panel_rect.bottom - corner_size),  # 左下
+            (panel_rect.right - corner_size, panel_rect.bottom - corner_size)  # 右下
         ]
         
-        for i, hint in enumerate(hints):
-            hint_text = self.font_manager.small.render(hint, True, (150, 200, 255))
-            hint_bg = pygame.Rect(
-                SCREEN_WIDTH//2 - hint_text.get_width()//2 - 10,
-                hint_y + i * 22,
-                hint_text.get_width() + 20,
-                hint_text.get_height() + 4
-            )
-            pygame.draw.rect(self.screen, (20, 30, 50, 150), hint_bg, border_radius=6)
-            pygame.draw.rect(self.screen, (0, 100, 180), hint_bg, 1, border_radius=6)
-            self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, hint_y + 2 + i * 22))
+        for corner in corners:
+            corner_rect = pygame.Rect(corner[0], corner[1], corner_size, corner_size)
+            pygame.draw.rect(self.screen, (0, 200, 255), corner_rect, 2)
+        
+        # 仪表盘LED指示灯 - 增加间距
+        led_x = panel_rect.left + 20  # 增加左边距
+        led_y = panel_rect.centery
+        
+        # 绘制LED灯 - 间距从25增加到35
+        led_spacing = 35  # 增加间距
+        for i in range(3):
+            led_pos = (led_x + i * led_spacing, led_y)
+            led_color = (0, 255, 0) if i == 0 else (255, 255, 0) if i == 1 else (255, 0, 0)
+            
+            # LED灯光晕效果
+            pygame.draw.circle(self.screen, (*led_color, 50), led_pos, 8)
+            pygame.draw.circle(self.screen, led_color, led_pos, 6)
+            pygame.draw.circle(self.screen, (255, 255, 255), led_pos, 6, 1)
+        
+        # LED标签 - 位置相应调整
+        led_labels = ["PWR", "RDY", "ACT"]
+        for i, label in enumerate(led_labels):
+            label_text = self.font_manager.small.render(label, True, (150, 200, 255))
+            self.screen.blit(label_text, (led_x + i * led_spacing - label_text.get_width()//2, led_y + 12))  # 增加垂直间距
     
     def create_control_buttons(self):
         """创建控制按钮 - 保持原始接口兼容性"""
@@ -602,3 +707,12 @@ class DawsonKaylesUI:
             if start_idx == tower_id or end_idx == tower_id:
                 return player
         return None
+    
+    def get_input_box(self):
+        """获取输入框实例"""
+        return self.input_box
+    
+    def update_input_box(self):
+        """更新输入框状态"""
+        if self.input_box:
+            self.input_box.update()

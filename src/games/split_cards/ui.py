@@ -6,6 +6,7 @@ import pygame
 import math
 from utils.constants import *
 from utils.helpers import wrap_text
+from ui.components.input_box import InputBox  # 新增导入
 
 # 内联Button类定义（避免导入错误）
 class Button:
@@ -132,6 +133,7 @@ class SplitCardsUI:
         self.font_manager = font_manager
         self.table_color = (210, 180, 140)  # Beige table color
         self.table_rect = pygame.Rect(50, 150, SCREEN_WIDTH - 100, 400)
+        self.input_box = None  # 新增：输入框实例
     
     def draw_background(self):
         """Draw the background with table"""
@@ -386,6 +388,35 @@ class SplitCardsUI:
                 action_text = self.font_manager.medium.render("Select Action:", True, (240, 230, 220))
                 self.screen.blit(action_text, (control_x, control_y))
         
+        # 新增：创建或更新输入框
+        if game_logic.selected_pile_index is not None and game_logic.selected_action:
+            # 数字显示区域的位置和尺寸
+            count_bg = pygame.Rect(control_x + 265, control_y -10, 50, 40)
+            
+            if self.input_box is None:
+                # 创建输入框
+                self.input_box = InputBox(
+                    count_bg.x, count_bg.y,
+                    count_bg.width, count_bg.height,
+                    self.font_manager,
+                    initial_value=str(game_logic.selected_count),
+                    max_length=3,
+                    is_numeric=True
+                )
+            else:
+                # 更新输入框位置和值
+                self.input_box.rect = count_bg
+                if not self.input_box.is_active():
+                    self.input_box.set_value(game_logic.selected_count)
+            
+            # 绘制输入框
+            self.input_box.draw(self.screen)
+            
+            # 如果输入框激活，显示提示
+            if self.input_box.active:
+                hint_text = self.font_manager.small.render("输入数字，回车确认，ESC取消", True, (200, 190, 170))
+                self.screen.blit(hint_text, (control_x + 150, control_y + 50))
+        
         return control_x, control_y
     
     def create_buttons(self):
@@ -533,3 +564,12 @@ class SplitCardsUI:
         self.screen.blit(instruction_text, (SCREEN_WIDTH//2 - instruction_text.get_width()//2, panel_y + 180))
         
         return pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+    
+    def get_input_box(self):
+        """获取输入框实例"""
+        return self.input_box
+    
+    def update_input_box(self):
+        """更新输入框状态"""
+        if self.input_box:
+            self.input_box.update()
