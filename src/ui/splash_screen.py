@@ -76,7 +76,7 @@ class PygameSplash:
             small_font = pygame.font.Font(pygame.font.get_default_font(), 16)
         
         # Title
-        title_text = title_font.render("🎮 ICG Games", True, text_color)
+        title_text = title_font.render("ICG Games", True, text_color)
         title_rect = title_text.get_rect(center=(width//2, 60))
         self.screen.blit(title_text, title_rect)
         
@@ -159,7 +159,7 @@ class PygameSplash:
         self.screen.blit(status_text, status_rect)
         
         # Bottom info
-        version_text = small_font.render("Version 1.0.0 | © 2024 ICG Games", True, gray_color)
+        version_text = small_font.render("Version 1.0.0 | © 2025 ICG Games", True, gray_color)
         self.screen.blit(version_text, (20, height - 40))
         
         # Loading tips
@@ -218,9 +218,10 @@ class PygameSplash:
             while self.progress < target_progress and running and not skip_animation:
                 # Update time
                 self.animation_time = (time.time() - start_time) * 2
-                
-                # Gradually increase progress
-                self.progress += 1
+
+                # Random speed progress increase
+                random_increment = random.uniform(0.5, 3.0)
+                self.progress = min(target_progress, self.progress + random_increment)
                 self.status = status
                 
                 if game_index:

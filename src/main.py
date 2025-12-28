@@ -219,7 +219,7 @@ def main():
             print("⚠️ Could not display available games")
         
         # Start main menu
-        print("🎮 Starting main menu...")
+        print("Starting main menu...")
         menu = MainMenu()
         
         # Run the menu (uses its own run() method)
