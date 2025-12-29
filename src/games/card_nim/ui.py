@@ -15,6 +15,9 @@ class CardNimUI:
         self.font_manager = font_manager
         self.input_box = None  # 新增：输入框实例
         self.count_rect = None  # 新增：数字显示区域矩形
+        self.show_hint_tooltip = False  # 新增：是否显示提示工具提示
+        self.hint_tooltip_text = ""  # 新增：提示工具提示文本
+        self.hint_tooltip_pos = (0, 0)  # 新增：提示工具提示位置
     
     def draw_background(self):
         """Draw the background with gradient effect"""
@@ -184,7 +187,7 @@ class CardNimUI:
         pygame.draw.rect(self.screen, (40, 60, 80), pos_bg, border_radius=6)
         self.screen.blit(pos_text, (x - pos_text.get_width()//2, y + 48))
     
-    def draw_control_panel(self, buttons, selected_count, selected_position_index):
+    def draw_control_panel(self, buttons, selected_count, selected_position_index, game_logic):
         """Draw the control panel with enhanced styling"""
         control_y = POSITION_HEIGHT + 150
         control_width = 400
@@ -219,6 +222,10 @@ class CardNimUI:
         if self.input_box.active:
             hint_text = self.font_manager.small.render("Input number, ENTER to confirm, ESC to cancel", True, (180, 200, 220))
             self.screen.blit(hint_text, (control_x + control_width//2 - hint_text.get_width()//2, control_y + 70))
+        
+        # 新增：绘制Winning Hints按钮的悬停提示
+        if self.show_hint_tooltip and self.hint_tooltip_text:
+            self._draw_hint_tooltip()
     
     def draw_hints(self):
         """Draw operation hints separately below control panel"""
@@ -280,6 +287,10 @@ class CardNimUI:
                     self._draw_icon(surface)
                 else:
                     self._draw_text(surface)
+                
+                # Draw tooltip on hover
+                if self.hovered and self.tooltip:
+                    self._draw_tooltip(surface)
             
             def _draw_icon(self, surface):
                 icon_color = (255, 255, 255) if self.enabled else (150, 150, 150)
@@ -321,6 +332,29 @@ class CardNimUI:
                     info_text = font.render("i", True, icon_color)
                     text_rect = info_text.get_rect(center=center)
                     surface.blit(info_text, text_rect)
+                
+                elif self.icon == 'hint':
+                    # Draw hint icon (light bulb)
+                    center = (self.rect.centerx, self.rect.centery)
+                    
+                    # Draw light bulb body
+                    pygame.draw.circle(surface, (255, 255, 200), center, 12)
+                    pygame.draw.circle(surface, (255, 255, 100), center, 12, 2)
+                    
+                    # Draw light rays
+                    for angle in range(0, 360, 45):
+                        rad = angle * 3.14159 / 180
+                        start_x = center[0] + 12 * pygame.math.Vector2(1, 0).rotate(angle).x
+                        start_y = center[1] + 12 * pygame.math.Vector2(1, 0).rotate(angle).y
+                        end_x = center[0] + 20 * pygame.math.Vector2(1, 0).rotate(angle).x
+                        end_y = center[1] + 20 * pygame.math.Vector2(1, 0).rotate(angle).y
+                        pygame.draw.line(surface, (255, 255, 150), (start_x, start_y), (end_x, end_y), 2)
+                    
+                    # Draw question mark inside
+                    font = pygame.font.SysFont('Arial', 14, bold=True)
+                    q_text = font.render("?", True, (50, 50, 50))
+                    text_rect = q_text.get_rect(center=center)
+                    surface.blit(q_text, text_rect)
             
             def _draw_text(self, surface):
                 text_color = (255, 255, 255) if self.enabled else (150, 150, 150)
@@ -333,6 +367,17 @@ class CardNimUI:
                     surface.blit(shadow_surface, shadow_rect)
                 
                 surface.blit(text_surface, text_rect)
+            
+            def _draw_tooltip(self, surface):
+                tooltip_surface = self.font_manager.small.render(self.tooltip, True, (220, 240, 255))
+                tooltip_rect = tooltip_surface.get_rect(midleft=(self.rect.right + 10, self.rect.centery))
+                
+                # Draw tooltip background
+                bg_rect = tooltip_rect.inflate(10, 6)
+                pygame.draw.rect(surface, (40, 50, 70), bg_rect, border_radius=4)
+                pygame.draw.rect(surface, (100, 150, 200), bg_rect, 1, border_radius=4)
+                
+                surface.blit(tooltip_surface, tooltip_rect)
         
         control_y = POSITION_HEIGHT + 150
         control_width = 400
@@ -343,10 +388,15 @@ class CardNimUI:
         # Navigation buttons (top left corner)
         nav_button_size = 50
         
+        # 新增：Hint按钮 - 放在控制面板旁边
+        hint_button_x = control_x + control_width + 20
+        hint_button_y = control_y + 60
+        
         buttons = {
             "minus": GameButton(control_x, control_y, number_button_width, number_button_height, "−", self.font_manager, tooltip="Decrease card count"),
             "plus": GameButton(control_x + control_width - number_button_width, control_y, number_button_width, number_button_height, "+", self.font_manager, tooltip="Increase card count"),
             "confirm": GameButton(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager, tooltip="Make move with selected cards"),
+            "hint": GameButton(hint_button_x, hint_button_y, 50, 50, "", self.font_manager, icon='hint', tooltip="Winning Hint (Hover for AI suggestion)"),
             "restart": GameButton(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 250, 240, 60, "New Game", self.font_manager, tooltip="Start a new game"),
             "back": GameButton(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back', tooltip="Back to mode selection"),
             "home": GameButton(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu"),
@@ -356,6 +406,81 @@ class CardNimUI:
         
         return buttons
     
+    def _draw_hint_tooltip(self):
+        """绘制提示工具提示框"""
+        if not self.hint_tooltip_text:
+            return
+        
+        # 分割文本为多行
+        max_width = 400
+        lines = []
+        words = self.hint_tooltip_text.split(' ')
+        current_line = ""
+        
+        for word in words:
+            test_line = f"{current_line} {word}".strip()
+            test_width = self.font_manager.small.size(test_line)[0]
+            
+            if test_width <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # 计算工具提示框的尺寸
+        line_height = 20
+        padding = 10
+        tooltip_width = max_width + 2 * padding
+        tooltip_height = len(lines) * line_height + 2 * padding
+        
+        # 定位工具提示框（确保在屏幕内）
+        tooltip_x = self.hint_tooltip_pos[0]
+        tooltip_y = self.hint_tooltip_pos[1] - tooltip_height - 10
+        
+        # 如果超出屏幕顶部，显示在下方
+        if tooltip_y < 50:
+            tooltip_y = self.hint_tooltip_pos[1] + 10
+        
+        # 如果超出屏幕右侧，向左偏移
+        if tooltip_x + tooltip_width > SCREEN_WIDTH - 20:
+            tooltip_x = SCREEN_WIDTH - tooltip_width - 20
+        
+        # 绘制工具提示框背景
+        tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+        pygame.draw.rect(self.screen, (20, 30, 50, 230), tooltip_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (100, 180, 255), tooltip_rect, 2, border_radius=8)
+        
+        # 绘制标题
+        title = self.font_manager.medium.render("Winning Hint", True, (100, 200, 255))
+        title_x = tooltip_x + (tooltip_width - title.get_width()) // 2
+        self.screen.blit(title, (title_x, tooltip_y + padding))
+        
+        # 绘制分隔线
+        pygame.draw.line(self.screen, (80, 160, 220), 
+                        (tooltip_x + padding, tooltip_y + padding + title.get_height() + 5),
+                        (tooltip_x + tooltip_width - padding, tooltip_y + padding + title.get_height() + 5), 1)
+        
+        # 绘制文本行
+        for i, line in enumerate(lines):
+            line_text = self.font_manager.small.render(line, True, (220, 240, 255))
+            self.screen.blit(line_text, (tooltip_x + padding, 
+                                       tooltip_y + padding + title.get_height() + 10 + i * line_height))
+    
+    def show_hint_tooltip(self, text, pos):
+        """显示提示工具提示"""
+        self.show_hint_tooltip = True
+        self.hint_tooltip_text = text
+        self.hint_tooltip_pos = pos
+    
+    def hide_hint_tooltip(self):
+        """隐藏提示工具提示"""
+        self.show_hint_tooltip = False
+        self.hint_tooltip_text = ""
+    
     def get_input_box(self):
         """获取输入框实例"""
         return self.input_box
@@ -364,3 +489,9 @@ class CardNimUI:
         """更新输入框状态"""
         if self.input_box:
             self.input_box.update()
+    def update_hint_tooltip(self, mouse_pos):
+        """更新提示工具提示状态"""
+        # 检查是否需要隐藏提示
+        if self.show_hint_tooltip:
+            # 如果鼠标移动了，可能需要更新提示位置
+            self.hint_tooltip_pos = mouse_pos

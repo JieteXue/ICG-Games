@@ -41,9 +41,9 @@ class SettingsPanel:
         
         # Settings options
         self.settings = {
-            'background_music': True,  # Background music
-            'sound_effects': True,     # Sound effects
-            'winning_hints': True,     # Winning hints
+            'background_music': True,  # 背景音乐
+            'sound_effects': True,     # 音效
+            'winning_hints': False,    # 胜负提示 (默认关闭) - 名称更改
         }
         
         # Sponsor URL
@@ -70,9 +70,9 @@ class SettingsPanel:
             },
             {
                 'name': 'winning_hints',
-                'label': 'Winning Status Hints',
-                'description': 'Show/hide winning position hints',
-                'default_state': False
+                'label': 'Winning Hints',  # 名称更改
+                'description': 'A Tip from AI to gain advantage',  # 描述更改
+                'default_state': False  # 默认关闭
             }
         ]
         
@@ -246,14 +246,14 @@ class SettingsPanel:
         setting_labels = [
             "Background Music",
             "Sound Effects", 
-            "Winning Status Hints",
+            "Winning Hints",  # 名称更改
             "Sponsor Us"
         ]
         
         setting_descriptions = [
             "Toggle background music on/off",
             "Toggle game sound effects on/off",
-            "Show/hide winning position indicators",
+            "A Tip from AI to gain advantage",  # 描述更改
             "Visit our sponsor's website"
         ]
         
