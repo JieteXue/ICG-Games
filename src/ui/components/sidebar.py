@@ -125,7 +125,7 @@ class Sidebar:
             if result == "back_from_settings":
                 return None  # 设置面板已关闭，不返回任何操作
             return result
-        
+
         # 原有的键盘快捷键检查
         if event.type == pygame.KEYDOWN:
             if event.key in self.key_shortcuts:
@@ -137,12 +137,18 @@ class Sidebar:
                     self.settings_panel.show()
                     return "settings"
                 return action
-        
-        # 检查切换按钮
+
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # 如果侧边栏展开，点击外部区域则收起侧边栏
+            if self.expanded and not self.is_mouse_over(mouse_pos):
+                # 检查是否点击了其他UI元素（比如游戏区域）
+                # 这里可以根据需要添加额外检查
+                return self.toggle()  # 收起侧边栏
+
+            # 检查切换按钮
             if self.toggle_button_rect.collidepoint(mouse_pos):
                 return self.toggle()
-            
+
             # 检查侧边栏按钮（如果展开且可见）
             if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
                 for button in self.buttons:
@@ -151,13 +157,14 @@ class Sidebar:
                             # 点击settings按钮时，显示设置面板
                             self.settings_panel.show()
                         return button.name
-        
+
         # 处理悬停
         if event.type == pygame.MOUSEMOTION:
             for button in self.buttons:
                 button.update_hover(mouse_pos)
-        
+
         return None
+    
     def draw(self):
         """Draw the sidebar"""
             # 如果设置面板可见，先绘制设置面板
@@ -235,9 +242,14 @@ class Sidebar:
         # 检查侧边栏区域
         if self.current_width > 0 and self.rect.collidepoint(mouse_pos):
             return True
-        # 检查切换按钮
+        # 检查切换按钮（无论是否展开都检查）
         if self.toggle_button_rect.collidepoint(mouse_pos):
             return True
+        # 检查侧边栏按钮（如果展开且可见）
+        if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
+            for button in self.buttons:
+                if button.rect.collidepoint(mouse_pos):
+                    return True
         return False
     
     def get_button_position(self, button_name):

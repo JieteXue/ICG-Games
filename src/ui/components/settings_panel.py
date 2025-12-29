@@ -19,6 +19,15 @@ class SettingsPanel:
         self.panel_height = 450
         self.panel_x = (SCREEN_WIDTH - self.panel_width) // 2
         self.panel_y = (SCREEN_HEIGHT - self.panel_height) // 2
+        self.button_offset_x = 450
+        
+        # Panel rectangle with rounded corners
+        self.panel_rect = pygame.Rect(
+            self.panel_x, 
+            self.panel_y, 
+            self.panel_width, 
+            self.panel_height
+        )
         
         # Back button
         back_button_width = 100
@@ -32,9 +41,9 @@ class SettingsPanel:
         
         # Settings options
         self.settings = {
-            'background_music': True,  # 背景音乐
-            'sound_effects': True,     # 音效
-            'winning_hints': True,     # 胜负提示
+            'background_music': True,  # Background music
+            'sound_effects': True,     # Sound effects
+            'winning_hints': True,     # Winning hints
         }
         
         # Sponsor URL
@@ -71,7 +80,7 @@ class SettingsPanel:
         button_spacing = 90
         
         for i, option in enumerate(setting_options):
-            button_x = self.panel_x + 300
+            button_x = self.panel_x + self.button_offset_x
             button_y = start_y + i * button_spacing
             
             # Create toggle button
@@ -103,6 +112,11 @@ class SettingsPanel:
             return None
         
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Check if click is outside the panel
+            if not self.panel_rect.collidepoint(mouse_pos):
+                self.hide()
+                return "back_from_settings"
+            
             # Check back button
             if self.back_button_rect.collidepoint(mouse_pos):
                 self.hide()
@@ -155,32 +169,33 @@ class SettingsPanel:
         overlay.fill((0, 0, 0, 180))  # Dark overlay with transparency
         self.screen.blit(overlay, (0, 0))
         
-        # Draw panel background
-        panel_rect = pygame.Rect(self.panel_x, self.panel_y, 
-                               self.panel_width, self.panel_height)
+        # Draw panel background with rounded corners
+        pygame.draw.rect(self.screen, (15, 25, 40), self.panel_rect, border_radius=15)
+        pygame.draw.rect(self.screen, ACCENT_COLOR, self.panel_rect, 3, border_radius=15)
         
-        # Panel with gradient effect
-        for i in range(10):
-            color_value = 20 + i * 5
-            pygame.draw.rect(self.screen, 
-                           (color_value, color_value + 10, color_value + 20),
-                           (self.panel_x + i, self.panel_y + i, 
-                            self.panel_width - 2*i, self.panel_height - 2*i),
-                           1)
-        
-        # Main panel background
-        pygame.draw.rect(self.screen, (15, 25, 40), panel_rect, border_radius=15)
-        pygame.draw.rect(self.screen, ACCENT_COLOR, panel_rect, 3, border_radius=15)
-        
-        # Panel header with gradient
+        # Panel header with gradient and rounded corners
         header_rect = pygame.Rect(self.panel_x, self.panel_y, 
                                 self.panel_width, 70)
+        
+        # Draw header background with rounded top corners
+        header_surface = pygame.Surface((self.panel_width, 70), pygame.SRCALPHA)
+        pygame.draw.rect(header_surface, (25, 35, 60), 
+                        (0, 0, self.panel_width, 70), 
+                        border_radius=15, border_top_left_radius=15, border_top_right_radius=15)
+        
+        # Add gradient effect
         for i in range(header_rect.height):
             alpha = int(200 * (1 - i / header_rect.height))
-            color = (25, 35, 60, alpha)
-            pygame.draw.line(self.screen, color,
-                           (header_rect.left, header_rect.top + i),
-                           (header_rect.right, header_rect.top + i), 1)
+            pygame.draw.line(header_surface, (25, 35, 60, alpha),
+                           (0, i),
+                           (self.panel_width, i), 1)
+        
+        self.screen.blit(header_surface, (self.panel_x, self.panel_y))
+        
+        # Draw header border
+        pygame.draw.rect(self.screen, ACCENT_COLOR, 
+                        (self.panel_x, self.panel_y, self.panel_width, 70), 
+                        2, border_top_left_radius=15, border_top_right_radius=15)
         
         # Panel title
         title = self.font_manager.large.render("SETTINGS", True, (0, 255, 220))
@@ -206,7 +221,7 @@ class SettingsPanel:
                         2, border_radius=8)
         
         # Button text
-        back_text = self.font_manager.small.render("← Back", True, (255, 255, 255))
+        back_text = self.font_manager.small.render("Back", True, (255, 255, 255))
         text_rect = back_text.get_rect(center=self.back_button_rect.center)
         self.screen.blit(back_text, text_rect)
         
@@ -264,7 +279,7 @@ class SettingsPanel:
     
     def _draw_sponsor_button(self, y_pos):
         """Draw the sponsor button"""
-        button_rect = pygame.Rect(self.panel_x + 300, y_pos, 80, 35)
+        button_rect = pygame.Rect(self.panel_x + self.button_offset_x, y_pos, 80, 35)
         mouse_pos = pygame.mouse.get_pos()
         is_hovered = button_rect.collidepoint(mouse_pos)
         
