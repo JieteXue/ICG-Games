@@ -147,7 +147,7 @@ class SubtractFactorUI:
             result_color = LOSE_COLOR if result < game_logic.threshold_k else TEXT_COLOR
             result_status = "LOSE!" if result < game_logic.threshold_k else f"{result}"
             result_text = self.font_manager.small.render(
-                f"Selected: {game_logic.selected_factor} → New value: {result_status}", 
+                f"Selected: {game_logic.selected_factor}    New value: {result_status}", 
                 True, result_color
             )
             self.screen.blit(result_text, (SCREEN_WIDTH//2 - result_text.get_width()//2, selection_y + 120))

@@ -153,7 +153,7 @@ class PygameSplash:
         
         # Progress text
         progress_text = status_font.render(f"Progress: {int(self.progress)}%", True, accent_color)
-        progress_rect = progress_text.get_rect(center=(width//2, progress_y + 25))
+        progress_rect = progress_text.get_rect(center=(width//2, progress_y + 35))
         self.screen.blit(progress_text, progress_rect)
         
         # Status text
