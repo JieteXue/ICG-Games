@@ -55,6 +55,7 @@ class UserPreferences:
     theme: str = 'dark'  # 'dark' or 'light'
     language: str = 'en'
     autosave: bool = True
+    winning_hints: bool = False  # 新增：Winning Hints开关，默认关闭
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

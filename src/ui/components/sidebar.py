@@ -117,6 +117,7 @@ class Sidebar:
             button.set_visible(self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10)
             if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
                 button.update_position(self.current_width)
+    
     def handle_event(self, event, mouse_pos):
         """Handle sidebar events"""
         # 如果设置面板可见，优先处理设置面板事件
