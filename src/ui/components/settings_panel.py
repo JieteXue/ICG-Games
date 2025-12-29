@@ -153,7 +153,7 @@ class SettingsPanel:
                     return "sponsor_error"
         
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+            if event.key == pygame.K_ESCAPE or event.key == pygame.K_s:
                 self.hide()
                 return "back_from_settings"
         
