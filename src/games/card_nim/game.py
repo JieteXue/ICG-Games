@@ -64,6 +64,7 @@ Navigation:
 - Home (🏠): Return to main menu  
 - Refresh (↻): Restart current game
 - Info (i): Show these instructions
+- Settings (⚙️): Open settings panel
 
 Good luck and have fun!
 """
@@ -244,7 +245,14 @@ Good luck and have fun!
             self.showing_instructions = True
             return True
         elif action == "settings":
-            print("Settings button clicked")
+            # 处理设置变化
+            setting_name = action.replace("setting_changed_", "")
+            print(f"Setting changed: {setting_name}")
+            # 笑死我了只有按钮还没实装
+            # 这里可以添加具体的设置处理逻辑
+            return True
+        elif action == "sponsor_clicked":
+            print("Sponsor link clicked")
             return True
         return True
 

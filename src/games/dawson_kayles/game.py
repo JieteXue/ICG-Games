@@ -257,6 +257,7 @@ Navigation:
 - Home (🏠): Return to main menu  
 - Restart: Restart current game
 - Info (i): Show these instructions
+- Settings (⚙️): Open settings panel
 
 Good luck commander!
 """
@@ -448,8 +449,6 @@ Good luck commander!
             return True
         elif action == "back":
             self.initialize_game_settings()
-            self.ui.scroll_offset = 0
-            self.input_handler.selected_position = None
             return True
         elif action == "home":
             return False  # 返回主菜单
@@ -458,14 +457,19 @@ Good luck commander!
             game_mode = getattr(self.logic, 'game_mode', "PVE")
             difficulty = getattr(self.logic, 'difficulty', 2)
             self.logic.initialize_game(game_mode, difficulty)
-            self.ui.scroll_offset = 0
-            self.input_handler.selected_position = None
             return True
         elif action == "info":
             self.showing_instructions = True
             return True
         elif action == "settings":
-            print("Settings button clicked")
+            # 处理设置变化
+            setting_name = action.replace("setting_changed_", "")
+            print(f"Setting changed: {setting_name}")
+            # 笑死我了只有按钮还没实装
+            # 这里可以添加具体的设置处理逻辑
+            return True
+        elif action == "sponsor_clicked":
+            print("Sponsor link clicked")
             return True
         return True
     

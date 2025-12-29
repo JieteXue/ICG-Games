@@ -5,6 +5,7 @@ Sidebar Component with toggle functionality
 import pygame
 from abc import ABC, abstractmethod
 from utils.constants import *
+from ui.components.settings_panel import SettingsPanel
 
 class Sidebar:
     """Expandable sidebar with toggle button only visible when collapsed"""
@@ -15,7 +16,8 @@ class Sidebar:
         self.expanded = False  # 默认不展开
         self.current_width = 0  # 默认宽度为0，完全隐藏
         self.target_width = 0
-
+        self.settings_panel = SettingsPanel(screen, font_manager)
+        
         # Sidebar position - 初始宽度为0
         self.rect = pygame.Rect(0, 0, 0, SCREEN_HEIGHT)
 
@@ -115,37 +117,53 @@ class Sidebar:
             button.set_visible(self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10)
             if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
                 button.update_position(self.current_width)
-    
     def handle_event(self, event, mouse_pos):
         """Handle sidebar events"""
-        # Check keyboard shortcuts
+        # 如果设置面板可见，优先处理设置面板事件
+        if self.settings_panel.visible:
+            result = self.settings_panel.handle_event(event, mouse_pos)
+            if result == "back_from_settings":
+                return None  # 设置面板已关闭，不返回任何操作
+            return result
+        
+        # 原有的键盘快捷键检查
         if event.type == pygame.KEYDOWN:
             if event.key in self.key_shortcuts:
                 action = self.key_shortcuts[event.key]
                 if action == "toggle":
                     return self.toggle()
+                elif action == "settings":
+                    # 按S键打开设置面板
+                    self.settings_panel.show()
+                    return "settings"
                 return action
-
-        # Check toggle button
+        
+        # 检查切换按钮
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.toggle_button_rect.collidepoint(mouse_pos):
                 return self.toggle()
-
-            # Check sidebar buttons if expanded and visible
+            
+            # 检查侧边栏按钮（如果展开且可见）
             if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
                 for button in self.buttons:
                     if button.is_clicked(event):
+                        if button.name == "settings":
+                            # 点击settings按钮时，显示设置面板
+                            self.settings_panel.show()
                         return button.name
-
-        # Handle hover
+        
+        # 处理悬停
         if event.type == pygame.MOUSEMOTION:
             for button in self.buttons:
                 button.update_hover(mouse_pos)
-
+        
         return None
-    
     def draw(self):
         """Draw the sidebar"""
+            # 如果设置面板可见，先绘制设置面板
+        if self.settings_panel.visible:
+            self.settings_panel.draw()
+            return  # 绘制设置面板后，不绘制侧边栏背景
         # 只有在展开或动画过程中且宽度大于0时才绘制侧边栏背景
         if (self.expanded or self.is_animating) and self.current_width > 0:
             # 绘制背景（宽度会动画变化）
