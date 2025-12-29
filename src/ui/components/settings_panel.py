@@ -38,7 +38,7 @@ class SettingsPanel:
         }
         
         # Sponsor URL
-        self.sponsor_url = "https://www.deepseek.com"
+        self.sponsor_url = "https://github.com/JieteXue/ICG-Games"
         
         # Create setting buttons
         self.setting_buttons = []
@@ -63,7 +63,7 @@ class SettingsPanel:
                 'name': 'winning_hints',
                 'label': 'Winning Status Hints',
                 'description': 'Show/hide winning position hints',
-                'default_state': True
+                'default_state': False
             }
         ]
         
