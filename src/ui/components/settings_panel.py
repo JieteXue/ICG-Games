@@ -70,8 +70,8 @@ class SettingsPanel:
             },
             {
                 'name': 'winning_hints',
-                'label': 'Winning Hints',  # 名称更改
-                'description': 'A Tip from AI to gain advantage',  # 描述更改
+                'label': 'Winning Hints',  
+                'description': 'A Tip from AI to gain advantage', 
                 'default_state': False  # 默认关闭
             }
         ]
@@ -246,14 +246,14 @@ class SettingsPanel:
         setting_labels = [
             "Background Music",
             "Sound Effects", 
-            "Winning Hints",  # 名称更改
+            "Winning Hints",  
             "Sponsor Us"
         ]
         
         setting_descriptions = [
             "Toggle background music on/off",
             "Toggle game sound effects on/off",
-            "A Tip from AI to gain advantage",  # 描述更改
+            "A Tip from AI to gain advantage", 
             "Visit our sponsor's website"
         ]
         

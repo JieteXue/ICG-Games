@@ -167,8 +167,8 @@ class CardNimLogic:
             self.message = f"Game Started! {self.current_player} is in a winning position.{mode_info}{position_info}"
 
         # New: Add hint about winning hints if enabled
-        if self.winning_hints_enabled:
-            self.message += " [Winning Hints: ON - Hover over the hint button for guidance]"
+        #if self.winning_hints_enabled:
+        #    self.message += " [Winning Hints: ON - Hover over the hint button for guidance]"
 
     def make_move(self, position_idx, count):
         """Execute a move and return success status"""
