@@ -23,10 +23,10 @@ class MusicPanel:
         
         # Music list
         self.music_list = [
-            {"id": 0, "name": "Tranquil Forest", "artist": "Nature Sounds", "unlocked": True},
-            {"id": 1, "name": "Epic Adventure", "artist": "Orchestral", "unlocked": True},
-            {"id": 2, "name": "Chill Vibes", "artist": "Lo-fi Beats", "unlocked": True},
-            {"id": 3, "name": "Mystery Dungeon", "artist": "Secret Track", "unlocked": False}
+            {"id": 0, "name": "Flower Dance", "artist": "Jaycd", "unlocked": True},
+            {"id": 1, "name": "reminisce", "artist": "Aqualina", "unlocked": True},
+            {"id": 2, "name": "Summer", "artist": "CNK", "unlocked": True},
+            {"id": 3, "name": "quantum", "artist": "bbrother", "unlocked": False}
         ]
         
         self.selected_index = 0

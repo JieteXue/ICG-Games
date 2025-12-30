@@ -16,14 +16,15 @@ class MusicManager:
         
         # Music list with file paths (using placeholder paths)
         self.music_library = [
-            {"id": 0, "name": "Tranquil Forest", "artist": "Nature Sounds", "path": "assets/music/tranquil_forest.mp3"},
-            {"id": 1, "name": "Epic Adventure", "artist": "Orchestral", "path": "assets/music/epic_adventure.mp3"},
-            {"id": 2, "name": "Chill Vibes", "artist": "Lo-fi Beats", "path": "assets/music/chill_vibes.mp3"},
-            {"id": 3, "name": "Mystery Dungeon", "artist": "Secret Track", "path": "assets/music/mystery_dungeon.mp3"}
+            {"id": 0, "name": "Flower Dance", "artist": "Jaycd", "path": "assets/music/jaycd_flowerdance.mp3"},
+            {"id": 1, "name": "reminisce", "artist": "Aqualina", "path": "assets/music/aqualina_reminisce.mp3"},
+            {"id": 2, "name": "Summer", "artist": "CNK", "path": "assets/music/CNK_Summer.mp3"},
+            {"id": 3, "name": "quantum", "artist": "bbrother", "path": "assets/music/bbrother_quantum.mp3"}
         ]
         
         # Load settings from config
         self.load_settings()
+
     
     def load_settings(self):
         """Load music settings from config"""
@@ -33,6 +34,7 @@ class MusicManager:
         self.current_music_index = prefs.selected_music
         
         # Set volume
+        pygame.mixer.init()
         pygame.mixer.music.set_volume(self.music_volume)
     
     def save_settings(self):

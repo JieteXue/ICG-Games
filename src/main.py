@@ -169,6 +169,7 @@ def initialize_performance_monitoring():
     except ImportError as e:
         print(f"⚠️ Performance modules not available: {e}")
         return False
+
 def check_font_support(font_manager):
     """检查字体支持情况"""
     test_chars = ['\n', '\t', '→', '←', '↑', '↓']
@@ -243,14 +244,33 @@ def main():
         
         # Start main menu
         print("Starting main menu...")
-        menu = MainMenu()
-        # 初始化音乐
+        
+        # 初始化音乐 - 在导入 music_manager 之前先初始化 mixer
         pygame.mixer.init()
         
-        # 从配置加载音乐设置并播放音乐
-        if music_manager.is_music_enabled() and music_manager.get_current_music_index() >= 0:
-            # 在实际应用中，这里会加载和播放音乐文件
-            print("Music is enabled, would play music here")
+        # 尝试导入 music_manager（假设它存在于某个模块中）
+        try:
+            # 注意：根据你的项目结构，这里可能需要调整导入路径
+            # 例如：from ui.music_manager import music_manager
+            # 或者：from core.music_manager import music_manager
+            # 请根据实际文件位置调整下面的导入语句
+            from utils.music_manager import music_manager  # 或者使用正确的路径
+            
+            # 从配置加载音乐设置并播放音乐
+            if music_manager.is_music_enabled() and music_manager.get_current_music_index() >= 0:
+                # 在实际应用中，这里会加载和播放音乐文件
+                print("Music is enabled, would play music here")
+        except ImportError:
+            print("⚠️ music_manager module not found. Skipping music initialization.")
+            # 创建一个简单的模拟对象以避免错误
+            class DummyMusicManager:
+                def is_music_enabled(self):
+                    return False
+                def get_current_music_index(self):
+                    return -1
+            music_manager = DummyMusicManager()
+        
+        menu = MainMenu()
         # Run the menu (uses its own run() method)
         menu.run()
         

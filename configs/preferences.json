@@ -6,5 +6,12 @@
   "theme": "dark",
   "language": "en",
   "autosave": true,
-  "winning_hints": false
+  "winning_hints": false,
+  "music_enabled": true,
+  "selected_music": 1,
+  "unlocked_music": [
+    0,
+    1,
+    2
+  ]
 }

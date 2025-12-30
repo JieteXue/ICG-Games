@@ -4,8 +4,8 @@ Configuration manager for game settings and preferences
 
 import json
 import os
-from typing import Dict, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Dict, Any, Optional,List
+from dataclasses import dataclass, asdict,field
 
 @dataclass
 class GameConfig:
@@ -44,7 +44,7 @@ class GameConfig:
     def from_dict(cls, data: Dict[str, Any]) -> 'GameConfig':
         """Create from dictionary"""
         return cls(**data)
-
+    
 @dataclass  
 class UserPreferences:
     """User preferences and settings"""
@@ -66,6 +66,7 @@ class UserPreferences:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'UserPreferences':
         return cls(**data)
+
 
 class ConfigManager:
     """Manages all game configurations and user preferences"""
