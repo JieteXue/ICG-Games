@@ -271,13 +271,13 @@ class DawsonKaylesUI:
         status = self.font_manager.large.render(status_text, True, (0, 220, 255))
         status_bg = pygame.Rect(
             SCREEN_WIDTH//2 - status.get_width()//2 - 15,
-            90,
+            80,
             status.get_width() + 30,
             status.get_height() + 10
         )
         pygame.draw.rect(self.screen, (0, 100, 150, 100), status_bg, border_radius=8)
         pygame.draw.rect(self.screen, (0, 200, 255), status_bg, 2, border_radius=8)
-        self.screen.blit(status, (SCREEN_WIDTH//2 - status.get_width()//2, 95))
+        self.screen.blit(status, (SCREEN_WIDTH//2 - status.get_width()//2, 85))
         
         # 游戏消息
         message_color = (WIN_COLOR if game_logic.game_over and game_logic.winner == "Player 1" 
@@ -400,7 +400,7 @@ class DawsonKaylesUI:
         
         # 仪表盘标题 - 位置相应上移
         panel_title = self.font_manager.medium.render("LASER CONTROL PANEL", True, (0, 255, 220))
-        self.screen.blit(panel_title, (SCREEN_WIDTH//2 - panel_title.get_width()//2, control_y - 5))
+        self.screen.blit(panel_title, (SCREEN_WIDTH//2 - panel_title.get_width()//2, control_y - 10))
         
         # 获取可用的最大i值
         max_i = len(game_logic.towers) - 2  # i的最大值是n-2
@@ -409,7 +409,7 @@ class DawsonKaylesUI:
             # 输入框标签（简洁版）
             input_label = self.font_manager.small.render(f"Connect i & i+1 (0 to {max_i}):", 
                                                         True, (180, 220, 255))
-            self.screen.blit(input_label, (control_x, control_y + 20))
+            self.screen.blit(input_label, (control_x, control_y + 30))
             
             # 创建或更新输入框
             input_box_width = 80  # 减小宽度
