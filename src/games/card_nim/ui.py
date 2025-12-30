@@ -207,7 +207,6 @@ class CardNimUI:
         self.screen.blit(pos_text, (x - pos_text.get_width()//2, y + 48))
     
     def draw_control_panel(self, buttons, selected_count, selected_position_index, game_logic):
-    def draw_control_panel(self, buttons, selected_count, selected_position_index, game_logic):
         """Draw the control panel with enhanced styling"""
         control_y = POSITION_HEIGHT + 150
         control_width = 400

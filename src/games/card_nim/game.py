@@ -301,12 +301,7 @@ Good luck and have fun!
                     if hasattr(self.ui, 'show_hint_window'):
                         self.ui.show_hint_window(hint_text)
                 return "hint"
-            elif event.key == pygame.K_h:  # H键也可以显示提示
-                if self.logic.winning_hints_enabled:
-                    hint_text = self.logic.get_winning_hint()
-                    if hasattr(self.ui, 'show_hint_window'):
-                        self.ui.show_hint_window(hint_text)
-                return "hint"
+
             # Toggle performance overlay with F2
             elif event.key == pygame.K_F2:
                 self.show_perf_overlay = not self.show_perf_overlay
