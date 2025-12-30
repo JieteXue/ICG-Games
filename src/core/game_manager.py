@@ -169,6 +169,18 @@ class GameManager(BaseGame):
             return True  # 设置面板已打开，不需要额外处理
         elif action == "settings_closed":
             return True  # 设置面板已关闭
+        elif action == "music_panel_toggled":
+            return True
+        elif action == "music_panel_closed":
+            return True
+        elif action.startswith("music_selected_"):
+            music_id = int(action.replace("music_selected_", ""))
+            print(f"Music {music_id} selected")
+            return True
+        elif action == "music_locked":
+            # 显示解锁提示
+            self.logic.message = "This music is locked! Complete achievements to unlock."
+            return True
         elif action.startswith("setting_changed_"):
             # 处理设置变化
             setting_name = action.replace("setting_changed_", "")
@@ -182,6 +194,21 @@ class GameManager(BaseGame):
                     self.logic.message = "Winning Hints enabled! Click on hint button for guidance."
                 else:
                     self.logic.message = "Winning Hints disabled."
+            elif setting_name == "background_music":
+                # 处理背景音乐开关
+                music_enabled = self.sidebar.settings_panel.settings.get('background_music', True)
+                if music_enabled:
+                    # 启用音乐
+                    from utils.music_manager import music_manager
+                    if music_manager.is_music_enabled() and music_manager.get_current_music_index() >= 0:
+                        # 重新播放音乐
+                        music_manager.play_music(music_manager.get_current_music_index())
+                    self.logic.message = "Background music enabled"
+                else:
+                    # 禁用音乐
+                    from utils.music_manager import music_manager
+                    music_manager.stop_music()
+                    self.logic.message = "Background music disabled"
             return True
         elif action == "sponsor_clicked":
             print("Sponsor link clicked")

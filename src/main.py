@@ -244,7 +244,13 @@ def main():
         # Start main menu
         print("Starting main menu...")
         menu = MainMenu()
+        # 初始化音乐
+        pygame.mixer.init()
         
+        # 从配置加载音乐设置并播放音乐
+        if music_manager.is_music_enabled() and music_manager.get_current_music_index() >= 0:
+            # 在实际应用中，这里会加载和播放音乐文件
+            print("Music is enabled, would play music here")
         # Run the menu (uses its own run() method)
         menu.run()
         
@@ -257,6 +263,7 @@ def main():
     finally:
         pygame.quit()
         sys.exit(0)
+    
 
 if __name__ == "__main__":
     main()
