@@ -124,6 +124,7 @@ GAME_HELP_CONTENT = {
             "In-Game Controls:",
             "• ESC: Activate Sidebar",
             "• Enter/Space: Confirm action",
+            "• B: Back to previous interface",
             "• R: Restart game",
             "• H: Return to main menu",
             "• I: Game Information",
