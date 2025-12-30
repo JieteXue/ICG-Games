@@ -124,10 +124,9 @@ GAME_HELP_CONTENT = {
             "• Arrow Keys: Navigate menus",
             "",
             "In-Game Controls:",
-            "• WASD/Arrow Keys: Move selection",
             "• Enter/Space: Confirm action",
             "• R: Restart game",
-            "• M: Return to main menu"
+            "• H: Return to main menu"
         ],
         "mouse": [
             "Mouse Controls:",

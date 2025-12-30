@@ -363,7 +363,7 @@ Good luck and have fun!
                         
                         # 显示反馈消息
                         if winning_hints:
-                            self.logic.message = "Winning Hints enabled! Hover over hint button for guidance."
+                            self.logic.message = "Winning Hints enabled!  hint button for guidance."
                         else:
                             self.logic.message = "Winning Hints disabled."
                             

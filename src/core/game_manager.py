@@ -179,7 +179,7 @@ class GameManager(BaseGame):
                 self.logic.winning_hints_enabled = winning_hints
                 # 显示反馈消息
                 if winning_hints:
-                    self.logic.message = "Winning Hints enabled! Hover over hint button for guidance."
+                    self.logic.message = "Winning Hints enabled! Click on hint button for guidance."
                 else:
                     self.logic.message = "Winning Hints disabled."
             return True

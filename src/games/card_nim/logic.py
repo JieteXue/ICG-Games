@@ -168,7 +168,7 @@ class CardNimLogic:
 
         # New: Add hint about winning hints if enabled
         #if self.winning_hints_enabled:
-        #    self.message += " [Winning Hints: ON - Hover over the hint button for guidance]"
+        #    self.message += " [Winning Hints: ON - Click on the hint button for guidance]"
 
     def make_move(self, position_idx, count):
         """Execute a move and return success status"""
@@ -365,6 +365,6 @@ class CardNimLogic:
         """Enable or disable winning hints feature"""
         self.winning_hints_enabled = enabled
         if enabled:
-            return "Winning hints enabled! Hover over hint button for guidance."
+            return "Winning hints enabled! Click on hint button for guidance."
         else:
             return "Winning hints disabled."
