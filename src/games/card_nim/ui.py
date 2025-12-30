@@ -237,32 +237,35 @@ class CardNimUI:
         # 新增：绘制提示窗口（如果可见）
         if self.hint_window_visible:
             self._draw_hint_window()
-    
     def _draw_hint_window(self):
         """绘制提示窗口"""
         if not self.hint_window_visible:
             return
         
-        # 定义窗口大小和位置
-        window_width = 350
-        window_height = 250
+        # 定义窗口大小和位置（横向更短，纵向更高）
+        window_width = 280  # 横向宽度减小
+        window_height = 350  # 纵向高度增加
         window_x = SCREEN_WIDTH - window_width - 20
         window_y = 100
         self.hint_window_rect = pygame.Rect(window_x, window_y, window_width, window_height)
         
-        # 绘制窗口背景
-        pygame.draw.rect(self.screen, (25, 35, 50, 240), self.hint_window_rect, border_radius=10)
+        # 绘制窗口背景（带透明度的深色背景）
+        overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
+        overlay.fill((25, 35, 50, 245))  # 增加透明度
+        self.screen.blit(overlay, (window_x, window_y))
+        
+        # 绘制窗口边框
         pygame.draw.rect(self.screen, (100, 180, 255), self.hint_window_rect, 2, border_radius=10)
         
         # 绘制窗口标题
         title_text = self.font_manager.medium.render("Winning Hint", True, (100, 200, 255))
-        title_rect = title_text.get_rect(center=(window_x + window_width//2, window_y + 20))
+        title_rect = title_text.get_rect(center=(window_x + window_width//2, window_y + 25))
         self.screen.blit(title_text, title_rect)
         
         # 绘制分隔线
         pygame.draw.line(self.screen, (80, 160, 220),
-                         (window_x + 10, window_y + 45),
-                         (window_x + window_width - 10, window_y + 45), 2)
+                        (window_x + 10, window_y + 50),
+                        (window_x + window_width - 10, window_y + 50), 2)
         
         # 绘制可滚动面板（如果内容存在）
         if self.hint_scrollable_panel:
@@ -271,14 +274,14 @@ class CardNimUI:
         # 绘制关闭按钮（如果尚未创建）
         if self.hint_close_button is None:
             close_button_rect = pygame.Rect(
-                window_x + window_width - 40,
-                window_y + 10,
-                30, 30
+                window_x + window_width - 35,
+                window_y + 15,
+                25, 25
             )
             
             # 使用内联按钮类
             class SimpleButton:
-                def __init__(self, rect, text="X"):
+                def __init__(self, rect, text="×"):
                     self.rect = rect
                     self.text = text
                     self.hovered = False
@@ -288,10 +291,10 @@ class CardNimUI:
                 
                 def draw(self, screen):
                     color = (255, 100, 100) if self.hovered else (200, 80, 80)
-                    pygame.draw.rect(screen, color, self.rect, border_radius=6)
-                    pygame.draw.rect(screen, (255, 200, 200), self.rect, 2, border_radius=6)
+                    pygame.draw.rect(screen, color, self.rect, border_radius=4)
+                    pygame.draw.rect(screen, (255, 200, 200), self.rect, 1, border_radius=4)
                     
-                    font = pygame.font.SysFont('Arial', 18, bold=True)
+                    font = pygame.font.SysFont('Arial', 20, bold=True)
                     text_surface = font.render(self.text, True, (255, 255, 255))
                     text_rect = text_surface.get_rect(center=self.rect.center)
                     screen.blit(text_surface, text_rect)
@@ -554,39 +557,55 @@ class CardNimUI:
         """隐藏提示工具提示"""
         self.is_hint_tooltip_visible = False
         self.hint_tooltip_text = ""
-    
     def show_hint_window(self, hint_text):
         """显示提示窗口"""
         # 创建或重置滚动面板
-        window_x = SCREEN_WIDTH - 350 - 20  # 与_draw_hint_window保持一致
+        window_x = SCREEN_WIDTH - 280 - 20  # 与_draw_hint_window保持一致
         window_y = 100
-        window_width = 350
-        window_height = 250
+        window_width = 280
+        window_height = 350
         
         # 创建可滚动面板
         self.hint_scrollable_panel = ScrollablePanel(
-            window_x + 10,  # 内边距
+            window_x + 5,  # 内边距
             window_y + 55,  # 标题栏下面
-            window_width - 20,  # 减去内边距
+            window_width - 10,  # 减去内边距
             window_height - 65,  # 减去标题栏和按钮高度
             self.font_manager,
             bg_color=(30, 40, 60, 240)
         )
         
         # 分割文本并添加到面板
-        lines = hint_text.split('\n')
-        for line in lines:
-            if line.strip():  # 非空行
-                # 检查是否是标题
-                if line.strip().endswith(":"):
-                    self.hint_scrollable_panel.add_line(line.strip(), (100, 200, 255), 'medium')
-                elif line.strip().startswith("-"):
-                    self.hint_scrollable_panel.add_line(line.strip(), (220, 240, 255), 'small')
-                else:
-                    self.hint_scrollable_panel.add_line(line.strip(), (200, 220, 240), 'small')
+        # 首先按换行符分割
+        paragraphs = hint_text.split('\n')
+        
+        for para in paragraphs:
+            if para.strip():  # 非空段落
+                # 再按空格分词，然后按面板宽度自动换行
+                words = para.split()
+                current_line = ""
+                
+                for word in words:
+                    test_line = f"{current_line} {word}".strip()
+                    
+                    # 检查测试行的宽度是否超过面板宽度（减去边距）
+                    if self.font_manager.small.size(test_line)[0] < (window_width - 20):
+                        current_line = test_line
+                    else:
+                        # 如果超过宽度，添加当前行，开始新行
+                        if current_line:
+                            self.hint_scrollable_panel.add_line(current_line, (220, 240, 255), 'small')
+                        current_line = word
+                
+                # 添加最后一行
+                if current_line:
+                    self.hint_scrollable_panel.add_line(current_line, (220, 240, 255), 'small')
+                
+                # 段落后添加空行
+                self.hint_scrollable_panel.add_spacing(8)
             else:
-                # 空行作为间距
-                self.hint_scrollable_panel.add_spacing(10)
+                # 空段落作为更大间距
+                self.hint_scrollable_panel.add_spacing(15)
         
         # 显示窗口
         self.hint_window_visible = True

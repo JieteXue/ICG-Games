@@ -169,6 +169,29 @@ def initialize_performance_monitoring():
     except ImportError as e:
         print(f"⚠️ Performance modules not available: {e}")
         return False
+def check_font_support(font_manager):
+    """检查字体支持情况"""
+    test_chars = ['\n', '\t', '→', '←', '↑', '↓']
+    unsupported = []
+    
+    for font_name, font in [('small', font_manager.small), 
+                           ('medium', font_manager.medium),
+                           ('large', font_manager.large)]:
+        for char in test_chars:
+            # 尝试渲染字符
+            try:
+                text_surface = font.render(char, True, (255, 255, 255))
+                width, height = text_surface.get_size()
+                if width == 0 and height == 0:
+                    unsupported.append((font_name, char))
+            except:
+                unsupported.append((font_name, char))
+    
+    if unsupported:
+        print(f"Warning: These characters are not supported: {unsupported}")
+        print("Suggestions: Avoid using unsupported characters or change the font.")
+    else:
+        print("Font support check passed.")
 
 def main():
     """Main entry point - Fixed to use existing menus.py structure"""
