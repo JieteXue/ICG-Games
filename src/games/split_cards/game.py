@@ -9,6 +9,8 @@ from games.split_cards.ui import SplitCardsUI
 from ui.components.sidebar import Sidebar
 from utils.constants import CARD_GAME_FPS, SCREEN_WIDTH, SCREEN_HEIGHT, ACCENT_COLOR, TEXT_COLOR
 from utils.key_repeat import KeyRepeatManager
+from utils.config_manager import config_manager  # 新增导入
+
 class SplitCardsInputHandler:
     """Handles input for Split Cards game"""
     
@@ -276,10 +278,12 @@ class SplitCardsGame(GameManager):
         # 添加侧边栏
         self.sidebar = Sidebar(screen, font_manager)
         
+        # 添加配置管理器
+        self.config_manager = config_manager
+        
         # 确保字体已初始化
         self.font_manager.initialize_fonts()
         
-        # 添加游戏说明
         self.game_instructions = """
 SPLIT CARDS GAME - INSTRUCTIONS
 
@@ -307,6 +311,12 @@ Strategies:
 - Split piles strategically to create more options
 - Remember: the player who takes the last card wins
 
+Winning Hints Feature:
+- Enable "Winning Hints" in Settings (gear icon)
+- Click on the light bulb (💡) button to get AI suggestions
+- AI will suggest optimal moves when in a winning position
+- In losing positions, AI will suggest defensive strategies
+
 Controls:
 - Mouse: Click on piles and action buttons
 - Click on number box: Direct number input
@@ -329,6 +339,7 @@ Navigation:
 - Refresh (↻): Restart current game
 - Info (i): Show these instructions
 - Settings (⚙): Open settings menu
+- Hint (💡): Show winning hint (when enabled)
 
 Tips:
 - Look for patterns in pile sizes
@@ -367,7 +378,8 @@ Good luck and have fun!
             'game_over': self.logic.game_over,
             'winner': self.logic.winner,
             'card_piles': self.logic.card_piles.copy() if self.logic.card_piles else [],
-            'max_take': self.logic.max_take
+            'max_take': self.logic.max_take,
+            'winning_hints_enabled': getattr(self.logic, 'winning_hints_enabled', False)  # 新增
         }
     
     def initialize_game_settings(self):
@@ -382,19 +394,33 @@ Good luck and have fun!
                 self.should_return_to_menu = True
                 return
             
+            # 从配置管理器中获取最新的winning_hints设置
+            try:
+                current_prefs = config_manager.get_user_preferences()
+                winning_hints = current_prefs.winning_hints
+                print(f"Initializing Split Cards with winning_hints from config: {winning_hints}")
+            except Exception as e:
+                print(f"Error getting winning hints from config: {e}")
+                winning_hints = False  # 默认值
+            
             if game_mode == "PVE":
                 difficulty = selector.get_difficulty()
                 if difficulty == "back":
                     self.should_return_to_menu = True
                     return
-                self.logic.initialize_game("PVE", difficulty)
+                self.logic.initialize_game("PVE", difficulty, winning_hints)
             else:
-                self.logic.initialize_game("PVP")
+                self.logic.initialize_game("PVP", None, winning_hints)
                 
         except Exception as e:
             print(f"Error initializing game settings: {e}")
             # Fallback initialization
-            self.logic.initialize_game("PVE", 2)
+            winning_hints = False
+            try:
+                winning_hints = config_manager.get_user_preferences().winning_hints
+            except:
+                pass
+            self.logic.initialize_game("PVE", 2, winning_hints)
     
     def handle_events(self):
         """Handle game events"""
@@ -403,6 +429,19 @@ Good luck and have fun!
         
         mouse_pos = pygame.mouse.get_pos()
 
+        # 更新UI的提示工具提示
+        self.ui.update_hint_tooltip(mouse_pos)
+        
+        # 处理提示窗口事件（如果可见）优先处理
+        if hasattr(self.ui, 'hint_window_visible') and self.ui.hint_window_visible:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                
+                # 先让提示窗口处理事件
+                if self.ui.handle_hint_window_events(event, mouse_pos):
+                    continue  # 事件已处理，继续下一个
+        
         # Update button hover states
         for button in self.buttons.values():
             button.update_hover(mouse_pos)
@@ -473,6 +512,14 @@ Good luck and have fun!
             elif nav_result == "info":
                 self.showing_instructions = True
                 return True
+            elif nav_result == "hint":
+                # 按下Shift键显示提示窗口
+                if hasattr(self.logic, 'winning_hints_enabled') and self.logic.winning_hints_enabled:
+                    hint_text = self.logic.get_winning_hint()
+                    # 调用新的提示窗口
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
+                return True
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # 检查刷新按钮 - 优先处理
@@ -480,6 +527,16 @@ Good luck and have fun!
                     self.logic.initialize_game(self.logic.game_mode, self.logic.difficulty)
                     if hasattr(self.input_handler, 'key_repeat_manager'):
                         self.input_handler.key_repeat_manager._reset_state()
+                    return True
+
+                # 检查Hint按钮
+                if "hint" in self.buttons and self.buttons["hint"].is_clicked(event):
+                    # Hint按钮点击 - 显示提示窗口
+                    if hasattr(self.logic, 'winning_hints_enabled') and self.logic.winning_hints_enabled:
+                        hint_text = self.logic.get_winning_hint()
+                        # 调用新的提示窗口
+                        if hasattr(self.ui, 'show_hint_window'):
+                            self.ui.show_hint_window(hint_text)
                     return True
 
                 result = self.input_handler.handle_mouse_click(event, self.pile_rects, self.buttons, input_box)
@@ -508,17 +565,46 @@ Good luck and have fun!
             # 重启游戏
             game_mode = getattr(self.logic, 'game_mode', "PVE")
             difficulty = getattr(self.logic, 'difficulty', 2)
-            self.logic.initialize_game(game_mode, difficulty)
+            winning_hints = getattr(self.logic, 'winning_hints_enabled', False)
+            self.logic.initialize_game(game_mode, difficulty, winning_hints)
             return True
         elif action == "info":
             self.showing_instructions = True
             return True
-        elif action == "settings":
+        elif action.startswith("setting_changed_"):
             # 处理设置变化
             setting_name = action.replace("setting_changed_", "")
             print(f"Setting changed: {setting_name}")
-            # 笑死我了只有按钮还没实装
-            # 这里可以添加具体的设置处理逻辑
+            
+            # 更新配置管理器中的设置
+            if setting_name == "winning_hints":
+                # 从侧边栏获取当前值
+                if hasattr(self.sidebar, 'settings_panel'):
+                    settings = self.sidebar.settings_panel.get_settings()
+                    winning_hints = settings.get('winning_hints', False)
+                    
+                    print(f"Winning hints setting changed to: {winning_hints}")
+                    
+                    # 更新配置管理器
+                    try:
+                        prefs = config_manager.get_user_preferences()
+                        prefs.winning_hints = winning_hints
+                        config_manager.update_user_preferences(prefs)
+                        
+                        # 更新游戏逻辑中的设置
+                        self.logic.winning_hints_enabled = winning_hints
+                        
+                        # 显示反馈消息
+                        if winning_hints:
+                            self.logic.message = "Winning Hints enabled! Click light bulb button for guidance."
+                        else:
+                            self.logic.message = "Winning Hints disabled."
+                            
+                    except Exception as e:
+                        print(f"Error updating setting: {e}")
+                        
+                    # 强制更新按钮状态
+                    self.update_button_states()
             return True
         elif action == "sponsor_clicked":
             print("Sponsor link clicked")
@@ -535,6 +621,15 @@ Good luck and have fun!
                 if hasattr(self.input_handler, 'key_repeat_manager'):
                     self.input_handler.key_repeat_manager._reset_state()
                 return "refresh"
+            
+            # 检查Hint按钮
+            if "hint" in self.buttons and self.buttons["hint"].is_clicked(event):
+                # Hint按钮点击 - 显示提示窗口
+                if hasattr(self.logic, 'winning_hints_enabled') and self.logic.winning_hints_enabled:
+                    hint_text = self.logic.get_winning_hint()
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
+                return "hint"
             
             # 检查其他导航按钮
             for btn_name in ["back", "home"]:
@@ -553,6 +648,13 @@ Good luck and have fun!
                 if hasattr(self.input_handler, 'key_repeat_manager'):
                     self.input_handler.key_repeat_manager._reset_state()
                 return "refresh"
+            elif event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
+                # Shift键显示提示窗口
+                if hasattr(self.logic, 'winning_hints_enabled') and self.logic.winning_hints_enabled:
+                    hint_text = self.logic.get_winning_hint()
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
+                return "hint"
         
         return None
     
@@ -563,6 +665,12 @@ Good luck and have fun!
         
         # 更新输入框状态
         self.ui.update_input_box()
+        
+        # 更新UI的提示工具提示
+        self.ui.update_hint_tooltip(pygame.mouse.get_pos())
+        
+        # 更新按钮状态
+        self.update_button_states()
         
         # AI's turn (only in PvE mode)
         if (self.logic.game_mode == "PVE" and 
@@ -577,6 +685,50 @@ Good luck and have fun!
         else:
             # 更新按键重复状态（仅当不是AI回合时）
             self.input_handler.update_key_repeat()
+    
+    def update_button_states(self):
+        """更新按钮状态"""
+        if self.logic.game_mode == "PVE":
+            buttons_enabled = (self.logic.current_player == "Player 1")
+        else:
+            buttons_enabled = True  # PvP模式下双方都可以操作
+        
+        # Update hint button
+        if "hint" in self.buttons:
+            hint_enabled = False
+            
+            if self.logic.game_mode == "PVE":
+                # PvE模式：只在玩家回合且Winning Hints启用时可用
+                if self.logic.current_player == "Player 1" and hasattr(self.logic, 'winning_hints_enabled') and self.logic.winning_hints_enabled:
+                    hint_enabled = True
+            else:
+                # PvP模式：只要Winning Hints启用就可用
+                if hasattr(self.logic, 'winning_hints_enabled') and self.logic.winning_hints_enabled:
+                    hint_enabled = True
+            
+            self.buttons["hint"].enabled = hint_enabled
+        
+        # Update action buttons
+        for btn_name in ["take_btn", "split_btn", "confirm_btn", "minus", "plus"]:
+            if btn_name in self.buttons:
+                self.buttons[btn_name].enabled = buttons_enabled
+        
+        # 特殊处理：如果选中的牌堆只有1张，则split按钮不可用
+        if (self.logic.selected_pile_index is not None and 
+            "split_btn" in self.buttons and 
+            self.buttons["split_btn"].enabled and
+            self.logic.card_piles[self.logic.selected_pile_index] <= 1):
+            self.buttons["split_btn"].enabled = False
+        
+        # Update confirm button
+        if "confirm_btn" in self.buttons:
+            can_confirm = (self.logic.selected_pile_index is not None and 
+                          self.logic.selected_action is not None)
+            self.buttons["confirm_btn"].enabled = buttons_enabled and can_confirm
+        
+        # 确保游戏结束后 restart 按钮可用
+        if self.logic.game_over and "restart" in self.buttons:
+            self.buttons["restart"].enabled = True
     
     def draw(self):
         """Draw the complete game interface"""
@@ -609,25 +761,12 @@ Good luck and have fun!
                 self.buttons["refresh"].draw(self.screen)
             
             if not self.logic.game_over:
-                # Set button enabled states based on game mode and current player
-                if self.logic.game_mode == "PVE":
-                    buttons_enabled = (self.logic.current_player == "Player 1")
-                else:
-                    buttons_enabled = True
+                # 绘制控制面板和提示按钮
+                control_x, control_y = self.ui.draw_control_panel(self.logic, self.buttons)
                 
-                # Update button enabled states
-                for btn_name in ["take_btn", "split_btn", "confirm_btn", "minus", "plus"]:
-                    if btn_name in self.buttons:
-                        self.buttons[btn_name].enabled = buttons_enabled
-                
-                # 特殊处理：如果选中的牌堆只有1张，则split按钮不可用
-                if (self.logic.selected_pile_index is not None and 
-                    self.buttons["split_btn"].enabled and
-                    self.logic.card_piles[self.logic.selected_pile_index] <= 1):
-                    self.buttons["split_btn"].enabled = False
-                
-                # Draw control panel
-                control_x, control_y = self.ui.draw_control_panel(self.logic)
+                # Draw hint button
+                if "hint" in self.buttons:
+                    self.buttons["hint"].draw(self.screen)
                 
                 # Draw control buttons
                 for btn_name in ["take_btn", "split_btn", "confirm_btn"]:
@@ -640,18 +779,18 @@ Good luck and have fun!
                     self.buttons["plus"].visible = True
                     self.buttons["minus"].draw(self.screen)
                     self.buttons["plus"].draw(self.screen)
-                    
-                    # 注意：数字显示已在draw_control_panel中通过输入框绘制
                 else:
                     self.buttons["minus"].visible = False
                     self.buttons["plus"].visible = False
-            # Draw hints
+                
+                # Draw hints
                 hints = [
                     "点击数字框直接输入数字，回车确认，ESC取消",
                     "Use LEFT/RIGHT arrows to select piles",
                     "Select a pile, then choose action: Take or Split",
                     "Use UP/DOWN arrows to adjust count, ENTER to confirm",
-                    "The player who takes the last card wins!"
+                    "The player who takes the last card wins!",
+                    "Hint: Click the light bulb (💡) for winning strategies"
                 ]
                 hint_y = self.ui.table_rect.bottom + 180
                 for i, hint in enumerate(hints):
@@ -747,6 +886,7 @@ Good luck and have fun!
                     text_rect = text_surface.get_rect(left=panel_x + 40, top=y_pos)
                     self.screen.blit(text_surface, text_rect)
                     y_pos += font.get_linesize() + 2
+    
     def run(self):
         """Run the main game loop"""
         self.running = True

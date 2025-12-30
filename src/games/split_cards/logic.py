@@ -3,7 +3,7 @@ Split Cards Game Logic
 """
 
 import random
-from utils.constants import *  # 使用相对导入
+from utils.constants import *  # Using relative imports
 
 class SplitCardsLogic:
     """Game logic for Split Cards game"""
@@ -11,9 +11,9 @@ class SplitCardsLogic:
     def __init__(self):
         self.card_piles = []  # List of card piles
         self.max_take = 0  # Maximum number of cards that can be taken at once
-        self.selected_pile_index = None  # 添加缺失的属性
+        self.selected_pile_index = None  # Index of selected pile
         self.selected_action = None  # 'take' or 'split'
-        self.selected_count = 1
+        self.selected_count = 1  # Number of cards to take or split point
         self.split_position = 0  # For split action, where to split
         self.game_over = False
         self.winner = None
@@ -22,6 +22,7 @@ class SplitCardsLogic:
         self.game_mode = None
         self.current_player = "Player 1"
         self.auto_player = None
+        self.winning_hints_enabled = False  # New attribute for winning hints feature
     
     def calculate_sg_value(self, n, k):
         """Calculate Sprague-Grundy value for a pile"""
@@ -96,12 +97,13 @@ class SplitCardsLogic:
         
         return None
     
-    def initialize_game(self, game_mode, difficulty=None):
-        """Initialize a new game"""
+    def initialize_game(self, game_mode, difficulty=None, winning_hints=False):
+        """Initialize a new game with winning hints support"""
         self.game_mode = game_mode
         self.difficulty = difficulty
+        self.winning_hints_enabled = winning_hints
         
-        # 重置所有状态属性
+        # Reset all state attributes
         self.selected_pile_index = None
         self.selected_action = None
         self.selected_count = 1
@@ -140,7 +142,11 @@ class SplitCardsLogic:
         if self.game_mode == "PVE":
             self.auto_player = SplitCardsAI(self)
         
-        self.message = f"Game Started! {initial_pile} cards in one pile. Max take: {self.max_take}. {self.current_player}'s turn."
+        # Set initial message
+        if self.winning_hints_enabled:
+            self.message = f"Game Started! {initial_pile} cards in one pile. Max take: {self.max_take}. Winning Hints enabled. {self.current_player}'s turn."
+        else:
+            self.message = f"Game Started! {initial_pile} cards in one pile. Max take: {self.max_take}. {self.current_player}'s turn."
     
     def make_move(self, move_info):
         """Execute a move"""
@@ -222,6 +228,89 @@ class SplitCardsLogic:
             if move:
                 return self.make_move(move)
         return False
+    
+    def get_winning_hint(self):
+        """Get winning hint analysis"""
+        if not hasattr(self, 'winning_hints_enabled') or not self.winning_hints_enabled:
+            return "Winning hints are disabled. Enable them in settings to get AI suggestions."
+        
+        if self.game_over:
+            return f"Game Over! {self.winner} wins!\n\nRestart the game to play again."
+        
+        # Check if it's a winning position
+        is_winning = self.is_winning_position()
+        
+        hint = ""
+        if is_winning:
+            hint += "WINNING POSITION - Optimal Move:\n\n"
+            
+            # Find a winning move
+            winning_move = self.find_winning_move()
+            if winning_move:
+                if winning_move['type'] == 'take':
+                    hint += f"ACTION: Take {winning_move['count']} card(s) from Pile {winning_move['pile_index'] + 1}\n\n"
+                    hint += f"Steps:\n"
+                    hint += f"1. Click on Pile {winning_move['pile_index'] + 1}\n"
+                    hint += f"2. Click 'Take Cards' button\n"
+                    hint += f"3. Set number to {winning_move['count']} (use arrows or type directly)\n"
+                    hint += f"4. Click 'Confirm Move' or press ENTER\n"
+                else:  # split
+                    hint += f"ACTION: Split Pile {winning_move['pile_index'] + 1} into {winning_move['left_count']} and {winning_move['right_count']} cards\n\n"
+                    hint += f"Steps:\n"
+                    hint += f"1. Click on Pile {winning_move['pile_index'] + 1}\n"
+                    hint += f"2. Click 'Split Pile' button\n"
+                    hint += f"3. Set split point to {winning_move['left_count']} (use arrows or type directly)\n"
+                    hint += f"4. Click 'Confirm Move' or press ENTER\n"
+                
+                hint += f"\nReason: This move leaves opponent in a losing position."
+            else:
+                hint += "No winning move found. All moves lead to opponent advantage.\n"
+                hint += "Try any move and hope for opponent mistake."
+        
+        else:
+            hint += "LOSING POSITION - Best Defense:\n\n"
+            
+            # Find best defensive move (most complex position)
+            valid_moves = self.get_valid_moves()
+            best_move = None
+            max_complexity = 0
+            
+            for move in valid_moves:
+                # Calculate complexity: number of piles after move
+                if move['type'] == 'take':
+                    new_piles = len(self.card_piles)
+                    if self.card_piles[move['pile_index']] - move['count'] == 0:
+                        new_piles -= 1
+                else:  # split
+                    new_piles = len(self.card_piles) + 1  # One pile becomes two
+                
+                if new_piles > max_complexity:
+                    max_complexity = new_piles
+                    best_move = move
+            
+            if best_move:
+                if best_move['type'] == 'take':
+                    hint += f"ACTION: Take {best_move['count']} card(s) from Pile {best_move['pile_index'] + 1}\n\n"
+                    hint += f"Steps:\n"
+                    hint += f"1. Click on Pile {best_move['pile_index'] + 1}\n"
+                    hint += f"2. Click 'Take Cards' button\n"
+                    hint += f"3. Set number to {best_move['count']} (use arrows or type directly)\n"
+                    hint += f"4. Click 'Confirm Move' or press ENTER\n"
+                else:  # split
+                    hint += f"ACTION: Split Pile {best_move['pile_index'] + 1} into {best_move['left_count']} and {best_move['right_count']} cards\n\n"
+                    hint += f"Steps:\n"
+                    hint += f"1. Click on Pile {best_move['pile_index'] + 1}\n"
+                    hint += f"2. Click 'Split Pile' button\n"
+                    hint += f"3. Set split point to {best_move['left_count']} (use arrows or type directly)\n"
+                    hint += f"4. Click 'Confirm Move' or press ENTER\n"
+                
+                hint += f"\nReason: This creates {max_complexity} piles, giving opponent more chances to make mistakes."
+        
+        # Add quick summary
+        hint += f"\n\nCurrent: Piles: {self.card_piles}, Max take: {self.max_take}"
+        
+        return hint
+
 
 class SplitCardsAI:
     """AI logic for Split Cards game"""
