@@ -46,7 +46,7 @@ Strategies:
 
 Winning Hints Feature:
 - Enable "Winning Hints" in Settings (gear icon)
-- Hover over the light bulb (💡) button to get AI suggestions
+- Click on the light bulb (💡) button to get AI suggestions
 - AI will suggest optimal moves when in a winning position
 - In losing positions, AI will suggest defensive strategies
 
@@ -128,6 +128,7 @@ Good luck and have fun!
         from games.card_nim.input_handler import CardNimInputHandler
         self.input_handler = CardNimInputHandler(self.logic, self.ui)
     
+    
     def handle_events(self):
         """Handle game events"""
         if self.should_return_to_menu:
@@ -138,15 +139,28 @@ Good luck and have fun!
         # 更新UI的提示工具提示
         self.ui.update_hint_tooltip(mouse_pos)
         
-        # 检查Hint按钮悬停
+        # 检查Hint按钮悬停 - 修改为不显示工具提示，只点击打开窗口
         if "hint" in self.buttons:
             hint_button = self.buttons["hint"]
-            if hint_button.hovered and self.logic.winning_hints_enabled:
-                # 获取提示文本
-                hint_text = self.logic.get_winning_hint()
-                self.ui.show_hint_tooltip(hint_text, mouse_pos)
-            else:
-                self.ui.hide_hint_tooltip()
+            is_hovered = hint_button.rect.collidepoint(mouse_pos) if hint_button else False
+            
+            # 悬停时只更新按钮状态，不显示工具提示
+            if is_hovered and self.logic.winning_hints_enabled:
+                # 不再显示工具提示，改为只更新按钮hover状态
+                pass
+        
+        # 处理提示窗口事件（如果可见）优先处理
+        if hasattr(self.ui, 'hint_window_visible') and self.ui.hint_window_visible:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                
+                # 先让提示窗口处理事件
+                if self.ui.handle_hint_window_events(event, mouse_pos):
+                    continue  # 事件已处理，继续下一个
+                
+                # 其他事件处理...
+                # 这里可以添加提示窗口打开时对其他事件的处理
         
         # Update button hover states
         for button in self.buttons.values():
@@ -155,6 +169,11 @@ Good luck and have fun!
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            
+            # 如果提示窗口打开，让提示窗口优先处理事件
+            if hasattr(self.ui, 'hint_window_visible') and self.ui.hint_window_visible:
+                if self.ui.handle_hint_window_events(event, mouse_pos):
+                    continue  # 事件已处理，继续下一个
             
             sidebar_result = self.sidebar.handle_event(event, mouse_pos)
             if sidebar_result:
@@ -192,9 +211,8 @@ Good luck and have fun!
                         self.logic.selected_count = new_value
                 return True
             
-            # 如果输入框激活，不处理其他事件（除了ESC和回车已经在输入框处理了）
+            # 如果输入框激活，不处理其他事件
             if input_box and input_box.is_active():
-                # 输入框激活时，只允许处理ESC和回车（已在上面处理）
                 continue
             
             # Handle navigation events
@@ -210,38 +228,31 @@ Good luck and have fun!
                 self.showing_instructions = True
                 return True
             elif nav_result == "hint":
-                # 按下H键显示提示
+                # 按下Shift键显示提示窗口
                 if self.logic.winning_hints_enabled:
                     hint_text = self.logic.get_winning_hint()
-                    # 临时显示提示消息
-                    old_message = self.logic.message
-                    self.logic.message = f"Hint: {hint_text[:100]}..." if len(hint_text) > 100 else f"Hint: {hint_text}"
-                    # 设置定时器恢复原消息
-                    pygame.time.set_timer(pygame.USEREVENT, 3000)  # 3秒后恢复
+                    # 调用新的提示窗口
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
                 return True
             
             # 处理提示消息恢复
             if event.type == pygame.USEREVENT:
-                # 清除定时器
                 pygame.time.set_timer(pygame.USEREVENT, 0)
-                # 这里可以添加恢复原消息的逻辑
                 return True
             
             # Handle game-specific events
             if not self.logic.game_over:
                 result = self.input_handler.handle_event(event, self.position_rects, self.buttons)
             else:
-                # 修复：游戏结束后也要处理事件
                 result = self.input_handler.handle_event(event, self.position_rects, self.buttons)
                 
             # 检查是否重启了游戏
             if result == "restart":
-                # 重新创建组件来重置状态
                 self.create_components()
                 return True
         
         return True
-    
     def handle_navigation_events(self, event):
         """Universal navigation events handling"""
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -255,28 +266,46 @@ Good luck and have fun!
                 self.logic.initialize_game(game_mode, difficulty, winning_hints)
                 if hasattr(self.ui, 'scroll_offset'):
                     self.ui.scroll_offset = 0
+                # 如果提示窗口打开，关闭它
+                if hasattr(self.ui, 'hint_window_visible'):
+                    self.ui.close_hint_window()
                 return "refresh"
             if "hint" in self.buttons and self.buttons["hint"].is_clicked(event):
-                # Hint按钮点击 - 可以添加点击功能
+                # Hint按钮点击 - 显示提示窗口
                 if self.logic.winning_hints_enabled:
                     hint_text = self.logic.get_winning_hint()
-                    # 临时显示提示
-                    old_message = self.logic.message
-                    self.logic.message = f"Hint: {hint_text[:80]}..." if len(hint_text) > 80 else f"Hint: {hint_text}"
-                    # 设置定时器恢复原消息
-                    pygame.time.set_timer(pygame.USEREVENT, 3000)
+                    # 调用新的提示窗口
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
                 return "hint"
             
             if "back" in self.buttons and self.buttons["back"].is_clicked(event):
+                # 如果提示窗口打开，关闭它
+                if hasattr(self.ui, 'hint_window_visible'):
+                    self.ui.close_hint_window()
                 return "back"
             elif "home" in self.buttons and self.buttons["home"].is_clicked(event):
+                # 如果提示窗口打开，关闭它
+                if hasattr(self.ui, 'hint_window_visible'):
+                    self.ui.close_hint_window()
                 return "home"
         
         # 按键事件
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_i:
                 return "info"
-            elif event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:  # SHIFT键显示提示
+            elif event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
+                # Shift键显示提示窗口
+                if self.logic.winning_hints_enabled:
+                    hint_text = self.logic.get_winning_hint()
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
+                return "hint"
+            elif event.key == pygame.K_h:  # H键也可以显示提示
+                if self.logic.winning_hints_enabled:
+                    hint_text = self.logic.get_winning_hint()
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
                 return "hint"
             # Toggle performance overlay with F2
             elif event.key == pygame.K_F2:
@@ -303,32 +332,46 @@ Good luck and have fun!
         elif action == "info":
             self.showing_instructions = True
             return True
-        elif action == "settings":
-            # 处理设置变化
+        elif action.startswith("setting_changed_"):
+            # 处理设置变化 - 修复这里
             setting_name = action.replace("setting_changed_", "")
             print(f"Setting changed: {setting_name}")
+            
             # 更新配置管理器中的设置
             if setting_name == "winning_hints":
-                # 获取设置面板中的当前值
+                # 从侧边栏获取当前值
                 if hasattr(self.sidebar, 'settings_panel'):
-                    winning_hints = self.sidebar.settings_panel.settings.get('winning_hints', False)
+                    settings = self.sidebar.settings_panel.get_settings()
+                    winning_hints = settings.get('winning_hints', False)
+                    
+                    #print(f"Winning hints setting changed to: {winning_hints}")  # 调试
+                    
                     # 更新配置管理器
-                    prefs = config_manager.get_user_preferences()
-                    prefs.winning_hints = winning_hints
-                    config_manager.update_user_preferences(prefs)
-                    # 更新游戏逻辑中的设置
-                    self.logic.winning_hints_enabled = winning_hints
-                    # 显示反馈消息
-                    if winning_hints:
-                        self.logic.message = "Winning Hints enabled! Hover over hint button for guidance."
-                    else:
-                        self.logic.message = "Winning Hints disabled."
+                    try:
+                        prefs = config_manager.get_user_preferences()
+                        prefs.winning_hints = winning_hints
+                        config_manager.update_user_preferences(prefs)
+                        
+                        # 更新游戏逻辑中的设置
+                        self.logic.winning_hints_enabled = winning_hints
+                        
+                        # 显示反馈消息
+                        if winning_hints:
+                            self.logic.message = "Winning Hints enabled! Hover over hint button for guidance."
+                        else:
+                            self.logic.message = "Winning Hints disabled."
+                            
+                    except Exception as e:
+                        print(f"Error updating setting: {e}")
+                        
+                    # 强制更新按钮状态
+                    self.update_button_states()
             return True
         elif action == "sponsor_clicked":
             print("Sponsor link clicked")
             return True
         return True
-
+    
     def update(self):
         """Update game state"""
         self.sidebar.update()
@@ -341,15 +384,16 @@ Good luck and have fun!
         # 更新UI的提示工具提示
         self.ui.update_hint_tooltip(pygame.mouse.get_pos())
         
+        # 无论游戏是否结束，都更新按钮状态
+        self.update_button_states()  # 移到这里，无条件执行
+        
         if not self.logic.game_over:
             self.update_ai_turn()
-            self.update_button_states()
         
         # Update position rectangles
         self.position_rects = self.ui.draw_card_positions(
             self.logic.positions, self.logic.selected_position_index
         )
-    
     def draw(self):
         """Draw game interface"""
         # Draw background
@@ -369,6 +413,7 @@ Good luck and have fun!
         
         # Draw game-specific UI
         if not self.logic.game_over:
+            # 注意：提示窗口现在在 draw_control_panel 中绘制
             self.ui.draw_control_panel(self.buttons, self.logic.selected_count, self.logic.selected_position_index,self.logic)
             
             # 绘制控制按钮和Hint按钮
@@ -379,11 +424,6 @@ Good luck and have fun!
         else:
             if "restart" in self.buttons:
                 self.buttons["restart"].draw(self.screen)
-        
-        # 注释掉已经集成的绘制导航按钮
-        #for button_name in ["back", "home", "refresh", "info"]:
-        #    if button_name in self.buttons:
-        #        self.buttons[button_name].draw(self.screen)
         
         # 最后绘制侧边栏，使其在最上层
         self.sidebar.draw()
@@ -476,9 +516,9 @@ Good luck and have fun!
             if self.ai_timer > 30:
                 self.logic.ai_make_move()
                 self.ai_timer = 0
-    
     def update_button_states(self):
         """Universal button states update"""
+        # 无论游戏是否结束，都应该更新Hint按钮状态
         if self.logic.game_mode == "PVE":
             buttons_enabled = (self.logic.current_player == "Player 1")
         else:
@@ -489,8 +529,7 @@ Good luck and have fun!
             can_confirm = (self.logic.selected_position_index is not None)
             self.buttons["confirm"].enabled = buttons_enabled and can_confirm
         
-        # Update hint button - 只有在Winning Hints启用时才可用
-        # 并且只在玩家回合才显示（AI回合时不显示）
+        # Update hint button - 关键修复：确保按钮状态正确
         if "hint" in self.buttons:
             hint_enabled = False
             
@@ -504,10 +543,14 @@ Good luck and have fun!
                     hint_enabled = True
             
             self.buttons["hint"].enabled = hint_enabled
+            
+            # 调试信息 - 可以暂时添加来查看状态
+            # print(f"Hint enabled: {hint_enabled}, winning_hints_enabled: {self.logic.winning_hints_enabled}")
         
         # 确保游戏结束后 restart 按钮可用
         if self.logic.game_over and "restart" in self.buttons:
             self.buttons["restart"].enabled = True
+    
     def get_game_info(self):
         """Return game information"""
         return {

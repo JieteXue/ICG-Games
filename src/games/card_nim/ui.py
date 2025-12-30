@@ -6,6 +6,7 @@ import pygame
 from utils.constants import *
 from utils.helpers import wrap_text
 from ui.components.input_box import InputBox  # 新增导入
+from ui.components.scrollables import ScrollablePanel  # 新增导入
 
 class CardNimUI:
     """Handles all UI rendering for Card Nim game"""
@@ -13,11 +14,17 @@ class CardNimUI:
     def __init__(self, screen, font_manager):
         self.screen = screen
         self.font_manager = font_manager
-        self.input_box = None  # 新增：输入框实例
-        self.count_rect = None  # 新增：数字显示区域矩形
-        self.show_hint_tooltip = False  # 新增：是否显示提示工具提示
-        self.hint_tooltip_text = ""  # 新增：提示工具提示文本
-        self.hint_tooltip_pos = (0, 0)  # 新增：提示工具提示位置
+        self.input_box = None
+        self.count_rect = None
+        self.is_hint_tooltip_visible = False  # 改为这个
+        self.hint_tooltip_text = ""
+        self.hint_tooltip_pos = (0, 0)
+        
+        # 新增：提示窗口属性
+        self.hint_window_visible = False
+        self.hint_scrollable_panel = None
+        self.hint_close_button = None
+        self.hint_window_rect = None
     
     def draw_background(self):
         """Draw the background with gradient effect"""
@@ -224,8 +231,75 @@ class CardNimUI:
             self.screen.blit(hint_text, (control_x + control_width//2 - hint_text.get_width()//2, control_y + 70))
         
         # 新增：绘制Winning Hints按钮的悬停提示
-        if self.show_hint_tooltip and self.hint_tooltip_text:
+        if self.is_hint_tooltip_visible and self.hint_tooltip_text:
             self._draw_hint_tooltip()
+        
+        # 新增：绘制提示窗口（如果可见）
+        if self.hint_window_visible:
+            self._draw_hint_window()
+    
+    def _draw_hint_window(self):
+        """绘制提示窗口"""
+        if not self.hint_window_visible:
+            return
+        
+        # 定义窗口大小和位置
+        window_width = 350
+        window_height = 250
+        window_x = SCREEN_WIDTH - window_width - 20
+        window_y = 100
+        self.hint_window_rect = pygame.Rect(window_x, window_y, window_width, window_height)
+        
+        # 绘制窗口背景
+        pygame.draw.rect(self.screen, (25, 35, 50, 240), self.hint_window_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (100, 180, 255), self.hint_window_rect, 2, border_radius=10)
+        
+        # 绘制窗口标题
+        title_text = self.font_manager.medium.render("Winning Hint", True, (100, 200, 255))
+        title_rect = title_text.get_rect(center=(window_x + window_width//2, window_y + 20))
+        self.screen.blit(title_text, title_rect)
+        
+        # 绘制分隔线
+        pygame.draw.line(self.screen, (80, 160, 220),
+                         (window_x + 10, window_y + 45),
+                         (window_x + window_width - 10, window_y + 45), 2)
+        
+        # 绘制可滚动面板（如果内容存在）
+        if self.hint_scrollable_panel:
+            self.hint_scrollable_panel.draw(self.screen)
+        
+        # 绘制关闭按钮（如果尚未创建）
+        if self.hint_close_button is None:
+            close_button_rect = pygame.Rect(
+                window_x + window_width - 40,
+                window_y + 10,
+                30, 30
+            )
+            
+            # 使用内联按钮类
+            class SimpleButton:
+                def __init__(self, rect, text="X"):
+                    self.rect = rect
+                    self.text = text
+                    self.hovered = False
+                
+                def update_hover(self, mouse_pos):
+                    self.hovered = self.rect.collidepoint(mouse_pos)
+                
+                def draw(self, screen):
+                    color = (255, 100, 100) if self.hovered else (200, 80, 80)
+                    pygame.draw.rect(screen, color, self.rect, border_radius=6)
+                    pygame.draw.rect(screen, (255, 200, 200), self.rect, 2, border_radius=6)
+                    
+                    font = pygame.font.SysFont('Arial', 18, bold=True)
+                    text_surface = font.render(self.text, True, (255, 255, 255))
+                    text_rect = text_surface.get_rect(center=self.rect.center)
+                    screen.blit(text_surface, text_rect)
+            
+            self.hint_close_button = SimpleButton(close_button_rect)
+        
+        # 绘制关闭按钮
+        self.hint_close_button.draw(self.screen)
     
     def draw_hints(self):
         """Draw operation hints separately below control panel"""
@@ -396,7 +470,7 @@ class CardNimUI:
             "minus": GameButton(control_x, control_y, number_button_width, number_button_height, "−", self.font_manager, tooltip="Decrease card count"),
             "plus": GameButton(control_x + control_width - number_button_width, control_y, number_button_width, number_button_height, "+", self.font_manager, tooltip="Increase card count"),
             "confirm": GameButton(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager, tooltip="Make move with selected cards"),
-            "hint": GameButton(hint_button_x, hint_button_y, 50, 50, "", self.font_manager, icon='hint', tooltip="Winning Hint (Hover for AI suggestion)"),
+            "hint": GameButton(hint_button_x, hint_button_y, 50, 50, "", self.font_manager, icon='hint', tooltip="Click for AI hints"),
             "restart": GameButton(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 250, 240, 60, "New Game", self.font_manager, tooltip="Start a new game"),
             "back": GameButton(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back', tooltip="Back to mode selection"),
             "home": GameButton(20 + nav_button_size + 10, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='home', tooltip="Back to main menu"),
@@ -472,14 +546,101 @@ class CardNimUI:
     
     def show_hint_tooltip(self, text, pos):
         """显示提示工具提示"""
-        self.show_hint_tooltip = True
+        self.is_hint_tooltip_visible = True
         self.hint_tooltip_text = text
         self.hint_tooltip_pos = pos
     
     def hide_hint_tooltip(self):
         """隐藏提示工具提示"""
-        self.show_hint_tooltip = False
+        self.is_hint_tooltip_visible = False
         self.hint_tooltip_text = ""
+    
+    def show_hint_window(self, hint_text):
+        """显示提示窗口"""
+        # 创建或重置滚动面板
+        window_x = SCREEN_WIDTH - 350 - 20  # 与_draw_hint_window保持一致
+        window_y = 100
+        window_width = 350
+        window_height = 250
+        
+        # 创建可滚动面板
+        self.hint_scrollable_panel = ScrollablePanel(
+            window_x + 10,  # 内边距
+            window_y + 55,  # 标题栏下面
+            window_width - 20,  # 减去内边距
+            window_height - 65,  # 减去标题栏和按钮高度
+            self.font_manager,
+            bg_color=(30, 40, 60, 240)
+        )
+        
+        # 分割文本并添加到面板
+        lines = hint_text.split('\n')
+        for line in lines:
+            if line.strip():  # 非空行
+                # 检查是否是标题
+                if line.strip().endswith(":"):
+                    self.hint_scrollable_panel.add_line(line.strip(), (100, 200, 255), 'medium')
+                elif line.strip().startswith("-"):
+                    self.hint_scrollable_panel.add_line(line.strip(), (220, 240, 255), 'small')
+                else:
+                    self.hint_scrollable_panel.add_line(line.strip(), (200, 220, 240), 'small')
+            else:
+                # 空行作为间距
+                self.hint_scrollable_panel.add_spacing(10)
+        
+        # 显示窗口
+        self.hint_window_visible = True
+        self.hide_hint_tooltip()  # 隐藏原来的工具提示
+    
+    def close_hint_window(self):
+        """关闭提示窗口"""
+        self.hint_window_visible = False
+        self.hint_scrollable_panel = None
+    
+    def handle_hint_window_events(self, event, mouse_pos):
+        """处理提示窗口事件"""
+        if not self.hint_window_visible:
+            return False
+        
+        # 更新关闭按钮的悬停状态
+        if self.hint_close_button:
+            self.hint_close_button.update_hover(mouse_pos)
+        
+        # 处理鼠标点击
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # 检查是否点击了关闭按钮
+            if self.hint_close_button and self.hint_close_button.hovered:
+                self.close_hint_window()
+                return True
+            
+            # 检查是否点击了窗口外部（关闭窗口）
+            if self.hint_window_rect and not self.hint_window_rect.collidepoint(mouse_pos):
+                self.close_hint_window()
+                return True
+        
+        # 处理滚动面板事件
+        if self.hint_scrollable_panel:
+            if self.hint_scrollable_panel.handle_event(event):
+                return True
+        
+        # 处理键盘事件
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:  # ESC键关闭窗口
+                self.close_hint_window()
+                return True
+        
+        return False
+    
+    def update_hint_tooltip(self, mouse_pos):
+        """更新提示工具提示状态"""
+        # 检查是否需要隐藏提示
+        if self.is_hint_tooltip_visible:
+            # 如果鼠标移动了，可能需要更新提示位置
+            self.hint_tooltip_pos = mouse_pos
+        
+        # 更新提示窗口的关闭按钮悬停状态
+        if self.hint_window_visible and self.hint_close_button:
+            self.hint_close_button.update_hover(mouse_pos)
     
     def get_input_box(self):
         """获取输入框实例"""
@@ -489,9 +650,3 @@ class CardNimUI:
         """更新输入框状态"""
         if self.input_box:
             self.input_box.update()
-    def update_hint_tooltip(self, mouse_pos):
-        """更新提示工具提示状态"""
-        # 检查是否需要隐藏提示
-        if self.show_hint_tooltip:
-            # 如果鼠标移动了，可能需要更新提示位置
-            self.hint_tooltip_pos = mouse_pos
