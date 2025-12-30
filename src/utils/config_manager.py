@@ -56,6 +56,9 @@ class UserPreferences:
     language: str = 'en'
     autosave: bool = True
     winning_hints: bool = False  # 新增：Winning Hints开关，默认关闭
+    music_enabled: bool = True  # 新增：背景音乐开关
+    selected_music: int = 0  # 新增：当前选中的音乐索引
+    unlocked_music: List[int] = field(default_factory=lambda: [0, 1, 2])  # 新增：已解锁的音乐列表
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

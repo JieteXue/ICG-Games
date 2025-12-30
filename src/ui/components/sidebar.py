@@ -5,6 +5,8 @@ Sidebar Component with toggle functionality
 import pygame
 from utils.constants import *
 from ui.components.settings_panel import SettingsPanel
+from ui.components.music_panel import MusicPanel
+from utils.music_manager import music_manager
 
 class Sidebar:
     """Expandable sidebar with toggle button only visible when collapsed"""
@@ -16,6 +18,7 @@ class Sidebar:
         self.current_width = 0  # 默认宽度为0，完全隐藏
         self.target_width = 0
         self.settings_panel = SettingsPanel(screen, font_manager)
+        self.music_panel = MusicPanel(screen, font_manager, music_manager)#新增音乐面板
         
         # 从设置面板获取初始设置
         self.settings = self.settings_panel.get_settings()
@@ -45,6 +48,7 @@ class Sidebar:
             pygame.K_b: "back",     # B键对应Back
             pygame.K_h: "home",     # H键对应Home
             pygame.K_s: "settings", # S键对应Settings
+            pygame.K_m: "music",    # M键对应Music
             pygame.K_t: "toggle",   # T键对应Toggle侧边栏
             pygame.K_ESCAPE: "toggle"  # ESC键也可以切换侧边栏
         }
@@ -56,7 +60,8 @@ class Sidebar:
             {"name": "home", "display_text": "Home (H)", "tooltip": "Back to main menu (H键)"},
             {"name": "refresh", "display_text": "Restart (R)", "tooltip": "Restart current game (R键)"},
             {"name": "info", "display_text": "Info (I)", "tooltip": "Game instructions (I键)"},
-            {"name": "settings", "display_text": "Settings (S)", "tooltip": "Game settings (S键)"}
+            {"name": "settings", "display_text": "Settings (S)", "tooltip": "Game settings (S键)"},
+            {"name": "music", "display_text": "Music (M)", "tooltip": "Music selection (M键)"}  # 新增音乐按钮
         ]
 
         start_y = 90  # 提高了起始位置，给标题留更多空间
@@ -122,6 +127,20 @@ class Sidebar:
     
     def handle_event(self, event, mouse_pos):
         """Handle sidebar events"""
+        # 如果音乐面板可见，优先处理音乐面板事件
+        if self.music_panel.visible:
+            result = self.music_panel.handle_event(event, mouse_pos)
+            if result:
+                if result.startswith("music_selected_"):
+                    # 音乐被选中
+                    music_id = int(result.replace("music_selected_", ""))
+                    print(f"Music selected: {music_id}")
+                elif result == "music_locked":
+                    print("This music is locked!")
+                elif result == "music_panel_closed":
+                    self.music_panel.hide()
+                return result
+            return None
         # 如果设置面板可见，优先处理设置面板事件
         if self.settings_panel.visible:
             result = self.settings_panel.handle_event(event, mouse_pos)
@@ -150,12 +169,19 @@ class Sidebar:
                     # 按S键打开设置面板
                     self.settings_panel.show()
                     return "settings_opened"
+                elif action == "music":  # 新增：按M键打开音乐面板
+                    self.music_panel.toggle_visibility()
+                    return "music_panel_toggled"
                 return action
-            
-            # ESC键处理 - 如果设置面板打开，关闭它
-            if event.key == pygame.K_ESCAPE and self.settings_panel.visible:
-                self.settings_panel.hide()
-                return "settings_closed"
+            # ESC键处理
+            if event.key == pygame.K_ESCAPE:
+                if self.music_panel.visible:
+                    self.music_panel.hide()
+                    return "music_panel_closed"
+                elif self.settings_panel.visible:
+                    self.settings_panel.hide()
+                    return "settings_closed"
+
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # 如果侧边栏展开，点击外部区域则收起侧边栏
@@ -176,6 +202,9 @@ class Sidebar:
                             # 点击settings按钮时，显示设置面板
                             self.settings_panel.show()
                             return "settings_opened"
+                        elif button.name == "music":  # 新增：音乐按钮
+                            self.music_panel.toggle_visibility()
+                            return "music_panel_toggled"
                         return button.name
 
         # 处理悬停
@@ -187,6 +216,10 @@ class Sidebar:
     
     def draw(self):
         """Draw the sidebar"""
+        # 如果音乐面板可见，先绘制音乐面板
+        if self.music_panel.visible:
+            self.music_panel.draw()
+            return
         # 如果设置面板可见，先绘制设置面板
         if self.settings_panel.visible:
             self.settings_panel.draw()
