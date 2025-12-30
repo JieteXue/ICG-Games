@@ -16,9 +16,9 @@ from utils.resource_cache import resource_cache
 from utils.performance_monitor import performance_monitor, PerformanceProfiler
 from utils.optimization_tools import optimize_game_performance, memory_optimizer
 from ui.components.help_dialog import HelpDialog
-from ui.components.topbar import TopBar
 from ui.components.settings_panel import SettingsPanel
 from ui.components.music_panel import MusicPanel
+from ui.components.redeem_dialog import RedeemDialog  # 新增
 
 def get_icon_path(icon_filename):
     """Get icon file path using resource cache"""
@@ -65,8 +65,7 @@ class MainMenu:
         # Initialize game registry as None (lazy loading)
         self.game_registry = None
         
-        # Add help button and dialog
-        self.help_button = None
+        # Add help dialog
         self.help_dialog = HelpDialog(SCREEN_WIDTH, SCREEN_HEIGHT, self.font_manager)
 
         # Performance monitoring
@@ -100,17 +99,14 @@ class MainMenu:
             print(f"❌ Could not import music_manager: {e}")
             self.music_manager = None
         
-        # 新增：初始化TopBar
-        self.topbar = TopBar(self.screen, self.font_manager, self.music_manager)
-        
         # 新增：初始化设置面板
         self.settings_panel = SettingsPanel(self.screen, self.font_manager, self.music_manager)
         
         # 新增：初始化音乐面板
         self.music_panel = MusicPanel(self.screen, self.font_manager, self.music_manager)
         
-        # 设置TopBar的settings_panel引用
-        self.topbar.set_settings_panel(self.settings_panel)
+        # 新增：初始化兑换码对话框
+        self.redeem_dialog = RedeemDialog(self.screen, self.font_manager, self.music_manager)
         
         # 初始化音乐（如果启用）
         if self.music_manager and self.music_manager.is_music_enabled():
@@ -143,7 +139,7 @@ class MainMenu:
         grid_width = 3 * button_size + 2 * button_spacing
         grid_height = 2 * button_size + button_spacing
         grid_start_x = (SCREEN_WIDTH - grid_width) // 2
-        grid_start_y = 220  # 调整位置，为TopBar留出空间
+        grid_start_y = 200  # 调整位置，为顶部按钮留出空间
 
         # Define button configurations
         button_configs = [
@@ -182,31 +178,31 @@ class MainMenu:
 
             buttons[game_id] = btn
 
-        # 创建信息按钮 - 使用图标
-        info_button_size = 40
-        self.info_button = GameButton(
-            SCREEN_WIDTH - 20 - info_button_size, 70,  # 调整位置，避免与TopBar重叠
-            info_button_size, info_button_size,
+        # 创建设置按钮 - 在左上角
+        settings_button_size = 40
+        self.settings_button = GameButton(
+            20, 20,  # 左上角
+            settings_button_size, settings_button_size,
             "", self.font_manager, 
-            icon='info',  # 使用图标名称
-            tooltip="Game Information (F1)"
+            icon='settings',  # 使用齿轮图标
+            tooltip="Game Settings"
         )
 
-        # 创建性能按钮 - 使用图标
-        self.performance_button = GameButton(
-            SCREEN_WIDTH - 80 - info_button_size, 70,  # 调整位置，避免与TopBar重叠
-            info_button_size, info_button_size,
+        # 创建兑换码按钮 - 在设置按钮旁边
+        self.redeem_button = GameButton(
+            70, 20,  # 设置按钮右边
+            settings_button_size, settings_button_size,
             "", self.font_manager,
-            icon='performance',  # 使用图标名称
-            tooltip="Performance Info (F2)"
+            icon='gift',  # 使用礼盒图标
+            tooltip="Redeem CDKEY"
         )
 
-        # 创建帮助按钮 - 使用图标
+        # 创建帮助按钮 - 在右上角
         self.help_button = GameButton(
-            SCREEN_WIDTH - 140 - info_button_size, 70,  # 调整位置，避免与TopBar重叠
-            info_button_size, info_button_size,
+            SCREEN_WIDTH - 60, 20,  # 右上角
+            settings_button_size, settings_button_size,
             "", self.font_manager,
-            icon='help',  # 使用图标名称
+            icon='help',  # 使用帮助图标
             tooltip="Game Help & Guide (H)"
         )
 
@@ -313,54 +309,65 @@ class MainMenu:
         with PerformanceProfiler("menu_handle_events", performance_monitor):
             mouse_pos = pygame.mouse.get_pos()
     
-            # 更新按钮悬停状态
-            for button in self.buttons.values():
-                button.update_hover(mouse_pos)
+        # 更新按钮悬停状态
+        for button in self.buttons.values():
+            button.update_hover(mouse_pos)
     
-            if self.info_button:
-                self.info_button.update_hover(mouse_pos)
+        if self.settings_button:
+            self.settings_button.update_hover(mouse_pos)
     
-            if self.performance_button:
-                self.performance_button.update_hover(mouse_pos)
+        if self.redeem_button:
+            self.redeem_button.update_hover(mouse_pos)
     
-            if self.help_button:
-                self.help_button.update_hover(mouse_pos)
+        if self.help_button:
+            self.help_button.update_hover(mouse_pos)
     
-            # 处理所有事件
-            for event in pygame.event.get():
-                # 新增：先处理TopBar事件
-                topbar_result = self.topbar.handle_event(event, mouse_pos)
-                if topbar_result == "open_settings":
-                    print("📱 Settings opened from TopBar")
-                elif topbar_result == "music_toggled":
-                    # 音乐状态已切换，刷新设置面板显示
-                    if self.settings_panel.visible:
-                        self.settings_panel.refresh_settings_from_config()
-                
-                # 新增：如果设置面板可见，优先处理设置面板事件
-                if self.settings_panel.visible:
-                    settings_result = self.settings_panel.handle_event(event, mouse_pos)
-                    if settings_result == "back_from_settings":
-                        self.settings_panel.hide()
-                        print("🔙 Settings panel closed")
-                    elif settings_result and settings_result.startswith("setting_changed"):
-                        print(f"⚙️ {settings_result}")
-                    # 设置面板处理了事件，跳过其他事件处理
-                    if settings_result is not None:
-                        continue
-                
-                # 新增：如果音乐面板可见，优先处理音乐面板事件
-                if self.music_panel.visible:
-                    music_result = self.music_panel.handle_event(event, mouse_pos)
-                    if music_result == "music_panel_closed":
-                        self.music_panel.hide()
-                        print("🔙 Music panel closed")
-                    elif music_result and music_result.startswith("music_selected"):
-                        print(f"🎵 {music_result}")
-                    # 音乐面板处理了事件，跳过其他事件处理
-                    if music_result is not None:
-                        continue
-                
+        # 处理所有事件
+        for event in pygame.event.get():
+            # 处理兑换码对话框事件（如果可见）
+            if self.redeem_dialog.visible:
+                redeem_result = self.redeem_dialog.handle_event(event, mouse_pos)
+                if redeem_result:
+                    continue
+            
+            # 处理帮助对话框事件
+            if self.help_dialog.visible:
+                # 特别是方向键和选择键，要确保帮助对话框能接收到
+                if event.type == pygame.KEYDOWN:
+                    # 这些键由帮助对话框处理
+                    if event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, 
+                                    pygame.K_RIGHT, pygame.K_RETURN, pygame.K_SPACE, 
+                                    pygame.K_TAB, pygame.K_ESCAPE, pygame.K_h]:
+                        if self.help_dialog.handle_event(event):
+                            continue  # 如果帮助对话框处理了，继续下一个事件
+                        
+                # 其他事件正常传递
+                if self.help_dialog.handle_event(event):
+                    return True
+            
+            # 如果设置面板可见，优先处理设置面板事件
+            if self.settings_panel.visible:
+                settings_result = self.settings_panel.handle_event(event, mouse_pos)
+                if settings_result == "back_from_settings":
+                    self.settings_panel.hide()
+                    print("🔙 Settings panel closed")
+                elif settings_result and settings_result.startswith("setting_changed"):
+                    print(f"⚙️ {settings_result}")
+                # 设置面板处理了事件，跳过其他事件处理
+                if settings_result is not None:
+                    continue
+            
+            # 如果音乐面板可见，优先处理音乐面板事件
+            if self.music_panel.visible:
+                music_result = self.music_panel.handle_event(event, mouse_pos)
+                if music_result == "music_panel_closed":
+                    self.music_panel.hide()
+                    print("🔙 Music panel closed")
+                elif music_result and music_result.startswith("music_selected"):
+                    print(f"🎵 {music_result}")
+                # 音乐面板处理了事件，跳过其他事件处理
+                if music_result is not None:
+                    continue
                 # 原有的帮助对话框处理
                 if self.help_dialog.visible:
                     # 特别是方向键和选择键，要确保帮助对话框能接收到
@@ -375,88 +382,78 @@ class MainMenu:
                     # 其他事件正常传递
                     if self.help_dialog.handle_event(event):
                         return True
-    
-                # 现有的事件处理代码
-                if event.type == pygame.QUIT:
-                    return False
-    
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        # 如果帮助对话框可见，优先由它处理
-                        if self.help_dialog.visible:
-                            # ESC已经在上面的help_dialog.handle_event中处理了
-                            continue
-                        else:
-                            return False
-                    elif event.key == pygame.K_F1:
-                        self.showing_info = not self.showing_info
-                    elif event.key == pygame.K_F2:
+            
+            # 现有的事件处理代码
+            if event.type == pygame.QUIT:
+                return False
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    # 如果帮助对话框可见，优先由它处理
+                    if self.help_dialog.visible:
+                        # ESC已经在上面的help_dialog.handle_event中处理了
+                        continue
+                    else:
+                        return False
+                elif event.key == pygame.K_F2:
                         self.show_perf_overlay = not self.show_perf_overlay
                         print(f"📊 Performance overlay: {'ON' if self.show_perf_overlay else 'OFF'}")
-                    elif event.key == pygame.K_F3:
-                        performance_monitor.enabled = not performance_monitor.enabled
-                    elif event.key == pygame.K_h or event.key == pygame.K_F4:
-                        self.help_dialog.toggle()
-                    elif event.key == pygame.K_i:  # I键也打开信息
-                        self.showing_info = not self.showing_info
-                    elif event.key == pygame.K_p:  # P键也打开性能
-                        self.show_perf_overlay = not self.show_perf_overlay
-                    elif event.key == pygame.K_s:  # 新增：S键打开设置面板
-                        self.settings_panel.show()
-                    elif event.key == pygame.K_m:  # 新增：M键打开音乐面板
-                        self.music_panel.toggle_visibility()
-    
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # 检查帮助按钮
-                    if self.help_button and self.help_button.is_clicked(event):
-                        self.help_dialog.toggle()
-                        return True
-    
-                    # 如果帮助对话框可见，点击对话框外区域不应关闭菜单
-                    if self.help_dialog.visible:
-                        # 检查是否点击在对话框内
-                        if not self.help_dialog._is_inside_dialog(mouse_pos):
-                            # 点击在对话框外，但不要关闭菜单，让对话框处理点击
-                            continue
-                        
+                elif event.key == pygame.K_h:
+                    self.help_dialog.toggle()
+                elif event.key == pygame.K_s:  # S键打开设置面板
+                    self.settings_panel.show()
+                elif event.key == pygame.K_m:  # M键打开音乐面板
+                    self.music_panel.toggle_visibility()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # 检查设置按钮
+                if self.settings_button and self.settings_button.is_clicked(event):
+                    self.settings_panel.show()
+                    return True
+                
+                # 检查兑换码按钮
+                if self.redeem_button and self.redeem_button.is_clicked(event):
+                    self.redeem_dialog.show()
+                    return True
+                
+                # 检查帮助按钮
+                if self.help_button and self.help_button.is_clicked(event):
+                    self.help_dialog.toggle()
+                    return True
+
+                # 如果帮助对话框可见，点击对话框外区域不应关闭菜单
+                if self.help_dialog.visible:
+                    # 检查是否点击在对话框内
+                    if not self.help_dialog._is_inside_dialog(mouse_pos):
+                        # 点击在对话框外，但不要关闭菜单，让对话框处理点击
+                        continue
                     # Check performance button first
                     if self.performance_button and self.performance_button.is_clicked(event):
                         self.showing_performance = True
-                        return self.show_performance_screen()
-    
-                    # Check info button
-                    if self.info_button and self.info_button.is_clicked(event):
-                        self.showing_info = not self.showing_info
+                        return self.show_performance_screen()                    
+                # Check game buttons
+                game_ids = ["take_coins", "split_cards", "card_nim", 
+                           "dawson_kayles", "subtract_factor", "coming_soon"]
+
+                for game_id in game_ids:
+                    if game_id in self.buttons and self.buttons[game_id].is_clicked(event):
+                        if not self.buttons[game_id].enabled:
+                            self.show_error(f"Game '{game_id}' is not available. Check console for details.")
+                        else:
+                            self.start_game(game_id)
                         return True
-    
-                    # If showing info, clicking anywhere else should close it
-                    if self.showing_info:
-                        self.showing_info = False
-                        return True
-    
-                    # Check game buttons
-                    game_ids = ["take_coins", "split_cards", "card_nim", 
-                               "dawson_kayles", "subtract_factor", "coming_soon"]
-    
-                    for game_id in game_ids:
-                        if game_id in self.buttons and self.buttons[game_id].is_clicked(event):
-                            if not self.buttons[game_id].enabled:
-                                self.show_error(f"Game '{game_id}' is not available. Check console for details.")
-                            else:
-                                self.start_game(game_id)
-                            return True
-    
-                    # Check quit button
-                    if self.buttons["quit"].is_clicked(event):
-                        return False
-    
-            # Update error timer
-            if self.error_timer > 0:
-                self.error_timer -= 1
-                if self.error_timer <= 0:
-                    self.error_message = None
-    
-            return True
+
+                # Check quit button
+                if self.buttons["quit"].is_clicked(event):
+                    return False
+
+        # Update error timer
+        if self.error_timer > 0:
+            self.error_timer -= 1
+            if self.error_timer <= 0:
+                self.error_message = None
+
+        return True
     
     @handle_game_errors
     def start_game(self, game_id: str):
@@ -510,141 +507,77 @@ class MainMenu:
             error_reporter.log_error("GAME_START", error_msg, game_id)
             self.show_error(f"Failed to start game. See console for details.")
             # Don't reinitialize, just return to menu
-    
     @handle_game_errors
-    def show_performance_screen(self):
-        """Show detailed performance information screen"""
-        running = True
-        clock = pygame.time.Clock()
+    def draw_background(self):
+        """Draw background with gradient effect"""
+        self.screen.fill(BACKGROUND_COLOR)
         
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE or event.key == pygame.K_F2:
-                        running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # Click anywhere to exit
-                    running = False
-            
-            # Update performance stats
-            self.update_performance_stats()
-            
-            # Draw performance screen
-            self.screen.fill((20, 25, 35))
-            
-            # Title
-            title = self.font_manager.large.render("Performance Information", True, ACCENT_COLOR)
-            self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 50))
-            
-            # Performance stats
-            y_pos = 120
-            stats = [
-                f"FPS: {self.perf_stats['fps']:.1f}",
-                f"Frame Time: {self.perf_stats['frame_time']:.1f} ms",
-                f"Memory Usage: {self.perf_stats.get('memory_usage', 'N/A'):.1f} MB",
-                f"Cache Hits: {self.perf_stats['cache_hits']:,}",
-                f"Cache Misses: {self.perf_stats['cache_misses']:,}",
-                f"Cache Hit Rate: {self.perf_stats.get('cache_hit_rate', 0)*100:.1f}%",
-                f"Performance Monitor: {'ENABLED' if performance_monitor.enabled else 'DISABLED'}",
-                f"Dirty Rectangles: {'ENABLED' if hasattr(performance_monitor, 'use_dirty_rects') and performance_monitor.use_dirty_rects else 'DISABLED'}"
-            ]
-            
-            for stat in stats:
-                text = self.font_manager.medium.render(stat, True, TEXT_COLOR)
-                self.screen.blit(text, (100, y_pos))
-                y_pos += 35
-            
-            # Optimization tips
-            y_pos += 20
-            tips_title = self.font_manager.medium.render("Optimization Tips:", True, (255, 200, 100))
-            self.screen.blit(tips_title, (100, y_pos))
-            y_pos += 40
-            
-            tips = [
-                "F2: Toggle performance overlay",
-                "F3: Toggle performance monitoring",
-                "ESC: Return to main menu",
-                "",
-                "Low FPS? Try:",
-                "- Close other applications",
-                "- Reduce screen resolution",
-                "- Disable animations in settings"
-            ]
-            
-            for tip in tips:
-                text = self.font_manager.small.render(tip, True, (180, 200, 220))
-                self.screen.blit(text, (120, y_pos))
-                y_pos += 25
-            
-            # Footer
-            footer = self.font_manager.small.render("Click anywhere or press ESC/F2 to return", True, (150, 170, 190))
-            self.screen.blit(footer, (SCREEN_WIDTH//2 - footer.get_width()//2, SCREEN_HEIGHT - 40))
-            
-            pygame.display.flip()
-            clock.tick(60)
-        
-        return True
+        # Subtle grid pattern
+        for x in range(0, SCREEN_WIDTH, 40):
+            pygame.draw.line(self.screen, (35, 45, 55), (x, 0), (x, SCREEN_HEIGHT), 1)
+        for y in range(0, SCREEN_HEIGHT, 40):
+            pygame.draw.line(self.screen, (35, 45, 55), (0, y), (SCREEN_WIDTH, y), 1)
     
-    @handle_game_errors
-    def draw_info_panel(self):
-        """Draw game information panel"""
-        if not self.showing_info:
-            return
+    def draw_title(self):
+        """Draw game title"""
+        title = self.font_manager.large.render("ICG GAMES", True, TEXT_COLOR)
+        subtitle = self.font_manager.medium.render("Interactive Card Games", True, ACCENT_COLOR)
         
-        try:
-            registry = self._get_game_registry()
-            available_games = registry.get_available_games()
-            
-            if not available_games:
-                # Show loading or error state
-                info_panel = InfoPanel(SCREEN_WIDTH - 300 - 20, 120, 300, 120,
-                                     self.font_manager, "Information")
-                info_panel.add_content("Loading game information...", ACCENT_COLOR, 'small')
-                info_panel.draw(self.screen)
-                return
-            
-            # Create info panel
-            panel_width = min(600, SCREEN_WIDTH - 40)
-            panel_height = min(400, SCREEN_HEIGHT - 100)
-            panel_x = SCREEN_WIDTH - panel_width - 20
-            panel_y = 120  # 调整位置，避免与TopBar重叠
-            
-            info_panel = InfoPanel(panel_x, panel_y, panel_width, panel_height, 
-                                  self.font_manager, "Available Games")
-            
-            for game_info in available_games:
-                info_panel.add_content(game_info['name'], ACCENT_COLOR, 'medium')
-                info_panel.add_content(game_info['description'], TEXT_COLOR, 'small')
-                info_panel.add_content(f"Players: {game_info['min_players']}-{game_info['max_players']}", (180, 180, 200), 'small')
-                info_panel.add_content("", TEXT_COLOR, 'small')  # Empty line
-            
-            info_panel.draw(self.screen)
-        except Exception as e:
-            print(f"Error drawing info panel: {e}")
-            # Fallback: show simple error panel
-            error_panel = InfoPanel(SCREEN_WIDTH - 300 - 20, 120, 300, 100,
-                                  self.font_manager, "Information")
-            error_panel.add_content("Could not load game information", (255, 100, 100), 'small')
-            error_panel.draw(self.screen)
-    
-    @handle_game_errors
-    def draw_performance_overlay(self):
-        """Draw performance overlay if enabled"""
-        if not self.show_perf_overlay:
-            return
+        title_shadow = self.font_manager.large.render("ICG GAMES", True, SHADOW_COLOR)
+        subtitle_shadow = self.font_manager.medium.render("Interactive Card Games", True, SHADOW_COLOR)
         
-        # Draw performance monitor overlay
-        if performance_monitor.enabled:
-            performance_monitor.draw_performance_overlay(self.screen, self.font_manager.small)
-        else:
-            # Simple FPS counter
-            fps_text = self.font_manager.small.render(f"FPS: {self.clock.get_fps():.1f}", 
-                                                    True, (255, 255, 255))
-            self.screen.blit(fps_text, (SCREEN_WIDTH - 100, 60))  # 调整位置，避免与TopBar重叠
+        self.screen.blit(title_shadow, (SCREEN_WIDTH//2 - title.get_width()//2 + 3, 103))
+        self.screen.blit(subtitle_shadow, (SCREEN_WIDTH//2 - subtitle.get_width()//2 + 2, 153))
+        
+        self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 100))
+        self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 150))
     
+    def draw(self):
+        """Draw the main menu with all components"""
+        self.draw_background()
+        self.draw_title()
+
+        # Draw game buttons
+        for button in self.buttons.values():
+            button.draw(self.screen)
+
+        # Draw top buttons
+        if self.settings_button:
+            self.settings_button.draw(self.screen)
+
+        if self.redeem_button:
+            self.redeem_button.draw(self.screen)
+
+        if self.help_button:
+            self.help_button.draw(self.screen)
+
+        # Draw help dialog (if visible)
+        self.help_dialog.draw(self.screen)
+        
+        # Draw settings panel (if visible)
+        if self.settings_panel.visible:
+            self.settings_panel.draw()
+            
+        # Draw music panel (if visible)
+        if self.music_panel.visible:
+            self.music_panel.draw()
+            
+        # Draw redeem dialog (if visible)
+        if self.redeem_dialog.visible:
+            self.redeem_dialog.draw()
+
+        # Draw error message
+        self.draw_error_message()
+
+        # Draw footer
+        footer_text = self.font_manager.small.render(
+            f"© 2025 ICG Games - Interactive Card Games Collection | S: Settings | H: Help | M: Music | ESC: Quit", 
+            True, (150, 170, 190))
+        self.screen.blit(footer_text, 
+                        (SCREEN_WIDTH//2 - footer_text.get_width()//2, 
+                         SCREEN_HEIGHT - 40))
+
+        pygame.display.flip()
     @handle_game_errors
     def draw_error_message(self):
         """Draw error message if any"""
@@ -682,73 +615,6 @@ class MainMenu:
                 ))
                 self.screen.blit(error_text, text_rect)
     
-    @handle_game_errors
-    def draw(self):
-        """Draw the main menu with all components"""
-        # Start draw profiling
-        with PerformanceProfiler("menu_draw_main", performance_monitor):
-            self.draw_background()
-            
-            # 新增：绘制TopBar
-            self.topbar.draw()
-            
-            # 新增：绘制设置面板（如果可见）
-            if self.settings_panel.visible:
-                self.settings_panel.draw()
-                # 设置面板绘制后，不需要绘制其他UI元素
-                pygame.display.flip()
-                return
-            
-            # 新增：绘制音乐面板（如果可见）
-            if self.music_panel.visible:
-                self.music_panel.draw()
-                # 音乐面板绘制后，不需要绘制其他UI元素
-                pygame.display.flip()
-                return
-            
-            self.draw_title()
-
-            # Draw buttons
-            for button in self.buttons.values():
-                button.draw(self.screen)
-
-            # Draw info button
-            if self.info_button:
-                self.info_button.draw(self.screen)
-
-            # Draw performance button
-            if self.performance_button:
-                self.performance_button.draw(self.screen)
-
-            # Draw help button
-            if self.help_button:
-                self.help_button.draw(self.screen)
-
-            # Draw help dialog (if visible)
-            self.help_dialog.draw(self.screen)
-
-            # Draw info panel
-            self.draw_info_panel()
-
-            # Draw performance overlay
-            self.draw_performance_overlay()
-
-            # Draw error message
-            self.draw_error_message()
-
-            # Draw footer with performance info
-            fps_info = f" | FPS: {self.clock.get_fps():.1f}" if self.show_perf_overlay else ""
-
-            footer_text = self.font_manager.small.render(
-                f"© 2025 ICG Games - Interactive Card Games Collection | F1: Info | F2: Perf | H: Help | S: Settings | M: Music{fps_info} | ESC: Quit", 
-                True, (150, 170, 190))
-            self.screen.blit(footer_text, 
-                            (SCREEN_WIDTH//2 - footer_text.get_width()//2, 
-                             SCREEN_HEIGHT - 40))
-
-            pygame.display.flip()
-    
-    @handle_game_errors
     def run(self):
         """Run the main menu loop with error handling and performance monitoring"""
         self.running = True
@@ -758,12 +624,8 @@ class MainMenu:
         
         print("🚀 Main Menu started")
         print("📋 Available shortcuts:")
-        print("   F1: Toggle game information")
         print("   F2: Toggle performance overlay")
-        print("   F3: Toggle performance monitor")
-        print("   H/F4: Toggle help dialog")
-        print("   I: Toggle info panel")
-        print("   P: Toggle performance overlay")
+        print("   H: Toggle help dialog")
         print("   S: Open settings panel")
         print("   M: Open music panel")
         print("   ESC: Exit")
