@@ -76,6 +76,57 @@ class TakeCoinsAutoPlayer:
                 return random.choice(valid_positions)
             return None
 
+    def get_winning_hint(self, coins, difficulty):
+        
+        valid_positions = self.get_valid_positions(coins)
+        
+        if not valid_positions:
+            return "No valid moves available. Game over!"
+        
+        # 寻找获胜移动
+        self.coins = coins
+        winning_move = self.find_winning_move()
+        
+        hint = ""
+        
+        if winning_move:
+            hint += f"Optimal move: Take coins at position {winning_move}\n"
+            hint += f"• Position {winning_move}: Gains 1 coin\n"
+            hint += f"• Position {winning_move-1}: Loses 1 coin (currently {coins[winning_move-1]} coins)\n"
+            hint += f"• Position {winning_move+1}: Loses 1 coin (currently {coins[winning_move+1]} coins)\n\n"
+            hint += "This move will leave your opponent in a losing position."
+        else:
+            hint += "No guaranteed winning move exists. "
+            hint += f"Available moves: positions {valid_positions}\n\n"
+            hint += "Strategy suggestions:\n"
+            hint += "1. Try to create symmetrical positions\n"
+            hint += "2. Avoid creating isolated positions\n"
+            hint += "3. Make the opponent's moves predictable\n\n"
+            hint += f"Recommended: Try position {random.choice(valid_positions)}"
+            
+            if difficulty >= 3:  # Hard/Insane难度额外建议
+                hint += "\n\nAdvanced strategy: "
+                hint += "Count the total number of moves remaining. "
+                hint += "Try to leave an even number of moves for your opponent."
+        
+        # 添加游戏状态分析
+        hint += "\n\n--- GAME STATE ANALYSIS ---\n"
+        hint += f"• Current coins: {coins}\n"
+        hint += f"• Valid positions: {valid_positions}\n"
+        hint += f"• Positions with 0 coins: {[i for i, c in enumerate(coins) if c == 0]}\n"
+        
+        total_coins = sum(coins)
+        hint += f"• Total coins remaining: {total_coins}\n"
+        
+        # 计算移动潜力
+        move_potential = len(valid_positions)
+        if move_potential == 1:
+            hint += "• Warning: Only 1 move available!\n"
+        elif move_potential <= 3:
+            hint += f"• Limited moves: {move_potential} positions available\n"
+        
+        return hint
+
 class TakeCoinsLogic:
     """Take Coins游戏逻辑 - 无法移动的玩家输"""
     
@@ -90,6 +141,7 @@ class TakeCoinsLogic:
         self.current_player = "Player 1"
         self.auto_player = None
         self.valid_positions = []
+        self.winning_hints_enabled = False
     
     def judge_win(self, coins=None):
         """判断当前局面是否对当前玩家有利"""
@@ -118,10 +170,11 @@ class TakeCoinsLogic:
                         return True
         return False
     
-    def initialize_game(self, game_mode, difficulty=None, num_positions=None):
+    def initialize_game(self, game_mode, difficulty=None, num_positions=None, winning_hints=False):
         """初始化游戏 - PvE模式下确保玩家处于必胜局面"""
         self.game_mode = game_mode
         self.difficulty = difficulty
+        self.winning_hints_enabled = winning_hints  # 存储提示设置
         
         if num_positions is None:
             if game_mode == "PVP":
@@ -174,6 +227,10 @@ class TakeCoinsLogic:
         is_winning = self.judge_win()
         position_state = "winning" if is_winning else "losing"
         self.message = f"Game Started! {len(self.coins)} positions. {self.current_player} is in a {position_state} position.{mode_info}"
+        
+        # 如果提示功能开启，添加说明
+        # if self.winning_hints_enabled:
+        #     self.message += " [Winning Hints: ON - Click 💡 button for guidance]"
     
     def update_valid_positions(self):
         """更新合法移动位置列表"""
@@ -289,3 +346,116 @@ class TakeCoinsLogic:
                 if self.coins[i-1] - 1 >= 0 and self.coins[i+1] - 1 >= 0:
                     positions.append(i)
         return positions
+    
+    # ========== NEW: WINNING HINTS FUNCTIONALITY ==========
+    
+    def get_winning_hint(self):
+        """
+        Provide a hint for the current player's optimal move.
+        Returns a string with the hint message in English.
+        """
+        if self.game_over:
+            return "Game is already over!"
+            
+        # Check if it's a player's turn (not AI's turn in PvE)
+        if self.game_mode == "PVE" and self.current_player == "AI":
+            return "It's AI's turn. Wait for your turn to get hints."
+        
+        # Create a temporary auto player for hint generation
+        temp_player = TakeCoinsAutoPlayer(self.coins.copy())
+        
+        # Get the hint
+        hint = temp_player.get_winning_hint(self.coins, self.difficulty if self.difficulty else 2)
+        
+        # Add general instructions
+        hint += "\n\n--- HOW TO PLAY ---\n"
+        hint += "1. Click on a valid position (bright color)\n"
+        hint += "2. Press CONFIRM or double-click to make move\n"
+        hint += "3. Selected position gains 1 coin\n"
+        hint += "4. Both neighbors lose 1 coin each\n"
+        hint += "5. Goal: Leave opponent with no valid moves\n\n"
+        
+        hint += "--- CONTROLS ---\n"
+        hint += "• Mouse: Click to select positions\n"
+        hint += "• Arrow Keys: Navigate positions\n"
+        hint += "• UP/DOWN: Scroll through positions\n"
+        hint += "• ENTER: Confirm move\n"
+        hint += "• Double-click: Make move immediately\n"
+        hint += "• R: Restart game\n"
+        hint += "• H: Quick hint (if enabled)\n"
+        hint += "• ESC: Cancel selection\n"
+        
+        return hint
+    
+    def get_position_analysis(self):
+        """
+        Provide detailed analysis of current game state.
+        Returns a string with analysis in English.
+        """
+        if self.game_over:
+            return "Game over!"
+        
+        analysis = "=== GAME STATE ANALYSIS ===\n\n"
+        
+        # Basic info
+        analysis += f"• Current player: {self.current_player}\n"
+        analysis += f"• Game mode: {self.game_mode}\n"
+        
+        if self.difficulty:
+            difficulty_names = ["Easy", "Normal", "Hard", "Insane"]
+            analysis += f"• Difficulty: {difficulty_names[self.difficulty-1]}\n"
+        
+        # Coin distribution
+        analysis += f"• Coin distribution: {self.coins}\n"
+        analysis += f"• Total coins: {sum(self.coins)}\n"
+        
+        # Valid positions
+        analysis += f"• Valid positions: {self.valid_positions}\n"
+        
+        # Winning/losing state
+        is_winning = self.judge_win()
+        analysis += f"• Current position: {'WINNING' if is_winning else 'LOSING'}\n"
+        
+        # Selected position info
+        if self.selected_position is not None:
+            analysis += f"• Selected position: {self.selected_position}\n"
+            if self.selected_position in self.valid_positions:
+                analysis += "• Selection status: VALID (ready to move)\n"
+            else:
+                analysis += "• Selection status: INVALID\n"
+        
+        # Strategic advice
+        analysis += "\n=== STRATEGIC ADVICE ===\n\n"
+        
+        if is_winning:
+            analysis += "✅ You are in a WINNING position!\n"
+            analysis += "Strategy: Make moves that maintain your advantage.\n"
+            analysis += "• Look for moves that create balanced positions\n"
+            analysis += "• Force opponent into predictable patterns\n"
+            analysis += "• Control the center positions\n"
+        else:
+            analysis += "⚠️ You are in a LOSING position.\n"
+            analysis += "Strategy: Hope opponent makes a mistake.\n"
+            analysis += "• Create complex positions\n"
+            analysis += "• Avoid obvious moves\n"
+            analysis += "• Try to confuse the opponent\n"
+        
+        # Empty positions
+        empty_positions = [i for i, c in enumerate(self.coins) if c == 0]
+        if empty_positions:
+            analysis += f"\n• Empty positions: {empty_positions}\n"
+            analysis += "Empty positions block moves - use them strategically!\n"
+        
+        # Moves remaining estimate
+        if self.valid_positions:
+            analysis += f"\n• Estimated moves remaining: {len(self.valid_positions) * 2}\n"
+        
+        return analysis
+    
+    def toggle_winning_hints(self, enabled):
+        """Enable or disable winning hints feature"""
+        self.winning_hints_enabled = enabled
+        if enabled:
+            return "Winning hints enabled! Click on hint button for guidance."
+        else:
+            return "Winning hints disabled."

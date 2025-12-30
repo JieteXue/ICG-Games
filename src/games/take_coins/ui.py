@@ -3,15 +3,26 @@ import math
 from ui.components.buttons import GameButton
 from utils.constants import *
 from utils.helpers import wrap_text
+from ui.components.scrollables import ScrollablePanel
 
 class TakeCoinsUI:
-    """Take Coins UI with dark display for invalid positions"""
+    """Take Coins UI with dark display for invalid positions and hint support"""
     
     def __init__(self, screen, font_manager):
         self.screen = screen
         self.font_manager = font_manager
         self.scroll_offset = 0
         self.visible_positions = 8
+        
+        # Hint system variables
+        self.is_hint_tooltip_visible = False
+        self.hint_tooltip_text = ""
+        self.hint_tooltip_pos = (0, 0)
+        
+        self.hint_window_visible = False
+        self.hint_scrollable_panel = None
+        self.hint_close_button = None
+        self.hint_window_rect = None
     
     def draw_background(self):
         """Draw clean background"""
@@ -80,6 +91,11 @@ class TakeCoinsUI:
             state_color = WIN_COLOR if game_logic.judge_win() else LOSE_COLOR
             state_text = self.font_manager.small.render(game_state, True, state_color)
             self.screen.blit(state_text, (SCREEN_WIDTH//2 - state_text.get_width()//2, 160))
+        
+        # Winning hints indicator
+        if hasattr(game_logic, 'winning_hints_enabled') and game_logic.winning_hints_enabled:
+            hint_indicator = self.font_manager.small.render("Winning Hints: ON", True, (100, 200, 255))
+            self.screen.blit(hint_indicator, (SCREEN_WIDTH - hint_indicator.get_width() - 20, 105))
     
     def draw_coin_stacks(self, game_logic, position_buttons, scroll_buttons):
         """Draw coin stacks with dark display for invalid positions"""
@@ -120,6 +136,10 @@ class TakeCoinsUI:
                 info_text = f"Selected: Position {i} (Invalid - cannot move here)"
                 result_text = self.font_manager.small.render(info_text, True, LOSE_COLOR)
             self.screen.blit(result_text, (SCREEN_WIDTH//2 - result_text.get_width()//2, 420))
+        
+        # Draw hint tooltip if visible
+        if self.is_hint_tooltip_visible and self.hint_tooltip_text:
+            self._draw_hint_tooltip()
     
     def _draw_single_coin_stack(self, button, visible_index, game_logic):
         """Draw a single coin stack at the correct scroll position"""
@@ -273,6 +293,10 @@ class TakeCoinsUI:
         
         self.screen.blit(pos_text, (SCREEN_WIDTH//2 - pos_text.get_width()//2, control_y + 20))
         self.screen.blit(status_text, (SCREEN_WIDTH//2 - status_text.get_width()//2, control_y + 50))
+        
+        # Draw hint window if visible
+        if self.hint_window_visible:
+            self._draw_hint_window()
     
     def draw_hints(self):
         """Draw operation hints"""
@@ -282,7 +306,8 @@ class TakeCoinsUI:
             "Double-click on selected position to make move immediately", 
             "Selected position: +1 coin, neighbors: -1 coin each",
             "Use LEFT/RIGHT arrows to navigate, ENTER to confirm",
-            "Use mouse wheel or scroll buttons to view all positions"
+            "Use mouse wheel or scroll buttons to view all positions",
+            "Press H for quick hint (if Winning Hints enabled)"
         ]
 
         for i, hint in enumerate(hints):
@@ -290,7 +315,7 @@ class TakeCoinsUI:
             self.screen.blit(hint_text, (SCREEN_WIDTH//2 - hint_text.get_width()//2, hint_y + i * 20))
     
     def create_buttons(self):
-        """Create UI buttons"""
+        """Create UI buttons with hint button"""
         control_y = 370
         control_width = 400
         control_x = (SCREEN_WIDTH - control_width) // 2
@@ -298,16 +323,17 @@ class TakeCoinsUI:
         number_button_height = 50
         nav_button_size = 50
         
+        # Hint button position
+        hint_button_x = control_x + control_width - 50
+        hint_button_y = control_y + 145
+        
         buttons = {
             "confirm": GameButton(SCREEN_WIDTH//2 - 100, 520, 200, 45, "Confirm Move", 
                             self.font_manager, tooltip="Make move at selected position"),
             "restart": GameButton(SCREEN_WIDTH//2 - 80, 620, 160, 45, "New Game", 
                             self.font_manager, tooltip="Start a new game"),
-            # "back": GameButton(20, 20, 45, 45, "", self.font_manager, icon='back', 
-            #               tooltip="Back to mode selection"),
-            # "home": GameButton(75, 20, 45, 45, "", self.font_manager, icon='home', 
-            #               tooltip="Back to main menu"),
-            # "refresh": GameButton(SCREEN_WIDTH - 20 - nav_button_size, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='refresh', tooltip="Restart current game")
+            "hint": GameButton(hint_button_x, hint_button_y, 50, 50, "", 
+                            self.font_manager, icon='hint', tooltip="Click for AI hints and strategy guidance"),
         }
         
         return buttons
@@ -363,6 +389,247 @@ class TakeCoinsUI:
                 self.scroll_right(total_positions)
             return True
         return False
+    
+    # ========== HINT SYSTEM METHODS ==========
+    
+    def _draw_hint_tooltip(self):
+        """Draw hint tooltip box"""
+        if not self.hint_tooltip_text:
+            return
+        
+        # Split text into multiple lines
+        max_width = 400
+        lines = []
+        words = self.hint_tooltip_text.split(' ')
+        current_line = ""
+        
+        for word in words:
+            test_line = f"{current_line} {word}".strip()
+            test_width = self.font_manager.small.size(test_line)[0]
+            
+            if test_width <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # Calculate tooltip dimensions
+        line_height = 20
+        padding = 10
+        tooltip_width = max_width + 2 * padding
+        tooltip_height = len(lines) * line_height + 2 * padding
+        
+        # Position tooltip (ensure within screen)
+        tooltip_x = self.hint_tooltip_pos[0]
+        tooltip_y = self.hint_tooltip_pos[1] - tooltip_height - 10
+        
+        # If goes beyond top, show below
+        if tooltip_y < 50:
+            tooltip_y = self.hint_tooltip_pos[1] + 10
+        
+        # If goes beyond right edge, shift left
+        if tooltip_x + tooltip_width > SCREEN_WIDTH - 20:
+            tooltip_x = SCREEN_WIDTH - tooltip_width - 20
+        
+        # Draw tooltip background
+        tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+        pygame.draw.rect(self.screen, (20, 30, 50, 230), tooltip_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (100, 180, 255), tooltip_rect, 2, border_radius=8)
+        
+        # Draw title
+        title = self.font_manager.medium.render("Winning Hint", True, (100, 200, 255))
+        title_x = tooltip_x + (tooltip_width - title.get_width()) // 2
+        self.screen.blit(title, (title_x, tooltip_y + padding))
+        
+        # Draw separator line
+        pygame.draw.line(self.screen, (80, 160, 220), 
+                        (tooltip_x + padding, tooltip_y + padding + title.get_height() + 5),
+                        (tooltip_x + tooltip_width - padding, tooltip_y + padding + title.get_height() + 5), 1)
+        
+        # Draw text lines
+        for i, line in enumerate(lines):
+            line_text = self.font_manager.small.render(line, True, (220, 240, 255))
+            self.screen.blit(line_text, (tooltip_x + padding, 
+                                       tooltip_y + padding + title.get_height() + 10 + i * line_height))
+    
+    def show_hint_tooltip(self, text, pos):
+        """Show hint tooltip"""
+        self.is_hint_tooltip_visible = True
+        self.hint_tooltip_text = text
+        self.hint_tooltip_pos = pos
+    
+    def hide_hint_tooltip(self):
+        """Hide hint tooltip"""
+        self.is_hint_tooltip_visible = False
+        self.hint_tooltip_text = ""
+    
+    def _draw_hint_window(self):
+        """Draw hint window"""
+        if not self.hint_window_visible:
+            return
+        
+        # Define window size and position
+        window_width = 280
+        window_height = 350
+        window_x = SCREEN_WIDTH - window_width - 20
+        window_y = 100
+        self.hint_window_rect = pygame.Rect(window_x, window_y, window_width, window_height)
+        
+        # Draw window background (dark with transparency)
+        overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
+        overlay.fill((25, 35, 50, 245))
+        self.screen.blit(overlay, (window_x, window_y))
+        
+        # Draw window border
+        pygame.draw.rect(self.screen, (100, 180, 255), self.hint_window_rect, 2, border_radius=10)
+        
+        # Draw window title
+        title_text = self.font_manager.medium.render("Winning Hint", True, (100, 200, 255))
+        title_rect = title_text.get_rect(center=(window_x + window_width//2, window_y + 25))
+        self.screen.blit(title_text, title_rect)
+        
+        # Draw separator line
+        pygame.draw.line(self.screen, (80, 160, 220),
+                        (window_x + 10, window_y + 50),
+                        (window_x + window_width - 10, window_y + 50), 2)
+        
+        # Draw scrollable panel (if content exists)
+        if self.hint_scrollable_panel:
+            self.hint_scrollable_panel.draw(self.screen)
+        
+        # Draw close button (if not created yet)
+        if self.hint_close_button is None:
+            close_button_rect = pygame.Rect(
+                window_x + window_width - 35,
+                window_y + 15,
+                25, 25
+            )
+            
+            # Use inline button class
+            class SimpleButton:
+                def __init__(self, rect, text="×"):
+                    self.rect = rect
+                    self.text = text
+                    self.hovered = False
+                
+                def update_hover(self, mouse_pos):
+                    self.hovered = self.rect.collidepoint(mouse_pos)
+                
+                def draw(self, screen):
+                    color = (255, 100, 100) if self.hovered else (200, 80, 80)
+                    pygame.draw.rect(screen, color, self.rect, border_radius=4)
+                    pygame.draw.rect(screen, (255, 200, 200), self.rect, 1, border_radius=4)
+                    
+                    font = pygame.font.SysFont('Arial', 20, bold=True)
+                    text_surface = font.render(self.text, True, (255, 255, 255))
+                    text_rect = text_surface.get_rect(center=self.rect.center)
+                    screen.blit(text_surface, text_rect)
+            
+            self.hint_close_button = SimpleButton(close_button_rect)
+        
+        # Draw close button
+        self.hint_close_button.draw(self.screen)
+    
+    def show_hint_window(self, hint_text):
+        """Show hint window"""
+        # Create or reset scroll panel
+        window_x = SCREEN_WIDTH - 280 - 20
+        window_y = 100
+        window_width = 280
+        window_height = 350
+        
+        # Create scrollable panel
+        self.hint_scrollable_panel = ScrollablePanel(
+            window_x + 5,
+            window_y + 55,
+            window_width - 10,
+            window_height - 65,
+            self.font_manager,
+            bg_color=(30, 40, 60, 240)
+        )
+        
+        # Split text and add to panel
+        paragraphs = hint_text.split('\n')
+        
+        for para in paragraphs:
+            if para.strip():
+                words = para.split()
+                current_line = ""
+                
+                for word in words:
+                    test_line = f"{current_line} {word}".strip()
+                    
+                    if self.font_manager.small.size(test_line)[0] < (window_width - 20):
+                        current_line = test_line
+                    else:
+                        if current_line:
+                            self.hint_scrollable_panel.add_line(current_line, (220, 240, 255), 'small')
+                        current_line = word
+                
+                if current_line:
+                    self.hint_scrollable_panel.add_line(current_line, (220, 240, 255), 'small')
+                
+                self.hint_scrollable_panel.add_spacing(8)
+            else:
+                self.hint_scrollable_panel.add_spacing(15)
+        
+        # Show window
+        self.hint_window_visible = True
+        self.hide_hint_tooltip()
+    
+    def close_hint_window(self):
+        """Close hint window"""
+        self.hint_window_visible = False
+        self.hint_scrollable_panel = None
+        self.hint_close_button = None
+    
+    def handle_hint_window_events(self, event, mouse_pos):
+        """Handle hint window events"""
+        if not self.hint_window_visible:
+            return False
+        
+        # Update close button hover state
+        if self.hint_close_button:
+            self.hint_close_button.update_hover(mouse_pos)
+        
+        # Handle mouse clicks
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Check if close button clicked
+            if self.hint_close_button and self.hint_close_button.hovered:
+                self.close_hint_window()
+                return True
+            
+            # Check if clicked outside window (close window)
+            if self.hint_window_rect and not self.hint_window_rect.collidepoint(mouse_pos):
+                self.close_hint_window()
+                return True
+        
+        # Handle scroll panel events
+        if self.hint_scrollable_panel:
+            if self.hint_scrollable_panel.handle_event(event):
+                return True
+        
+        # Handle keyboard events
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.close_hint_window()
+                return True
+        
+        return False
+    
+    def update_hint_tooltip(self, mouse_pos):
+        """Update hint tooltip state"""
+        # Check if need to hide hint
+        if self.is_hint_tooltip_visible:
+            self.hint_tooltip_pos = mouse_pos
+        
+        # Update hint window close button hover state
+        if self.hint_window_visible and self.hint_close_button:
+            self.hint_close_button.update_hover(mouse_pos)
 
 class ScrollButton:
     """Button for scrolling through positions"""

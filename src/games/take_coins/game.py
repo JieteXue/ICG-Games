@@ -6,6 +6,7 @@ from games.take_coins.ui import TakeCoinsUI, ScrollButton
 from utils.constants import *
 from utils.key_repeat import KeyRepeatManager
 from ui.components.sidebar import Sidebar
+from utils.config_manager import config_manager  # 新增导入
 
 class TakeCoinsInputHandler:
     """Handles input for Take Coins game with scrolling support"""
@@ -61,6 +62,14 @@ class TakeCoinsInputHandler:
                     self.game_logic.selected_position in self.game_logic.valid_positions):
                     if self.game_logic.make_move():
                         self.key_repeat_manager._reset_state()
+        
+        # Check hint button
+        if "hint" in control_buttons and control_buttons["hint"].is_clicked(event):
+            if self.game_logic.winning_hints_enabled:
+                hint_text = self.game_logic.get_winning_hint()
+                if hasattr(self.ui, 'show_hint_window'):
+                    self.ui.show_hint_window(hint_text)
+            return "hint"
         
         return None
     
@@ -133,6 +142,14 @@ class TakeCoinsInputHandler:
                     self.game_logic.selected_position in self.game_logic.valid_positions):
                     if self.game_logic.make_move():
                         self.key_repeat_manager._reset_state()
+            
+            # Handle hint key (H)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_h:
+                if self.game_logic.winning_hints_enabled:
+                    hint_text = self.game_logic.get_winning_hint()
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
+                return "hint"
         
         return None
     
@@ -196,10 +213,11 @@ class TakeCoinsGame(GameManager):
         self.ui = TakeCoinsUI(screen, font_manager)
         self.input_handler = TakeCoinsInputHandler(self.logic, self.ui)
         self.sidebar = Sidebar(screen, font_manager)
+        self.config_manager = config_manager
         
         self.font_manager.initialize_fonts()
         
-        # 游戏说明
+        # 游戏说明 - 更新以包含Winning Hints信息
         self.game_instructions = """
 TAKE COINS GAME - INSTRUCTIONS
 
@@ -228,6 +246,13 @@ Strategies:
 - Control the center positions for more options
 - Watch the "Winning Position"/"Losing Position" indicator
 
+Winning Hints Feature:
+- Enable "Winning Hints" in Settings (gear icon)
+- Click on the light bulb (💡) button to get AI suggestions
+- AI will suggest optimal moves when in a winning position
+- In losing positions, AI will suggest defensive strategies
+- Press H key for quick hint
+
 Controls:
 - Mouse: Click to select positions and buttons
 - Arrow Keys: Navigate between positions
@@ -235,6 +260,7 @@ Controls:
 - ENTER: Confirm move
 - R: Restart game
 - I: Show these instructions
+- H: Get quick hint (if Winning Hints enabled)
 - ESC: Back to mode selection
 
 Difficulty Levels:
@@ -249,6 +275,7 @@ Navigation:
 - Restart: Restart current game
 - Info (i): Show these instructions
 - Settings (⚙️): Open settings panel
+- Hint (💡): Show winning hint (when enabled)
 
 Good luck and have fun!
 """
@@ -282,18 +309,31 @@ Good luck and have fun!
                 self.should_return_to_menu = True
                 return
             
+            # 从配置管理器中获取最新的winning_hints设置
+            try:
+                current_prefs = config_manager.get_user_preferences()
+                winning_hints = current_prefs.winning_hints
+                print(f"Initializing game with winning_hints from config: {winning_hints}")
+            except Exception as e:
+                print(f"Error getting winning hints from config: {e}")
+                winning_hints = False
+            
             if game_mode == "PVE":
                 difficulty = selector.get_difficulty()
                 if difficulty == "back":
                     self.should_return_to_menu = True
                     return
-                self.logic.initialize_game("PVE", difficulty)
+                self.logic.initialize_game("PVE", difficulty, winning_hints=winning_hints)
             else:
-                self.logic.initialize_game("PVP")
+                self.logic.initialize_game("PVP", None, winning_hints=winning_hints)
                 
         except Exception as e:
             print(f"Error initializing game settings: {e}")
-            self.logic.initialize_game("PVE", 2)
+            try:
+                winning_hints = config_manager.get_user_preferences().winning_hints
+            except:
+                winning_hints = False
+            self.logic.initialize_game("PVE", 2, winning_hints=winning_hints)
     
     def handle_events(self):
         """Handle game events with scrolling support"""
@@ -312,9 +352,29 @@ Good luck and have fun!
         for button in self.scroll_buttons:
             button.update_hover(mouse_pos)
         
+        # Update hint tooltip
+        self.ui.update_hint_tooltip(mouse_pos)
+        
+        # 检查提示窗口事件优先处理
+        if hasattr(self.ui, 'hint_window_visible') and self.ui.hint_window_visible:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                
+                # 先让提示窗口处理事件
+                if self.ui.handle_hint_window_events(event, mouse_pos):
+                    continue
+                
+                # 其他事件处理...
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            
+            # 如果提示窗口打开，让提示窗口优先处理事件
+            if hasattr(self.ui, 'hint_window_visible') and self.ui.hint_window_visible:
+                if self.ui.handle_hint_window_events(event, mouse_pos):
+                    continue
             
             # 处理侧边栏事件
             sidebar_result = self.sidebar.handle_event(event, mouse_pos)
@@ -344,13 +404,24 @@ Good luck and have fun!
                 # Restart game
                 game_mode = getattr(self.logic, 'game_mode', "PVE")
                 difficulty = getattr(self.logic, 'difficulty', 2)
-                self.logic.initialize_game(game_mode, difficulty)
+                winning_hints = getattr(self.logic, 'winning_hints_enabled', False)
+                self.logic.initialize_game(game_mode, difficulty, winning_hints=winning_hints)
                 self.ui.scroll_offset = 0
                 if hasattr(self.input_handler, 'key_repeat_manager'):
                     self.input_handler.key_repeat_manager._reset_state()
+                # 关闭提示窗口
+                if hasattr(self.ui, 'hint_window_visible'):
+                    self.ui.close_hint_window()
                 return True
             elif nav_result == "info":
                 self.showing_instructions = True
+                return True
+            elif nav_result == "hint":
+                # 处理hint按键
+                if self.logic.winning_hints_enabled:
+                    hint_text = self.logic.get_winning_hint()
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
                 return True
             
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -380,15 +451,21 @@ Good luck and have fun!
             # 不再检查游戏控制按钮，因为这些现在在侧边栏中
             pass
         
-        # 按 I 键显示信息
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
-            return "info"
-        # 按 R 键重启游戏
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            return "refresh"
-        # Toggle performance overlay with F2
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
-            self.show_perf_overlay = not self.show_perf_overlay
+        # 按键事件
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_i:
+                return "info"
+            elif event.key == pygame.K_r:
+                return "refresh"
+            elif event.key == pygame.K_h:
+                # H键显示提示窗口
+                if self.logic.winning_hints_enabled:
+                    hint_text = self.logic.get_winning_hint()
+                    if hasattr(self.ui, 'show_hint_window'):
+                        self.ui.show_hint_window(hint_text)
+                return "hint"
+            elif event.key == pygame.K_F2:
+                self.show_perf_overlay = not self.show_perf_overlay
         
         return None
     
@@ -405,17 +482,49 @@ Good luck and have fun!
             # 重启游戏
             game_mode = getattr(self.logic, 'game_mode', "PVE")
             difficulty = getattr(self.logic, 'difficulty', 2)
-            self.logic.initialize_game(game_mode, difficulty)
+            winning_hints = getattr(self.logic, 'winning_hints_enabled', False)
+            self.logic.initialize_game(game_mode, difficulty, winning_hints=winning_hints)
+            self.ui.scroll_offset = 0
+            # 关闭提示窗口
+            if hasattr(self.ui, 'hint_window_visible'):
+                self.ui.close_hint_window()
             return True
         elif action == "info":
             self.showing_instructions = True
             return True
-        elif action == "settings":
+        elif action.startswith("setting_changed_"):
             # 处理设置变化
             setting_name = action.replace("setting_changed_", "")
             print(f"Setting changed: {setting_name}")
-            # 笑死我了只有按钮还没实装
-            # 这里可以添加具体的设置处理逻辑
+            
+            # 更新配置管理器中的设置
+            if setting_name == "winning_hints":
+                if hasattr(self.sidebar, 'settings_panel'):
+                    settings = self.sidebar.settings_panel.get_settings()
+                    winning_hints = settings.get('winning_hints', False)
+                    
+                    print(f"Winning hints setting changed to: {winning_hints}")
+                    
+                    # 更新配置管理器
+                    try:
+                        prefs = config_manager.get_user_preferences()
+                        prefs.winning_hints = winning_hints
+                        config_manager.update_user_preferences(prefs)
+                        
+                        # 更新游戏逻辑中的设置
+                        self.logic.winning_hints_enabled = winning_hints
+                        
+                        # 显示反馈消息
+                        if winning_hints:
+                            self.logic.message = "Winning Hints enabled! Press H or click ? button for guidance."
+                        else:
+                            self.logic.message = "Winning Hints disabled."
+                            
+                    except Exception as e:
+                        print(f"Error updating setting: {e}")
+                        
+                    # 强制更新按钮状态
+                    self.update_button_states()
             return True
         elif action == "sponsor_clicked":
             print("Sponsor link clicked")
@@ -436,6 +545,9 @@ Good luck and have fun!
         
         # Update key repeat
         self.input_handler.update_key_repeat()
+        
+        # Update button states
+        self.update_button_states()
         
         # AI's turn (only in PvE mode)
         if (self.logic.game_mode == "PVE" and 
@@ -471,9 +583,10 @@ Good luck and have fun!
                 # Draw control panel
                 self.ui.draw_control_panel(self.control_buttons, self.logic)
                 
-                # Draw confirm button
-                if "confirm" in self.control_buttons:
-                    self.control_buttons["confirm"].draw(self.screen)
+                # Draw confirm button and hint button
+                for button_name in ["confirm", "hint"]:
+                    if button_name in self.control_buttons:
+                        self.control_buttons[button_name].draw(self.screen)
                 
                 # Draw hints
                 self.ui.draw_hints()
@@ -501,7 +614,7 @@ Good luck and have fun!
         
         # Draw instructions panel
         panel_width = 800
-        panel_height = 550
+        panel_height = 600
         panel_x = (SCREEN_WIDTH - panel_width) // 2
         panel_y = (SCREEN_HEIGHT - panel_height) // 2
         
@@ -568,6 +681,49 @@ Good luck and have fun!
                     self.screen.blit(text_surface, text_rect)
                     y_pos += font.get_linesize() + 2
     
+    def update_button_states(self):
+        """Update button states based on game logic"""
+        # 每次更新按钮状态时都从配置文件同步最新的Winning Hints设置
+        if self.logic and hasattr(self.logic, 'winning_hints_enabled'):
+            try:
+                # 从配置管理器获取最新的设置
+                current_prefs = self.config_manager.get_user_preferences()
+                # 同步到游戏逻辑中
+                self.logic.winning_hints_enabled = current_prefs.winning_hints
+            except Exception as e:
+                print(f"Error syncing winning hints from config: {e}")
+        
+        # 确定按钮是否可用
+        if self.logic.game_mode == "PVE":
+            buttons_enabled = (self.logic.current_player == "Player 1")
+        else:
+            buttons_enabled = True  # PvP模式下双方都可以操作
+        
+        # Update confirm button
+        if "confirm" in self.control_buttons:
+            can_confirm = (self.logic.selected_position is not None and 
+                          self.logic.selected_position in self.logic.valid_positions)
+            self.control_buttons["confirm"].enabled = buttons_enabled and can_confirm
+        
+        # Update hint button
+        if "hint" in self.control_buttons:
+            hint_enabled = False
+            
+            if self.logic.game_mode == "PVE":
+                # PvE模式：只在玩家回合且Winning Hints启用时可用
+                if self.logic.current_player == "Player 1" and self.logic.winning_hints_enabled:
+                    hint_enabled = True
+            else:
+                # PvP模式：只要Winning Hints启用就可用
+                if self.logic.winning_hints_enabled:
+                    hint_enabled = True
+            
+            self.control_buttons["hint"].enabled = hint_enabled
+        
+        # 确保游戏结束后 restart 按钮可用
+        if self.logic.game_over and "restart" in self.control_buttons:
+            self.control_buttons["restart"].enabled = True
+    
     def get_game_info(self):
         """Return game information"""
         return {
@@ -577,5 +733,6 @@ Good luck and have fun!
             'game_over': self.logic.game_over,
             'winner': self.logic.winner,
             'coins': self.logic.coins.copy(),
-            'valid_positions': self.logic.valid_positions.copy()
+            'valid_positions': self.logic.valid_positions.copy(),
+            'winning_hints_enabled': getattr(self.logic, 'winning_hints_enabled', False)
         }
