@@ -7,6 +7,7 @@ from utils.constants import *
 from utils.helpers import wrap_text
 from ui.components.input_box import InputBox  # 新增导入
 from ui.components.scrollables import ScrollablePanel  # 新增导入
+from ui.components.scrollables import ScrollablePanel  # 新增导入
 
 class CardNimUI:
     """Handles all UI rendering for Card Nim game"""
@@ -14,6 +15,17 @@ class CardNimUI:
     def __init__(self, screen, font_manager):
         self.screen = screen
         self.font_manager = font_manager
+        self.input_box = None
+        self.count_rect = None
+        self.is_hint_tooltip_visible = False  # 改为这个
+        self.hint_tooltip_text = ""
+        self.hint_tooltip_pos = (0, 0)
+        
+        # 新增：提示窗口属性
+        self.hint_window_visible = False
+        self.hint_scrollable_panel = None
+        self.hint_close_button = None
+        self.hint_window_rect = None
         self.input_box = None
         self.count_rect = None
         self.is_hint_tooltip_visible = False  # 改为这个
@@ -195,6 +207,7 @@ class CardNimUI:
         self.screen.blit(pos_text, (x - pos_text.get_width()//2, y + 48))
     
     def draw_control_panel(self, buttons, selected_count, selected_position_index, game_logic):
+    def draw_control_panel(self, buttons, selected_count, selected_position_index, game_logic):
         """Draw the control panel with enhanced styling"""
         control_y = POSITION_HEIGHT + 150
         control_width = 400
@@ -368,6 +381,10 @@ class CardNimUI:
                 # Draw tooltip on hover
                 if self.hovered and self.tooltip:
                     self._draw_tooltip(surface)
+                
+                # Draw tooltip on hover
+                if self.hovered and self.tooltip:
+                    self._draw_tooltip(surface)
             
             def _draw_icon(self, surface):
                 icon_color = (255, 255, 255) if self.enabled else (150, 150, 150)
@@ -432,6 +449,29 @@ class CardNimUI:
                     q_text = font.render("?", True, (50, 50, 50))
                     text_rect = q_text.get_rect(center=center)
                     surface.blit(q_text, text_rect)
+                
+                elif self.icon == 'hint':
+                    # Draw hint icon (light bulb)
+                    center = (self.rect.centerx, self.rect.centery)
+                    
+                    # Draw light bulb body
+                    pygame.draw.circle(surface, (255, 255, 200), center, 12)
+                    pygame.draw.circle(surface, (255, 255, 100), center, 12, 2)
+                    
+                    # Draw light rays
+                    for angle in range(0, 360, 45):
+                        rad = angle * 3.14159 / 180
+                        start_x = center[0] + 12 * pygame.math.Vector2(1, 0).rotate(angle).x
+                        start_y = center[1] + 12 * pygame.math.Vector2(1, 0).rotate(angle).y
+                        end_x = center[0] + 20 * pygame.math.Vector2(1, 0).rotate(angle).x
+                        end_y = center[1] + 20 * pygame.math.Vector2(1, 0).rotate(angle).y
+                        pygame.draw.line(surface, (255, 255, 150), (start_x, start_y), (end_x, end_y), 2)
+                    
+                    # Draw question mark inside
+                    font = pygame.font.SysFont('Arial', 14, bold=True)
+                    q_text = font.render("?", True, (50, 50, 50))
+                    text_rect = q_text.get_rect(center=center)
+                    surface.blit(q_text, text_rect)
             
             def _draw_text(self, surface):
                 text_color = (255, 255, 255) if self.enabled else (150, 150, 150)
@@ -444,6 +484,17 @@ class CardNimUI:
                     surface.blit(shadow_surface, shadow_rect)
                 
                 surface.blit(text_surface, text_rect)
+            
+            def _draw_tooltip(self, surface):
+                tooltip_surface = self.font_manager.small.render(self.tooltip, True, (220, 240, 255))
+                tooltip_rect = tooltip_surface.get_rect(midleft=(self.rect.right + 10, self.rect.centery))
+                
+                # Draw tooltip background
+                bg_rect = tooltip_rect.inflate(10, 6)
+                pygame.draw.rect(surface, (40, 50, 70), bg_rect, border_radius=4)
+                pygame.draw.rect(surface, (100, 150, 200), bg_rect, 1, border_radius=4)
+                
+                surface.blit(tooltip_surface, tooltip_rect)
             
             def _draw_tooltip(self, surface):
                 tooltip_surface = self.font_manager.small.render(self.tooltip, True, (220, 240, 255))
@@ -469,10 +520,15 @@ class CardNimUI:
         hint_button_x = control_x + control_width + 20
         hint_button_y = control_y + 60
         
+        # 新增：Hint按钮 - 放在控制面板旁边
+        hint_button_x = control_x + control_width + 20
+        hint_button_y = control_y + 60
+        
         buttons = {
             "minus": GameButton(control_x, control_y, number_button_width, number_button_height, "−", self.font_manager, tooltip="Decrease card count"),
             "plus": GameButton(control_x + control_width - number_button_width, control_y, number_button_width, number_button_height, "+", self.font_manager, tooltip="Increase card count"),
             "confirm": GameButton(control_x + 100, control_y + 60, 200, 50, "Confirm Move", self.font_manager, tooltip="Make move with selected cards"),
+            "hint": GameButton(hint_button_x, hint_button_y, 50, 50, "", self.font_manager, icon='hint', tooltip="Click for AI hints"),
             "hint": GameButton(hint_button_x, hint_button_y, 50, 50, "", self.font_manager, icon='hint', tooltip="Click for AI hints"),
             "restart": GameButton(SCREEN_WIDTH//2 - 120, POSITION_HEIGHT + 250, 240, 60, "New Game", self.font_manager, tooltip="Start a new game"),
             "back": GameButton(20, 20, nav_button_size, nav_button_size, "", self.font_manager, icon='back', tooltip="Back to mode selection"),
