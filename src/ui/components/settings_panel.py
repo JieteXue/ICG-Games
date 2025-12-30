@@ -16,7 +16,7 @@ class SettingsPanel:
         
         # Panel dimensions
         self.panel_width = 600
-        self.panel_height = 450
+        self.panel_height = 470
         self.panel_x = (SCREEN_WIDTH - self.panel_width) // 2
         self.panel_y = (SCREEN_HEIGHT - self.panel_height) // 2
         self.button_offset_x = 450
@@ -34,7 +34,7 @@ class SettingsPanel:
         back_button_height = 40
         self.back_button_rect = pygame.Rect(
             self.panel_x + 20,
-            self.panel_y + 20,
+            self.panel_y + 15,
             back_button_width,
             back_button_height
         )
@@ -139,7 +139,7 @@ class SettingsPanel:
             
             # Check sponsor button
             sponsor_rect = pygame.Rect(
-                self.panel_x + 300,
+                self.panel_x + self.button_offset_x,
                 self.panel_y + 120 + 3 * 90,  # 4th row
                 80, 35
             )
@@ -301,8 +301,8 @@ class SettingsPanel:
         if is_hovered:
             url_text = self.font_manager.small.render(self.sponsor_url, 
                                                      True, (150, 200, 150))
-            url_rect = url_text.get_rect(midleft=(button_rect.right + 15, 
-                                                 button_rect.centery))
+            url_rect = url_text.get_rect(midright=(button_rect.right + 30, 
+                                                 button_rect.centery - 40))
             self.screen.blit(url_text, url_rect)
     
     def get_settings(self):
