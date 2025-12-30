@@ -5,9 +5,9 @@ Card Nim Game UI Components
 import pygame
 from utils.constants import *
 from utils.helpers import wrap_text
-from ui.components.input_box import InputBox  # 新增导入
-from ui.components.scrollables import ScrollablePanel  # 新增导入
-from ui.components.scrollables import ScrollablePanel  # 新增导入
+from ui.components.input_box import InputBox
+from ui.components.scrollables import ScrollablePanel
+from ui.components.scrollables import ScrollablePanel
 
 class CardNimUI:
     """Handles all UI rendering for Card Nim game"""
@@ -17,22 +17,20 @@ class CardNimUI:
         self.font_manager = font_manager
         self.input_box = None
         self.count_rect = None
-        self.is_hint_tooltip_visible = False  # 改为这个
+        self.is_hint_tooltip_visible = False
         self.hint_tooltip_text = ""
         self.hint_tooltip_pos = (0, 0)
         
-        # 新增：提示窗口属性
         self.hint_window_visible = False
         self.hint_scrollable_panel = None
         self.hint_close_button = None
         self.hint_window_rect = None
         self.input_box = None
         self.count_rect = None
-        self.is_hint_tooltip_visible = False  # 改为这个
+        self.is_hint_tooltip_visible = False
         self.hint_tooltip_text = ""
         self.hint_tooltip_pos = (0, 0)
-        
-        # 新增：提示窗口属性
+
         self.hint_window_visible = False
         self.hint_scrollable_panel = None
         self.hint_close_button = None
@@ -42,8 +40,7 @@ class CardNimUI:
         """Draw the background with gradient effect"""
         self.screen.fill(BACKGROUND_COLOR)
 
-        # 考虑侧边栏的偏移
-        sidebar_width = SIDEBAR_WIDTH  # 使用常量
+        sidebar_width = SIDEBAR_WIDTH
 
         for x in range(sidebar_width, SCREEN_WIDTH, 40):
             pygame.draw.line(self.screen, (35, 45, 55), (x, 0), (x, SCREEN_HEIGHT), 1)
@@ -516,11 +513,7 @@ class CardNimUI:
         nav_button_size = 50
         
         # 新增：Hint按钮 - 放在控制面板旁边
-        hint_button_x = control_x + control_width + 20
-        hint_button_y = control_y + 60
-        
-        # 新增：Hint按钮 - 放在控制面板旁边
-        hint_button_x = control_x + control_width + 20
+        hint_button_x = control_x + control_width - 50
         hint_button_y = control_y + 60
         
         buttons = {
