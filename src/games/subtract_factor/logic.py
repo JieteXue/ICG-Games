@@ -99,6 +99,74 @@ class SubtractFactorAutoPlayer:
             else:
                 # 简单和普通难度：完全随机选择
                 return random.choice(valid_factors)
+    
+    def analyze_move(self, current_value, threshold, factor):
+        """分析移动的优劣，返回分数(0-100)和描述"""
+        if factor not in self.get_valid_factors(current_value):
+            return 0, "Invalid move"
+        
+        # 执行移动
+        new_value = current_value - factor
+        
+        # 检查是否会立即失败
+        if new_value < threshold:
+            return 10, f"Danger: This move reduces value to {new_value} < threshold {threshold} - immediate loss!"
+        
+        # 检查是否为必胜位置
+        if new_value < len(self.winning_positions) and not self.winning_positions[new_value]:
+            return 100, "Winning move - leaves opponent in losing position"
+        
+        # 对于非必胜位置，评估对手的响应
+        opponent_factors = self.get_valid_factors(new_value)
+        if not opponent_factors:
+            # 对手没有有效移动，这应该是必胜位置
+            return 90, "Excellent move - opponent has no valid moves"
+        
+        # 计算对手有多少必胜移动
+        opponent_winning_moves = []
+        for opp_factor in opponent_factors:
+            opp_new_value = new_value - opp_factor
+            if opp_new_value < threshold:
+                continue
+            if opp_new_value < len(self.winning_positions) and not self.winning_positions[opp_new_value]:
+                opponent_winning_moves.append(opp_factor)
+        
+        total_moves = len(opponent_factors)
+        winning_count = len(opponent_winning_moves)
+        
+        if winning_count == total_moves:
+            # 所有对手移动都是必胜的
+            return 20, f"Dangerous move - opponent has {winning_count} winning responses"
+        elif winning_count == 0:
+            # 对手没有必胜移动
+            # 进一步分析：检查对手移动后，我们是否有必胜移动
+            safe_count = 0
+            for opp_factor in opponent_factors:
+                opp_new_value = new_value - opp_factor
+                if opp_new_value < threshold:
+                    continue
+                # 检查对手移动后，我们是否有必胜移动
+                our_factors_after = self.get_valid_factors(opp_new_value)
+                has_winning = False
+                for our_factor in our_factors_after:
+                    final_value = opp_new_value - our_factor
+                    if final_value < threshold:
+                        continue
+                    if final_value < len(self.winning_positions) and not self.winning_positions[final_value]:
+                        has_winning = True
+                        break
+                
+                if not has_winning:
+                    safe_count += 1
+            
+            safe_ratio = safe_count / total_moves if total_moves > 0 else 0
+            score = 60 + int(30 * safe_ratio)
+            return score, f"Good move - opponent has {safe_count}/{total_moves} safe responses"
+        else:
+            # 部分对手移动是必胜的
+            losing_ratio = winning_count / total_moves
+            score = max(30, 80 - int(50 * losing_ratio))
+            return score, f"Risky move - opponent has {winning_count}/{total_moves} winning responses"
 
 class SubtractFactorLogic:
     """Game logic for Subtract Factor"""
@@ -117,6 +185,7 @@ class SubtractFactorLogic:
         self.auto_player = None
         self.winning_positions = []
         self.valid_factors = []
+        self.winning_hints_enabled = False  # 新增：提示功能开关
     
     def calculate_winning_positions(self):
         """Calculate winning positions using dynamic programming"""
@@ -226,10 +295,11 @@ class SubtractFactorLogic:
                 return True
         return False
     
-    def initialize_game(self, game_mode, difficulty=None):
+    def initialize_game(self, game_mode, difficulty=None, winning_hints=False):  # 修改：添加winning_hints参数
         """Initialize a new game - ensure player starts in winning position in PvE"""
         self.game_mode = game_mode
         self.difficulty = difficulty
+        self.winning_hints_enabled = winning_hints  # 新增：存储提示设置
         
         # 根据难度生成更大的数字范围
         if self.game_mode == "PVP":
@@ -304,6 +374,10 @@ class SubtractFactorLogic:
         
         position_state = "winning" if self.judge_win() else "losing"
         self.message = f"Game Started! n={self.initial_n}, k={self.threshold_k}. You are in a {position_state} position.{mode_info}"
+        
+        # 新增：如果提示功能开启，显示提示信息
+        if self.winning_hints_enabled:
+            self.message += " [Winning Hints: ON]"
     
     def make_move(self, factor):
         """Execute a move and return success status"""
@@ -409,3 +483,140 @@ class SubtractFactorLogic:
         
         self.message = f"Invalid factor: {factor}. Please select a valid factor."
         return False
+    
+    # ========== 新增：提示功能 ==========
+    
+    def get_winning_hint(self):
+        """提供当前游戏局面的提示"""
+        if self.game_over:
+            return "Game is already over!"
+        
+        # 检查是否是玩家的回合（PvE模式下AI回合不给提示）
+        if self.game_mode == "PVE" and self.current_player == "AI":
+            return "It's AI's turn. Wait for your turn to get hints."
+        
+        # 获取所有可用移动
+        available_factors = self.valid_factors
+        if not available_factors:
+            return "No available moves!"
+        
+        # 确定当前局面类型
+        is_winning_position = self.judge_win()
+        
+        if is_winning_position:
+            # 必胜局面 - 寻找最佳必胜移动
+            best_factor = None
+            best_score = -1
+            best_desc = ""
+            moves_analysis = []
+            
+            for factor in available_factors:
+                if self.auto_player:
+                    score, desc = self.auto_player.analyze_move(
+                        self.current_value, self.threshold_k, factor
+                    )
+                    moves_analysis.append((factor, score, desc))
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_factor = factor
+                        best_desc = desc
+            
+            if best_factor is not None:
+                hint = f"WINNING POSITION\n"
+                hint += f"Current position is WINNING!\n\n"
+                hint += f"Recommended move: Subtract {best_factor}\n"
+                hint += f"New value: {self.current_value - best_factor}\n"
+                hint += f"Score: {best_score}/100\n"
+                hint += f"Description: {best_desc}\n\n"
+                
+                
+                hint += "\nStrategy: Choose moves that leave opponent in losing position."
+            else:
+                hint = "WINNING POSITION\n"
+                hint += "Current position is winning, but no obvious best move found.\n"
+                hint += f"Available factors: {available_factors}\n"
+                hint += "Suggest selecting a random valid factor."
+        else:
+            # 必败局面 - 寻找最不坏的移动
+            best_factor = None
+            best_score = -1
+            best_desc = ""
+            moves_analysis = []
+            
+            for factor in available_factors:
+                if self.auto_player:
+                    score, desc = self.auto_player.analyze_move(
+                        self.current_value, self.threshold_k, factor
+                    )
+                    moves_analysis.append((factor, score, desc))
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_factor = factor
+                        best_desc = desc
+            
+            if best_factor is not None:
+                hint = f"LOSING POSITION\n"
+                hint += f"Current position is LOSING. There is no guaranteed winning strategy.\n"
+                hint += f"You need opponent to make a mistake.\n\n"
+                hint += f"Recommended move: Subtract {best_factor}\n"
+                hint += f"New value: {self.current_value - best_factor}\n"
+                hint += f"Score: {best_score}/100\n"
+                hint += f"Description: {best_desc}\n\n"
+                
+                
+                hint += "\nStrategy: Choose the move with highest probability of opponent error, and hope for a mistake."
+            else:
+                hint = "LOSING POSITION\n"
+                hint += "Current position is losing.\n"
+                hint += f"Available factors: {available_factors}\n"
+                hint += "Suggest selecting a random valid factor and hope opponent makes a mistake."
+        
+        # 添加游戏状态信息
+        hint += f"\n\nCURRENT GAME STATE\n"
+        hint += f"Current value: {self.current_value}\n"
+        hint += f"Threshold: {self.threshold_k}\n"
+        hint += f"Available factors: {len(available_factors)}\n"
+        hint += f"Current player: {self.current_player}\n"
+        hint += f"Game mode: {self.game_mode}\n"
+        
+        return hint
+    
+    def toggle_winning_hints(self, enabled):
+        """启用或禁用提示功能"""
+        self.winning_hints_enabled = enabled
+        if enabled:
+            return "Winning hints enabled! Click on hint button for guidance."
+        else:
+            return "Winning hints disabled."
+    
+    def get_position_analysis(self):
+        """提供当前游戏局面分析"""
+        if self.game_over:
+            return "Game over!"
+        
+        analysis = f"GAME STATE ANALYSIS\n"
+        analysis += f"• Current value: {self.current_value}\n"
+        analysis += f"• Threshold: {self.threshold_k}\n"
+        analysis += f"• Current position: "
+        analysis += "WINNING position" if self.judge_win() else "LOSING position"
+        analysis += f"\n"
+        analysis += f"• Current player: {self.current_player}\n"
+        
+        # 可用因子
+        available_factors = self.valid_factors
+        analysis += f"• Available factors: {available_factors}\n"
+        analysis += f"• Number of factors: {len(available_factors)}\n"
+        
+        # 策略建议
+        if self.judge_win():
+            analysis += "\n✅ You are in a WINNING position!\n"
+            analysis += "   Try to find a move that leaves opponent in losing position.\n"
+            analysis += "   Subtract a factor that creates a non-winning value for opponent."
+        else:
+            analysis += "\n⚠️  You are in a LOSING position!\n"
+            analysis += "   You need opponent to make a mistake.\n"
+            analysis += "   Choose moves with highest probability of opponent error."
+        
+        return analysis

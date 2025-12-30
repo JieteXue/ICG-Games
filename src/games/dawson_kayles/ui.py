@@ -1,5 +1,5 @@
 """
-Dawson-Kayles Game UI Components - 兼容版本，添加左右滑动按钮
+Dawson-Kayles Game UI Components - 添加提示功能
 """
 
 import pygame
@@ -8,6 +8,7 @@ import random
 from utils.constants import *
 from utils.helpers import wrap_text
 from ui.components.input_box import InputBox  # 新增导入
+from ui.components.scrollables import ScrollablePanel  # 新增导入
 
 class TowerButton:
     """炮塔按钮类 - 完全兼容原始接口"""
@@ -141,7 +142,7 @@ class ScrollButton:
                 self.enabled)
 
 class DawsonKaylesUI:
-    """Dawson-Kayles游戏UI管理器 - 保持完全兼容性"""
+    """Dawson-Kayles游戏UI管理器 - 添加提示功能"""
     
     def __init__(self, screen, font_manager):
         self.screen = screen
@@ -153,6 +154,17 @@ class DawsonKaylesUI:
         self.grid_offset = 0
         self.scroll_buttons = []  # 添加滚动按钮存储
         self.input_box = None  # 新增：输入框实例
+        
+        # 新增：提示功能属性
+        self.is_hint_tooltip_visible = False  # 工具提示可见性
+        self.hint_tooltip_text = ""
+        self.hint_tooltip_pos = (0, 0)
+        
+        # 新增：提示窗口属性
+        self.hint_window_visible = False
+        self.hint_scrollable_panel = None
+        self.hint_close_button = None
+        self.hint_window_rect = None
 
     def draw_background(self):
         """绘制科技风格背景 - 保持原始风格"""
@@ -372,9 +384,10 @@ class DawsonKaylesUI:
         for button in self.scroll_buttons:
             button.draw(self.screen)
     
-    def draw_control_panel(self, game_logic):
-        """绘制控制面板 - 简化版本，移除文字提示"""
-        control_y = 560
+    def draw_control_panel(self, game_logic, buttons=None):  # 修改：添加buttons参数
+        """绘制控制面板 - 添加提示按钮"""
+        # 将控制面板上移，避免重叠
+        control_y = 520  # 从560改为520，上移40像素
         control_width = 500
         control_x = (SCREEN_WIDTH - control_width) // 2
         
@@ -385,7 +398,7 @@ class DawsonKaylesUI:
         # 仪表盘边框
         pygame.draw.rect(self.screen, (0, 200, 255), control_bg, 3, border_radius=12)
         
-        # 仪表盘标题
+        # 仪表盘标题 - 位置相应上移
         panel_title = self.font_manager.medium.render("LASER CONTROL PANEL", True, (0, 255, 220))
         self.screen.blit(panel_title, (SCREEN_WIDTH//2 - panel_title.get_width()//2, control_y - 5))
         
@@ -445,9 +458,35 @@ class DawsonKaylesUI:
             # 仪表盘装饰（LED灯间距调整）
             self._draw_control_panel_decoration(control_bg)
             
-            # 快捷方式提示（移到更下方，不与其他内容重叠）
+            # 快捷方式提示（位置相应上移）
             shortcut_hint = self.font_manager.small.render("Press 'C' for quick connect", True, (100, 180, 255))
             self.screen.blit(shortcut_hint, (control_bg.centerx - shortcut_hint.get_width()//2, control_y + 65))
+            
+            # 新增：绘制提示按钮（如果buttons参数提供）
+            if buttons and "hint" in buttons:
+                hint_button = buttons["hint"]
+                # 设置提示按钮位置（在控制面板右侧） - 位置相应上移
+                hint_button.rect = pygame.Rect(
+                    control_bg.right + 20,
+                    control_bg.centery - 25,
+                    50, 50
+                )
+                hint_button.draw(self.screen)
+                
+                # 绘制提示按钮的悬停工具提示
+                if hint_button.hovered and game_logic.winning_hints_enabled and not self.hint_window_visible:
+                    self.show_hint_tooltip("Click for winning hints", pygame.mouse.get_pos())
+                elif not hint_button.hovered and self.is_hint_tooltip_visible:
+                    # 如果鼠标不在按钮上，但工具提示仍显示，则隐藏它
+                    self.hide_hint_tooltip()
+            
+            # 新增：绘制提示工具提示（如果可见）
+            if self.is_hint_tooltip_visible and self.hint_tooltip_text:
+                self._draw_hint_tooltip()
+            
+            # 新增：绘制提示窗口（如果可见）
+            if self.hint_window_visible:
+                self._draw_hint_window()
             
             return connect_button_rect
         else:
@@ -460,6 +499,16 @@ class DawsonKaylesUI:
             
             # 仪表盘装饰
             self._draw_control_panel_decoration(control_bg)
+            
+            # 新增：绘制提示按钮（如果buttons参数提供且游戏结束）
+            if buttons and "hint" in buttons and game_logic.game_over:
+                hint_button = buttons["hint"]
+                hint_button.rect = pygame.Rect(
+                    control_bg.right + 20,
+                    control_bg.centery - 25,
+                    50, 50
+                )
+                hint_button.draw(self.screen)
             
             return None
 
@@ -477,30 +526,9 @@ class DawsonKaylesUI:
         for corner in corners:
             corner_rect = pygame.Rect(corner[0], corner[1], corner_size, corner_size)
             pygame.draw.rect(self.screen, (0, 200, 255), corner_rect, 2)
-        
-        # 仪表盘LED指示灯 - 增加间距
-        led_x = panel_rect.left + 20  # 增加左边距
-        led_y = panel_rect.centery
-        
-        # 绘制LED灯 - 间距从25增加到35
-        led_spacing = 35  # 增加间距
-        for i in range(3):
-            led_pos = (led_x + i * led_spacing, led_y)
-            led_color = (0, 255, 0) if i == 0 else (255, 255, 0) if i == 1 else (255, 0, 0)
-            
-            # LED灯光晕效果
-            pygame.draw.circle(self.screen, (*led_color, 50), led_pos, 8)
-            pygame.draw.circle(self.screen, led_color, led_pos, 6)
-            pygame.draw.circle(self.screen, (255, 255, 255), led_pos, 6, 1)
-        
-        # LED标签 - 位置相应调整
-        led_labels = ["PWR", "RDY", "ACT"]
-        for i, label in enumerate(led_labels):
-            label_text = self.font_manager.small.render(label, True, (150, 200, 255))
-            self.screen.blit(label_text, (led_x + i * led_spacing - label_text.get_width()//2, led_y + 12))  # 增加垂直间距
     
     def create_control_buttons(self):
-        """创建控制按钮 - 保持原始接口兼容性"""
+        """创建控制按钮 - 添加提示按钮"""
         class TechButton:
             def __init__(self, x, y, width, height, text, font_manager, icon=None, tooltip=""):
                 self.rect = pygame.Rect(x, y, width, height)
@@ -542,7 +570,6 @@ class DawsonKaylesUI:
                                border_radius=self.corner_radius)
                 pygame.draw.rect(surface, border_color, self.rect, 3, 
                                border_radius=self.corner_radius)
-                
                 
                 # 图标或文字
                 if self.icon:
@@ -592,6 +619,37 @@ class DawsonKaylesUI:
                         (center[0] + radius, center[1] - 8)
                     ]
                     pygame.draw.polygon(surface, icon_color, arrow_points)
+                
+                elif self.icon == 'hint':  # 新增：提示图标
+                    # 绘制灯泡图标
+                    center = (self.rect.centerx, self.rect.centery)
+                    
+                    # 灯泡主体
+                    pygame.draw.circle(surface, (255, 255, 180), center, 15)
+                    pygame.draw.circle(surface, (255, 255, 100), center, 15, 2)
+                    
+                    # 灯泡底部
+                    bottom_rect = pygame.Rect(
+                        center[0] - 8,
+                        center[1] + 10,
+                        16, 6
+                    )
+                    pygame.draw.rect(surface, (200, 180, 100), bottom_rect, border_radius=3)
+                    
+                    # 问号
+                    font = pygame.font.SysFont('Arial', 16, bold=True)
+                    q_text = font.render("?", True, (60, 60, 80))
+                    text_rect = q_text.get_rect(center=center)
+                    surface.blit(q_text, text_rect)
+                    
+                    # 灯泡光晕效果（如果启用）
+                    if self.enabled:
+                        for i in range(3):
+                            radius = 18 + i * 4
+                            alpha = 50 - i * 15
+                            s = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+                            pygame.draw.circle(s, (255, 255, 150, alpha), (radius, radius), radius)
+                            surface.blit(s, (center[0] - radius, center[1] - radius))
             
             def _draw_tech_text(self, surface):
                 text_color = (240, 250, 255) if self.enabled else (120, 130, 140)
@@ -601,16 +659,19 @@ class DawsonKaylesUI:
         
         nav_button_size = 55
         
+        # 将"restart"按钮的位置也上移，与控制面板保持一致
         buttons = {
             "back": TechButton(25, 25, nav_button_size, nav_button_size, "", 
                               self.font_manager, icon='back'),
             "home": TechButton(25 + nav_button_size + 15, 25, nav_button_size, nav_button_size, "", 
                                self.font_manager, icon='home'),
-            "restart": TechButton(SCREEN_WIDTH//2 - 120, 560, 240, 60, "NEW GAME", 
+            "restart": TechButton(SCREEN_WIDTH//2 - 120, 520, 240, 60, "NEW GAME",  # 从560改为520
                                 self.font_manager),
             "refresh": TechButton(SCREEN_WIDTH - 25 - nav_button_size, 25, 
                                 nav_button_size, nav_button_size, "", 
-                                self.font_manager, icon='refresh')
+                                self.font_manager, icon='refresh'),
+            "hint": TechButton(0, 0, 50, 50, "",  # 位置将在draw_control_panel中设置
+                              self.font_manager, icon='hint', tooltip="Click for winning hints")  # 新增：提示按钮
         }
         
         return buttons
@@ -716,3 +777,252 @@ class DawsonKaylesUI:
         """更新输入框状态"""
         if self.input_box:
             self.input_box.update()
+    
+    # ========== 新增：提示功能相关方法 ==========
+    
+    def _draw_hint_tooltip(self):
+        """绘制提示工具提示框"""
+        if not self.hint_tooltip_text:
+            return
+        
+        # 分割文本为多行
+        max_width = 200
+        lines = []
+        words = self.hint_tooltip_text.split(' ')
+        current_line = ""
+        
+        for word in words:
+            test_line = f"{current_line} {word}".strip()
+            test_width = self.font_manager.small.size(test_line)[0]
+            
+            if test_width <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # 计算工具提示框的尺寸
+        line_height = 18
+        padding = 8
+        tooltip_width = max_width + 2 * padding
+        tooltip_height = len(lines) * line_height + 2 * padding
+        
+        # 定位工具提示框（确保在屏幕内）
+        tooltip_x = self.hint_tooltip_pos[0]
+        tooltip_y = self.hint_tooltip_pos[1] - tooltip_height - 10
+        
+        # 如果超出屏幕顶部，显示在下方
+        if tooltip_y < 50:
+            tooltip_y = self.hint_tooltip_pos[1] + 10
+        
+        # 如果超出屏幕右侧，向左偏移
+        if tooltip_x + tooltip_width > SCREEN_WIDTH - 20:
+            tooltip_x = SCREEN_WIDTH - tooltip_width - 20
+        
+        # 绘制工具提示框背景
+        tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+        pygame.draw.rect(self.screen, (20, 40, 70, 230), tooltip_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (0, 200, 255), tooltip_rect, 2, border_radius=8)
+        
+        # 绘制文本行
+        for i, line in enumerate(lines):
+            line_text = self.font_manager.small.render(line, True, (220, 240, 255))
+            self.screen.blit(line_text, (tooltip_x + padding, 
+                                       tooltip_y + padding + i * line_height))
+    
+    def show_hint_tooltip(self, text, pos):
+        """显示提示工具提示"""
+        self.is_hint_tooltip_visible = True
+        self.hint_tooltip_text = text
+        self.hint_tooltip_pos = pos
+    
+    def hide_hint_tooltip(self):
+        """隐藏提示工具提示"""
+        self.is_hint_tooltip_visible = False
+        self.hint_tooltip_text = ""
+    
+    def _draw_hint_window(self):
+        """绘制提示窗口"""
+        if not self.hint_window_visible:
+            return
+        
+        # 定义窗口大小和位置
+        window_width = 500  # 增加宽度以容纳更多内容
+        window_height = 400  # 增加高度
+        window_x = (SCREEN_WIDTH - window_width) // 2  # 居中显示
+        window_y = (SCREEN_HEIGHT - window_height) // 2
+        self.hint_window_rect = pygame.Rect(window_x, window_y, window_width, window_height)
+        
+        # 绘制窗口背景（带透明度的深色背景）
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        self.screen.blit(overlay, (0, 0))
+        
+        # 绘制窗口主体
+        pygame.draw.rect(self.screen, (15, 25, 40), self.hint_window_rect, border_radius=12)
+        pygame.draw.rect(self.screen, (0, 200, 255), self.hint_window_rect, 3, border_radius=12)
+        
+        # 绘制窗口标题
+        title_text = self.font_manager.large.render("WINNING HINT", True, (0, 255, 220))
+        title_rect = title_text.get_rect(center=(window_x + window_width//2, window_y + 30))
+        self.screen.blit(title_text, title_rect)
+        
+        # 绘制分隔线
+        pygame.draw.line(self.screen, (0, 180, 220),
+                        (window_x + 20, window_y + 60),
+                        (window_x + window_width - 20, window_y + 60), 2)
+        
+        # 绘制可滚动面板（如果内容存在）
+        if self.hint_scrollable_panel:
+            self.hint_scrollable_panel.draw(self.screen)
+        
+        # 绘制关闭按钮（如果尚未创建）
+        if self.hint_close_button is None:
+            close_button_rect = pygame.Rect(
+                window_x + window_width - 40,
+                window_y + 15,
+                25, 25
+            )
+            
+            # 使用内联按钮类
+            class SimpleButton:
+                def __init__(self, rect, text="×"):
+                    self.rect = rect
+                    self.text = text
+                    self.hovered = False
+                
+                def update_hover(self, mouse_pos):
+                    self.hovered = self.rect.collidepoint(mouse_pos)
+                
+                def draw(self, screen):
+                    color = (255, 100, 100) if self.hovered else (200, 80, 80)
+                    pygame.draw.rect(screen, color, self.rect, border_radius=4)
+                    pygame.draw.rect(screen, (255, 200, 200), self.rect, 1, border_radius=4)
+                    
+                    font = pygame.font.SysFont('Arial', 20, bold=True)
+                    text_surface = font.render(self.text, True, (255, 255, 255))
+                    text_rect = text_surface.get_rect(center=self.rect.center)
+                    screen.blit(text_surface, text_rect)
+            
+            self.hint_close_button = SimpleButton(close_button_rect)
+        
+        # 绘制关闭按钮
+        self.hint_close_button.draw(self.screen)
+        
+        # 绘制关闭提示
+        close_hint = self.font_manager.small.render("Press ESC or click X to close", True, (180, 200, 220))
+        close_hint_rect = close_hint.get_rect(center=(window_x + window_width//2, window_y + window_height - 20))
+        self.screen.blit(close_hint, close_hint_rect)
+    
+    def show_hint_window(self, hint_text):
+        """显示提示窗口"""
+        # 创建或重置滚动面板
+        window_width = 500
+        window_height = 400
+        window_x = (SCREEN_WIDTH - window_width) // 2
+        window_y = (SCREEN_HEIGHT - window_height) // 2
+        
+        # 创建可滚动面板
+        self.hint_scrollable_panel = ScrollablePanel(
+            window_x + 15,  # 内边距
+            window_y + 70,  # 标题栏下面
+            window_width - 30,  # 减去内边距
+            window_height - 100,  # 减去标题栏和按钮高度
+            self.font_manager,
+            bg_color=(25, 35, 55, 240)
+        )
+        
+        # 分割文本并添加到面板
+        # 首先按换行符分割
+        paragraphs = hint_text.split('\n')
+        
+        for para in paragraphs:
+            if para.strip():  # 非空段落
+                # 再按空格分词，然后按面板宽度自动换行
+                words = para.split()
+                current_line = ""
+                
+                for word in words:
+                    test_line = f"{current_line} {word}".strip()
+                    
+                    # 检查测试行的宽度是否超过面板宽度（减去边距）
+                    if self.font_manager.small.size(test_line)[0] < (window_width - 40):
+                        current_line = test_line
+                    else:
+                        # 如果超过宽度，添加当前行，开始新行
+                        if current_line:
+                            self.hint_scrollable_panel.add_line(current_line, (220, 240, 255), 'small')
+                        current_line = word
+                
+                # 添加最后一行
+                if current_line:
+                    self.hint_scrollable_panel.add_line(current_line, (220, 240, 255), 'small')
+                
+                # 段落后添加空行
+                self.hint_scrollable_panel.add_spacing(6)
+            else:
+                # 空段落作为更大间距
+                self.hint_scrollable_panel.add_spacing(10)
+        
+        # 显示窗口
+        self.hint_window_visible = True
+        self.hide_hint_tooltip()  # 隐藏原来的工具提示
+    
+    def close_hint_window(self):
+        """关闭提示窗口"""
+        self.hint_window_visible = False
+        self.hint_scrollable_panel = None
+    
+    def handle_hint_window_events(self, event, mouse_pos):
+        """处理提示窗口事件"""
+        if not self.hint_window_visible:
+            return False
+        
+        # 更新关闭按钮的悬停状态
+        if self.hint_close_button:
+            self.hint_close_button.update_hover(mouse_pos)
+        
+        # 处理鼠标点击
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # 检查是否点击了关闭按钮
+            if self.hint_close_button and self.hint_close_button.hovered:
+                self.close_hint_window()
+                return True
+            
+            # 检查是否点击了窗口外部（关闭窗口）
+            if self.hint_window_rect and not self.hint_window_rect.collidepoint(mouse_pos):
+                self.close_hint_window()
+                return True
+        
+        # 处理滚动面板事件
+        if self.hint_scrollable_panel:
+            if self.hint_scrollable_panel.handle_event(event):
+                return True
+        
+        # 处理键盘事件
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:  # ESC键关闭窗口
+                self.close_hint_window()
+                return True
+        
+        return False
+    
+    def update_hint_tooltip(self, mouse_pos):
+        """更新提示工具提示状态"""
+        # 检查是否需要隐藏提示
+        if self.is_hint_tooltip_visible:
+            # 如果鼠标移动了，可能需要更新提示位置
+            self.hint_tooltip_pos = mouse_pos
+            
+            # 添加：如果提示窗口已经打开，则隐藏工具提示
+            if self.hint_window_visible:
+                self.hide_hint_tooltip()
+    
+    def update_hint_buttons(self, game_logic, mouse_pos):
+        """更新提示按钮状态"""
+        # 这个方法将在game.py中调用
+        pass

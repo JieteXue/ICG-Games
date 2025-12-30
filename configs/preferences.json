@@ -6,5 +6,5 @@
   "theme": "dark",
   "language": "en",
   "autosave": true,
-  "winning_hints": false
+  "winning_hints": true
 }

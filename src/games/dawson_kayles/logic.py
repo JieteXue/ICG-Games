@@ -1,10 +1,9 @@
-# [file name]: src/games/dawson_kayles/logic.py
 """
-Dawson-Kayles Game Logic
+Dawson-Kayles Game Logic - 添加提示功能
 """
 
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from utils.constants import DIFFICULTY_RANDOM_RATES, DIFFICULTY_POSITION_RANGES_FOR_DAWSON_KAYLES
 
 class DawsonKaylesAutoPlayer:
@@ -72,6 +71,69 @@ class DawsonKaylesAutoPlayer:
             if not new_available:
                 return True
         return False
+    
+    def analyze_move(self, towers, move):
+        """Analyze the quality of a move, return score (0-100) and description"""
+        if move not in self.get_available_moves(towers):
+            return 0, "Invalid move"
+        
+        # Execute the move
+        new_towers = list(towers)
+        new_towers[move] = 0
+        new_towers[move + 1] = 0
+        
+        # Check if game ends immediately
+        new_available = self.get_available_moves(new_towers)
+        if not new_available:
+            return 100, "Winning move - no further moves available"
+        
+        # Check if leaves opponent in losing position
+        opponent_winning_moves = self.find_winning_moves(new_towers)
+        if not opponent_winning_moves:
+            # Opponent has no winning moves, this is good
+            # Calculate ratio of opponent's moves that lead to our loss
+            opponent_losing_moves = []
+            total_moves = len(new_available)
+            
+            for opp_move in new_available:
+                opp_new_towers = list(new_towers)
+                opp_new_towers[opp_move] = 0
+                opp_new_towers[opp_move + 1] = 0
+                
+                # Check if after opponent's move, we have winning moves
+                my_next_available = self.get_available_moves(opp_new_towers)
+                my_winning_moves = self.find_winning_moves(opp_new_towers)
+                
+                if not my_winning_moves:
+                    # Opponent's move would leave us in losing position
+                    opponent_losing_moves.append(opp_move)
+            
+            losing_ratio = len(opponent_losing_moves) / total_moves if total_moves > 0 else 0
+            score = int(80 * (1 - losing_ratio))  # Lower ratio is better
+            
+            if losing_ratio == 0:
+                desc = f"Excellent move - opponent has no forced win ({total_moves} possible responses)"
+            else:
+                desc = f"Good move - opponent has {len(opponent_losing_moves)}/{total_moves} responses that force our loss"
+            
+            return max(score, 20), desc
+        
+        else:
+            # Opponent has winning moves, this is bad
+            # Calculate ratio of opponent's winning moves
+            total_moves = len(new_available)
+            opponent_winning_count = len(opponent_winning_moves)
+            winning_ratio = opponent_winning_count / total_moves if total_moves > 0 else 1
+            
+            # Score: lower winning ratio is better
+            score = int(40 * (1 - winning_ratio))
+            
+            if winning_ratio == 1:
+                desc = f"Losing position - opponent has winning response"
+            else:
+                desc = f"Poor position - opponent has {opponent_winning_count}/{total_moves} winning responses"
+            
+            return max(score, 10), desc
 
 class DawsonKaylesLogic:
     """Game logic for Dawson-Kayles (Tech Tower Defense theme)"""
@@ -88,11 +150,13 @@ class DawsonKaylesLogic:
         self.difficulty = None
         self.winning_cache = {}  # 缓存胜负状态
         self.auto_player = None
+        self.winning_hints_enabled = False  # 新增：提示功能开关
     
-    def initialize_game(self, game_mode, difficulty=None):
+    def initialize_game(self, game_mode, difficulty=None, winning_hints=False):  # 修改：添加winning_hints参数
         """Initialize a new game"""
         self.game_mode = game_mode
         self.difficulty = difficulty
+        self.winning_hints_enabled = winning_hints  # 新增：存储提示设置
         self.winning_cache = {}  # 清空缓存
         
         # 根据难度设置炮塔数量
@@ -130,6 +194,10 @@ class DawsonKaylesLogic:
             difficulty_names = ["Easy", "Normal", "Hard", "Insane"]
             self.message = f"Game Started! {self.num_towers} towers deployed. Player 1's turn. Difficulty: {difficulty_names[self.difficulty-1]}"
             self.auto_player = DawsonKaylesAutoPlayer(self.towers)
+        
+        # 新增：如果提示功能开启，显示提示信息
+        if self.winning_hints_enabled:
+            self.message += " [Winning Hints: ON]"
         
         self.lasers = []
         self.current_player = "Player 1"
@@ -295,3 +363,171 @@ class DawsonKaylesLogic:
             return False, f"Cannot connect tower {tower_n} and {tower_n+1}. They must be adjacent and available."
         
         return True, ""
+    
+    # ========== 新增：提示功能 ==========
+    
+    def get_winning_hint(self):
+        """
+        Provide hints for the current game position.
+        Returns a string with the hint message.
+        """
+        if self.game_over:
+            return "Game is already over!"
+            
+        # Check if it's a player's turn (not AI's turn in PvE)
+        if self.game_mode == "PVE" and self.current_player == "AI":
+            return "It's AI's turn. Wait for your turn to get hints."
+            
+        # Get all available moves
+        available_moves = self.get_available_moves()
+        if not available_moves:
+            return "No available moves!"
+        
+        # Determine current position type
+        is_winning_position = self.judge_win()
+        
+        if is_winning_position:
+            # Winning position - find the best winning move
+            best_move = None
+            best_score = -1
+            best_desc = ""
+            
+            for move in available_moves:
+                # Execute this move
+                new_towers = list(self.towers)
+                new_towers[move] = 0
+                new_towers[move + 1] = 0
+                
+                # Check if opponent is in losing position after this move
+                temp_auto_player = DawsonKaylesAutoPlayer(new_towers)
+                opponent_winning_moves = temp_auto_player.find_winning_moves(new_towers)
+                
+                if not opponent_winning_moves:
+                    # Opponent has no winning moves, this is the best move
+                    best_move = move
+                    best_score = 100
+                    best_desc = "Winning move - leaves opponent in losing position"
+                    break
+                else:
+                    # Opponent has winning moves, but we need to evaluate which is least bad
+                    # Calculate ratio of opponent's winning moves
+                    new_available = temp_auto_player.get_available_moves(new_towers)
+                    total_moves = len(new_available)
+                    opponent_winning_count = len(opponent_winning_moves)
+                    
+                    if total_moves > 0:
+                        score = 80 - (opponent_winning_count / total_moves * 60)
+                        if score > best_score:
+                            best_score = score
+                            best_move = move
+                            best_desc = f"Good move - opponent has {opponent_winning_count}/{total_moves} winning responses"
+            
+            if best_move is not None:
+                hint = f"WINNING POSITION\n"
+                hint += f"Current position is WINNING!\n\n"
+                hint += f"Recommended move: Connect towers {best_move} and {best_move+1}\n"
+                hint += f"Score: {int(best_score)}/100\n"
+                hint += f"Description: {best_desc}\n\n"
+                
+                
+                hint += "\nStrategy: Prefer moves that leave opponent with no winning responses."
+            else:
+                hint = "WINNING POSITION\n"
+                hint += "Current position is winning, but no obvious best move found.\n"
+                hint += f"Available moves: {available_moves}\n"
+                hint += "Suggest randomly selecting an available move."
+                
+        else:
+            # Losing position - find the least bad move
+            best_move = None
+            best_score = -1
+            best_desc = ""
+            moves_analysis = []
+            
+            for move in available_moves:
+                temp_auto_player = DawsonKaylesAutoPlayer(self.towers)
+                score, desc = temp_auto_player.analyze_move(self.towers, move)
+                moves_analysis.append((move, score, desc))
+                
+                if score > best_score:
+                    best_score = score
+                    best_move = move
+                    best_desc = desc
+            
+            if best_move is not None:
+                hint = f"LOSING POSITION\n"
+                hint += f"Current position is LOSING. There is no guaranteed winning strategy.\n"
+                hint += f"You need opponent to make a mistake.\n\n"
+                hint += f"Recommended move: Connect towers {best_move} and {best_move+1}\n"
+                hint += f"Score: {best_score}/100\n"
+                hint += f"Description: {best_desc}\n\n"
+                
+                # Add detailed analysis
+                hint += "Detailed move analysis:\n"
+                for move, score, desc in sorted(moves_analysis, key=lambda x: x[1], reverse=True):
+                    if move == best_move:
+                        hint += f"  ★ Move {move}: {desc} (Score: {score})\n"
+                    else:
+                        hint += f"  - Move {move}: {desc} (Score: {score})\n"
+                
+                hint += "\nStrategy: Choose the move with highest probability of opponent error, and hope for a mistake."
+            else:
+                hint = "LOSING POSITION\n"
+                hint += "Current position is losing.\n"
+                hint += f"Available moves: {available_moves}\n"
+                hint += "Suggest randomly selecting an available move and hope opponent makes a mistake."
+        
+        # Add game state information
+        hint += f"\n\nCURRENT GAME STATE\n"
+        hint += f"Total towers: {len(self.towers)}\n"
+        hint += f"Available moves: {len(available_moves)}\n"
+        hint += f"Current player: {self.current_player}\n"
+        hint += f"Game mode: {self.game_mode}\n"
+        
+        return hint
+    def toggle_winning_hints(self, enabled):
+        """Enable or disable winning hints feature"""
+        self.winning_hints_enabled = enabled
+        if enabled:
+            return "Winning hints enabled! Click on hint button for guidance."
+        else:
+            return "Winning hints disabled."
+    
+    def get_position_analysis(self):
+        """
+        Provide analysis of current game state.
+        Returns a string with analysis.
+        """
+        if self.game_over:
+            return "Game over!"
+            
+        analysis = f"GAME STATE ANALYSIS\n"
+        analysis += f"• Tower configuration: {self.towers}\n"
+        analysis += f"• Current position: "
+        analysis += "WINNING position" if self.judge_win() else "LOSING position"
+        analysis += f"\n"
+        analysis += f"• Current player: {self.current_player}\n"
+        
+        # Calculate remaining available towers
+        remaining_towers = sum(self.towers)
+        analysis += f"• Remaining available towers: {remaining_towers}\n"
+        
+        # Available moves
+        available_moves = self.get_available_moves()
+        analysis += f"• Available moves: {[f'{m}->{m+1}' for m in available_moves]}\n"
+        analysis += f"• Number of moves: {len(available_moves)}\n"
+        
+        # Laser connections
+        analysis += f"• Laser connections: {len(self.lasers)}\n"
+        
+        # Strategy advice
+        if self.judge_win():
+            analysis += "\n✅ You are in a WINNING position!\n"
+            analysis += "   Try to find a move that leaves opponent in losing position.\n"
+            analysis += "   Prefer moves that give opponent no winning responses."
+        else:
+            analysis += "\n⚠️  You are in a LOSING position!\n"
+            analysis += "   You need opponent to make a mistake.\n"
+            analysis += "   Choose moves with highest probability of opponent error."
+            
+        return analysis
