@@ -116,17 +116,18 @@ GAME_HELP_CONTENT = {
         "keyboard": [
             "Keyboard Shortcuts:",
             "• ESC: Return/Exit",
-            "• F1: Show game information",
             "• F2: Toggle performance display",
-            "• F3: Toggle performance monitoring",
             "• H: Show help interface",
             "• Space: Confirm/Select",
             "• Arrow Keys: Navigate menus",
             "",
             "In-Game Controls:",
+            "• ESC: Activate Sidebar",
             "• Enter/Space: Confirm action",
             "• R: Restart game",
-            "• H: Return to main menu"
+            "• H: Return to main menu",
+            "• I: Game Information",
+            "• S: Check settings"
         ],
         "mouse": [
             "Mouse Controls:",
@@ -142,14 +143,10 @@ GAME_HELP_CONTENT = {
         "game_specific": [
             "Game-Specific Controls:",
             "• Take Coins: Click coins to select",
-            "• Card Split: Drag cards to split",
-            "• Laser Defense: Click towers or connections",
+            "• Split cards:Click card to select, choose to take cards or split plie, then confirm move",
+            "• Card Nim: Click card to select, enter numbers to confirm",
+            "• Dawson Kayles: Click towers or connections or enter numbers to confirm directly",
             "• Subtract Factor: Click factors to select",
-            "",
-            "General Visual Cues:",
-            "• Green highlight: Available option",
-            "• Red highlight: Unavailable option",
-            "• Yellow highlight: Current selection"
         ]
     }
 }
