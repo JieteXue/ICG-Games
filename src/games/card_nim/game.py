@@ -276,7 +276,7 @@ Good luck and have fun!
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_i:
                 return "info"
-            elif event.key == pygame.K_h:  # H键显示提示
+            elif event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:  # SHIFT键显示提示
                 return "hint"
             # Toggle performance overlay with F2
             elif event.key == pygame.K_F2:
@@ -369,7 +369,7 @@ Good luck and have fun!
         
         # Draw game-specific UI
         if not self.logic.game_over:
-            self.ui.draw_control_panel(self.buttons, self.logic.selected_count, self.logic.selected_position_index)
+            self.ui.draw_control_panel(self.buttons, self.logic.selected_count, self.logic.selected_position_index,self.logic)
             
             # 绘制控制按钮和Hint按钮
             for button_name in ["minus", "plus", "confirm", "hint"]:
@@ -380,10 +380,10 @@ Good luck and have fun!
             if "restart" in self.buttons:
                 self.buttons["restart"].draw(self.screen)
         
-        # 绘制导航按钮
-        for button_name in ["back", "home", "refresh", "info"]:
-            if button_name in self.buttons:
-                self.buttons[button_name].draw(self.screen)
+        # 注释掉已经集成的绘制导航按钮
+        #for button_name in ["back", "home", "refresh", "info"]:
+        #    if button_name in self.buttons:
+        #        self.buttons[button_name].draw(self.screen)
         
         # 最后绘制侧边栏，使其在最上层
         self.sidebar.draw()
@@ -482,7 +482,7 @@ Good luck and have fun!
         if self.logic.game_mode == "PVE":
             buttons_enabled = (self.logic.current_player == "Player 1")
         else:
-            buttons_enabled = True
+            buttons_enabled = True  # PvP模式下双方都可以操作
         
         # Update control buttons
         if "confirm" in self.buttons:
@@ -490,13 +490,24 @@ Good luck and have fun!
             self.buttons["confirm"].enabled = buttons_enabled and can_confirm
         
         # Update hint button - 只有在Winning Hints启用时才可用
+        # 并且只在玩家回合才显示（AI回合时不显示）
         if "hint" in self.buttons:
-            self.buttons["hint"].enabled = self.logic.winning_hints_enabled and buttons_enabled
+            hint_enabled = False
+            
+            if self.logic.game_mode == "PVE":
+                # PvE模式：只在玩家回合且Winning Hints启用时可用
+                if self.logic.current_player == "Player 1" and self.logic.winning_hints_enabled:
+                    hint_enabled = True
+            else:
+                # PvP模式：只要Winning Hints启用就可用
+                if self.logic.winning_hints_enabled:
+                    hint_enabled = True
+            
+            self.buttons["hint"].enabled = hint_enabled
         
         # 确保游戏结束后 restart 按钮可用
         if self.logic.game_over and "restart" in self.buttons:
             self.buttons["restart"].enabled = True
-    
     def get_game_info(self):
         """Return game information"""
         return {

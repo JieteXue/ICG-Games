@@ -3,7 +3,6 @@ Sidebar Component with toggle functionality
 """
 
 import pygame
-from abc import ABC, abstractmethod
 from utils.constants import *
 from ui.components.settings_panel import SettingsPanel
 
@@ -17,6 +16,9 @@ class Sidebar:
         self.current_width = 0  # 默认宽度为0，完全隐藏
         self.target_width = 0
         self.settings_panel = SettingsPanel(screen, font_manager)
+        
+        # 从设置面板获取初始设置
+        self.settings = self.settings_panel.get_settings()
         
         # Sidebar position - 初始宽度为0
         self.rect = pygame.Rect(0, 0, 0, SCREEN_HEIGHT)
@@ -123,9 +125,20 @@ class Sidebar:
         # 如果设置面板可见，优先处理设置面板事件
         if self.settings_panel.visible:
             result = self.settings_panel.handle_event(event, mouse_pos)
-            if result == "back_from_settings":
-                return None  # 设置面板已关闭，不返回任何操作
-            return result
+            if result:
+                if result.startswith("setting_changed_"):
+                    # 更新本地设置
+                    setting_name = result.replace("setting_changed_", "")
+                    self.settings[setting_name] = self.settings_panel.settings.get(setting_name, False)
+                    # 传递设置变化事件给游戏
+                    return result
+                elif result == "back_from_settings":
+                    return "settings_closed"  # 返回特定事件表示设置面板已关闭
+                elif result == "sponsor_clicked":
+                    return "sponsor_clicked"
+                elif result == "sponsor_error":
+                    return "sponsor_error"
+            return None  # 设置面板可见时，不处理其他事件
 
         # 原有的键盘快捷键检查
         if event.type == pygame.KEYDOWN:
@@ -136,8 +149,13 @@ class Sidebar:
                 elif action == "settings":
                     # 按S键打开设置面板
                     self.settings_panel.show()
-                    return "settings"
+                    return "settings_opened"
                 return action
+            
+            # ESC键处理 - 如果设置面板打开，关闭它
+            if event.key == pygame.K_ESCAPE and self.settings_panel.visible:
+                self.settings_panel.hide()
+                return "settings_closed"
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # 如果侧边栏展开，点击外部区域则收起侧边栏
@@ -157,6 +175,7 @@ class Sidebar:
                         if button.name == "settings":
                             # 点击settings按钮时，显示设置面板
                             self.settings_panel.show()
+                            return "settings_opened"
                         return button.name
 
         # 处理悬停
@@ -168,10 +187,11 @@ class Sidebar:
     
     def draw(self):
         """Draw the sidebar"""
-            # 如果设置面板可见，先绘制设置面板
+        # 如果设置面板可见，先绘制设置面板
         if self.settings_panel.visible:
             self.settings_panel.draw()
             return  # 绘制设置面板后，不绘制侧边栏背景
+        
         # 只有在展开或动画过程中且宽度大于0时才绘制侧边栏背景
         if (self.expanded or self.is_animating) and self.current_width > 0:
             # 绘制背景（宽度会动画变化）
@@ -259,6 +279,15 @@ class Sidebar:
             if button.name == button_name:
                 return button.rect
         return None
+    
+    def get_settings(self):
+        """获取当前设置"""
+        return self.settings_panel.get_settings()
+    
+    def set_settings(self, settings):
+        """更新设置"""
+        self.settings_panel.set_settings(settings)
+        self.settings = settings
 
 
 class SidebarButton:
