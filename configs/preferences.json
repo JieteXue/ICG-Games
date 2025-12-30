@@ -7,7 +7,7 @@
   "language": "en",
   "autosave": true,
   "winning_hints": false,
-  "music_enabled": true,
+  "music_enabled": false,
   "selected_music": 1,
   "unlocked_music": [
     0,

@@ -14,13 +14,25 @@ class MusicManager:
         self.music_enabled = True
         self.music_volume = 0.5
         
-        # Music list with file paths (using placeholder paths)
+        # 获取当前文件所在目录，然后找到 assets 目录
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)  # src 目录
+        assets_dir = os.path.join(project_root, "..", "assets", "music")
+        
+        # 构建绝对路径
         self.music_library = [
-            {"id": 0, "name": "Flower Dance", "artist": "Jaycd", "path": "assets/music/jaycd_flowerdance.mp3"},
-            {"id": 1, "name": "reminisce", "artist": "Aqualina", "path": "assets/music/aqualina_reminisce.mp3"},
-            {"id": 2, "name": "Summer", "artist": "CNK", "path": "assets/music/CNK_Summer.mp3"},
-            {"id": 3, "name": "quantum", "artist": "bbrother", "path": "assets/music/bbrother_quantum.mp3"}
+            {"id": 0, "name": "solari", "artist": "Ryuichi Sakamoto", "path": os.path.join(assets_dir, "ryuichi_sakamoto_solari.mp3")},
+            {"id": 1, "name": "reminisce", "artist": "Aqualina", "path": os.path.join(assets_dir, "aqualina_reminisce.mp3")},
+            {"id": 2, "name": "music for airports", "artist": "Specialists", "path": os.path.join(assets_dir, "specialists_music_for_airports.mp3")},
+            {"id": 3, "name": "quantum", "artist": "bbrother", "path": os.path.join(assets_dir, "bbrother_quantum.mp3")}
         ]
+        
+        print(f"🎵 Music library initialized: {len(self.music_library)} tracks")
+        for music in self.music_library:
+            if os.path.exists(music["path"]):
+                print(f"  ✓ {music['name']} - {music['artist']}")
+            else:
+                print(f"  ✗ {music['name']} - File not found: {music['path']}")
         
         # Load settings from config
         self.load_settings()
@@ -36,6 +48,7 @@ class MusicManager:
         # Set volume
         pygame.mixer.init()
         pygame.mixer.music.set_volume(self.music_volume)
+        print(f"🎵 Music settings loaded: enabled={self.music_enabled}, volume={self.music_volume}, index={self.current_music_index}")
     
     def save_settings(self):
         """Save music settings to config"""
@@ -44,6 +57,7 @@ class MusicManager:
         prefs.music_volume = self.music_volume
         prefs.selected_music = self.current_music_index
         config_manager.update_user_preferences(prefs)
+        print(f"🎵 Music settings saved: enabled={self.music_enabled}, volume={self.music_volume}, index={self.current_music_index}")
     
     def toggle_music(self):
         """Toggle music on/off"""
@@ -67,36 +81,50 @@ class MusicManager:
     def play_music(self, music_index):
         """Play music by index"""
         if not self.music_enabled:
+            print("🎵 Music is disabled, not playing")
             return False
         
         if 0 <= music_index < len(self.music_library):
             try:
-                # For now, we'll just simulate music playback
-                # In a real implementation, you would load and play actual music files
+                music_path = self.music_library[music_index]["path"]
                 self.current_music_index = music_index
                 
-                # Set music to loop
-                # pygame.mixer.music.load(self.music_library[music_index]["path"])
-                # pygame.mixer.music.play(-1)  # -1 means loop indefinitely
+                # 检查文件是否存在
+                if not os.path.exists(music_path):
+                    print(f"❌ Music file not found: {music_path}")
+                    return False
+                
+                # 加载并播放音乐
+                print(f"🎵 Loading music: {self.music_library[music_index]['name']}")
+                pygame.mixer.music.load(music_path)
+                pygame.mixer.music.play(-1)  # -1 表示无限循环
+                print(f"🎵 Now playing: {self.music_library[music_index]['name']} by {self.music_library[music_index]['artist']}")
                 
                 self.save_settings()
                 return True
             except Exception as e:
-                print(f"Error playing music: {e}")
+                print(f"❌ Error playing music: {e}")
+                import traceback
+                traceback.print_exc()
                 return False
+        else:
+            print(f"❌ Invalid music index: {music_index}")
         return False
     
     def stop_music(self):
         """Stop current music"""
         pygame.mixer.music.stop()
+        print("🎵 Music stopped")
     
     def pause_music(self):
         """Pause current music"""
         pygame.mixer.music.pause()
+        print("🎵 Music paused")
     
     def unpause_music(self):
         """Unpause current music"""
         pygame.mixer.music.unpause()
+        print("🎵 Music unpaused")
     
     def get_current_music(self):
         """Get currently playing music info"""

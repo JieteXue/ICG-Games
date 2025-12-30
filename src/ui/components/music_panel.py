@@ -1,3 +1,4 @@
+          
 """
 Music Panel Component for Music Selection
 """
@@ -15,17 +16,17 @@ class MusicPanel:
         self.music_manager = music_manager
         self.visible = False
         
-        # Panel dimensions
-        self.panel_width = 400
-        self.panel_height = 300
+        # Panel dimensions - 增加高度以容纳4条音乐
+        self.panel_width = 500  # 稍微增加宽度
+        self.panel_height = 450  # 从300增加到450
         self.panel_x = (SCREEN_WIDTH - self.panel_width) // 2
         self.panel_y = (SCREEN_HEIGHT - self.panel_height) // 2
         
         # Music list
         self.music_list = [
-            {"id": 0, "name": "Flower Dance", "artist": "Jaycd", "unlocked": True},
+            {"id": 0, "name": "solari", "artist": "Ryuichi Sakamoto", "unlocked": True},
             {"id": 1, "name": "reminisce", "artist": "Aqualina", "unlocked": True},
-            {"id": 2, "name": "Summer", "artist": "CNK", "unlocked": True},
+            {"id": 2, "name": "music for airports", "artist": "Specialists", "unlocked": True},
             {"id": 3, "name": "quantum", "artist": "bbrother", "unlocked": False}
         ]
         
@@ -36,15 +37,15 @@ class MusicPanel:
     def create_music_buttons(self):
         """Create music selection buttons"""
         start_y = self.panel_y + 100
-        button_height = 50
-        button_spacing = 10
+        button_height = 60  # 稍微增加按钮高度
+        button_spacing = 15  # 增加间距
         
         for i, music in enumerate(self.music_list):
             button_y = start_y + i * (button_height + button_spacing)
             button = MusicButton(
                 self.panel_x + 50,
                 button_y,
-                self.panel_width - 100,
+                self.panel_width - 100,  # 使用增加后的宽度
                 button_height,
                 music,
                 self.font_manager,

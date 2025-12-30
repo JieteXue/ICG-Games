@@ -248,26 +248,31 @@ def main():
         # 初始化音乐 - 在导入 music_manager 之前先初始化 mixer
         pygame.mixer.init()
         
-        # 尝试导入 music_manager（假设它存在于某个模块中）
+        # 正确导入 music_manager（根据你的目录结构）
         try:
-            # 注意：根据你的项目结构，这里可能需要调整导入路径
-            # 例如：from ui.music_manager import music_manager
-            # 或者：from core.music_manager import music_manager
-            # 请根据实际文件位置调整下面的导入语句
-            from utils.music_manager import music_manager  # 或者使用正确的路径
+            # 从 utils 模块导入 music_manager
+            from utils.music_manager import music_manager
+            print("✅ Music manager imported successfully")
             
             # 从配置加载音乐设置并播放音乐
             if music_manager.is_music_enabled() and music_manager.get_current_music_index() >= 0:
-                # 在实际应用中，这里会加载和播放音乐文件
-                print("Music is enabled, would play music here")
-        except ImportError:
-            print("⚠️ music_manager module not found. Skipping music initialization.")
+                # 播放当前选中的音乐
+                music_manager.play_music(music_manager.get_current_music_index())
+                print(f"🎵 Playing music: {music_manager.get_current_music_index()}")
+            else:
+                print("⚠️ Music is disabled or no music selected")
+                
+        except ImportError as e:
+            print(f"❌ Could not import music_manager: {e}")
+            print("Please make sure utils/music_manager.py exists.")
             # 创建一个简单的模拟对象以避免错误
             class DummyMusicManager:
                 def is_music_enabled(self):
                     return False
                 def get_current_music_index(self):
                     return -1
+                def play_music(self, index):
+                    return False
             music_manager = DummyMusicManager()
         
         menu = MainMenu()
