@@ -146,33 +146,46 @@ class GameManager(BaseGame):
                         return result
             
             return True
-    
     def _handle_sidebar_action(self, action):
-        """Handle actions from sidebar buttons"""
+        """处理侧边栏按钮点击"""
         if action == "toggle":
             return True
         elif action == "back":
-            return "back"
+            self.initialize_game_settings()
+            return True
         elif action == "home":
-            return "home"
+            return False  # 返回主菜单
         elif action == "refresh":
-            # Restart the game
+            # 重启游戏
             game_mode = getattr(self.logic, 'game_mode', "PVE")
             difficulty = getattr(self.logic, 'difficulty', 2)
-            self.logic.initialize_game(game_mode, difficulty)
-            if hasattr(self.ui, 'scroll_offset'):
-                self.ui.scroll_offset = 0
-            return "refresh"
+            winning_hints = getattr(self.logic, 'winning_hints_enabled', False)
+            self.logic.initialize_game(game_mode, difficulty, winning_hints)
+            return True
         elif action == "info":
-            # Show game instructions
-            game_name = getattr(self, 'game_name', self._get_game_id().title())
-            self.info_dialog.show(game_name, self.game_instructions)
+            self.showing_instructions = True
             return True
-        elif action == "settings":
-            # TODO: Implement settings dialog
-            print("Settings button clicked")
+        elif action == "settings_opened":
+            return True  # 设置面板已打开，不需要额外处理
+        elif action == "settings_closed":
+            return True  # 设置面板已关闭
+        elif action.startswith("setting_changed_"):
+            # 处理设置变化
+            setting_name = action.replace("setting_changed_", "")
+            if setting_name == "winning_hints":
+                # 获取当前的winning_hints值
+                winning_hints = self.sidebar.settings_panel.settings.get('winning_hints', False)
+                # 更新游戏逻辑中的设置
+                self.logic.winning_hints_enabled = winning_hints
+                # 显示反馈消息
+                if winning_hints:
+                    self.logic.message = "Winning Hints enabled! Hover over hint button for guidance."
+                else:
+                    self.logic.message = "Winning Hints disabled."
             return True
-        
+        elif action == "sponsor_clicked":
+            print("Sponsor link clicked")
+            return True
         return True
     
     def _handle_game_specific_events(self, event):
