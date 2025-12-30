@@ -16,6 +16,9 @@ from utils.resource_cache import resource_cache
 from utils.performance_monitor import performance_monitor, PerformanceProfiler
 from utils.optimization_tools import optimize_game_performance, memory_optimizer
 from ui.components.help_dialog import HelpDialog
+from ui.components.topbar import TopBar
+from ui.components.settings_panel import SettingsPanel
+from ui.components.music_panel import MusicPanel
 
 def get_icon_path(icon_filename):
     """Get icon file path using resource cache"""
@@ -87,6 +90,33 @@ class MainMenu:
         self.running = True
         self.error_message = None
         self.error_timer = 0
+        
+        # 新增：初始化音乐管理器
+        try:
+            from utils.music_manager import music_manager
+            self.music_manager = music_manager
+            print("✅ Music manager loaded in MainMenu")
+        except ImportError as e:
+            print(f"❌ Could not import music_manager: {e}")
+            self.music_manager = None
+        
+        # 新增：初始化TopBar
+        self.topbar = TopBar(self.screen, self.font_manager, self.music_manager)
+        
+        # 新增：初始化设置面板
+        self.settings_panel = SettingsPanel(self.screen, self.font_manager, self.music_manager)
+        
+        # 新增：初始化音乐面板
+        self.music_panel = MusicPanel(self.screen, self.font_manager, self.music_manager)
+        
+        # 设置TopBar的settings_panel引用
+        self.topbar.set_settings_panel(self.settings_panel)
+        
+        # 初始化音乐（如果启用）
+        if self.music_manager and self.music_manager.is_music_enabled():
+            if self.music_manager.get_current_music_index() >= 0:
+                self.music_manager.play_music(self.music_manager.get_current_music_index())
+                print(f"🎵 Music started from MainMenu")
     
     def _get_game_registry(self):
         """Lazy load game registry to avoid circular imports"""
@@ -113,7 +143,7 @@ class MainMenu:
         grid_width = 3 * button_size + 2 * button_spacing
         grid_height = 2 * button_size + button_spacing
         grid_start_x = (SCREEN_WIDTH - grid_width) // 2
-        grid_start_y = 170
+        grid_start_y = 220  # 调整位置，为TopBar留出空间
 
         # Define button configurations
         button_configs = [
@@ -155,7 +185,7 @@ class MainMenu:
         # 创建信息按钮 - 使用图标
         info_button_size = 40
         self.info_button = GameButton(
-            SCREEN_WIDTH - 20 - info_button_size, 20,
+            SCREEN_WIDTH - 20 - info_button_size, 70,  # 调整位置，避免与TopBar重叠
             info_button_size, info_button_size,
             "", self.font_manager, 
             icon='info',  # 使用图标名称
@@ -164,7 +194,7 @@ class MainMenu:
 
         # 创建性能按钮 - 使用图标
         self.performance_button = GameButton(
-            SCREEN_WIDTH - 80 - info_button_size, 20,
+            SCREEN_WIDTH - 80 - info_button_size, 70,  # 调整位置，避免与TopBar重叠
             info_button_size, info_button_size,
             "", self.font_manager,
             icon='performance',  # 使用图标名称
@@ -173,7 +203,7 @@ class MainMenu:
 
         # 创建帮助按钮 - 使用图标
         self.help_button = GameButton(
-            SCREEN_WIDTH - 90 - info_button_size, 40,
+            SCREEN_WIDTH - 140 - info_button_size, 70,  # 调整位置，避免与TopBar重叠
             info_button_size, info_button_size,
             "", self.font_manager,
             icon='help',  # 使用图标名称
@@ -211,7 +241,7 @@ class MainMenu:
                     button.enabled = False
                     button.tooltip = "Game not available (check console for errors)"
         except Exception as e:
-            log_warning(f"Could not update button states: {e}")
+            print(f"Warning: Could not update button states: {e}")
     
     def show_error(self, message: str, duration: int = 300):
         """Show an error message on screen"""
@@ -243,7 +273,7 @@ class MainMenu:
                 optimize_game_performance()
                 
         except Exception as e:
-            log_warning(f"Error updating performance stats: {e}")
+            print(f"Warning: Error updating performance stats: {e}")
     
     @handle_game_errors
     def draw_background(self):
@@ -271,11 +301,11 @@ class MainMenu:
                 title_shadow = self.font_manager.large.render("ICG GAMES", True, SHADOW_COLOR)
                 subtitle_shadow = self.font_manager.medium.render("Interactive Card Games", True, SHADOW_COLOR)
                 
-                self.screen.blit(title_shadow, (SCREEN_WIDTH//2 - title.get_width()//2 + 3, 53))
-                self.screen.blit(subtitle_shadow, (SCREEN_WIDTH//2 - subtitle.get_width()//2 + 2, 113))
+                self.screen.blit(title_shadow, (SCREEN_WIDTH//2 - title.get_width()//2 + 3, 83))
+                self.screen.blit(subtitle_shadow, (SCREEN_WIDTH//2 - subtitle.get_width()//2 + 2, 143))
             
-            self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 50))
-            self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 110))
+            self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 80))
+            self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 140))
     
     @handle_game_errors
     def handle_events(self):
@@ -298,7 +328,40 @@ class MainMenu:
     
             # 处理所有事件
             for event in pygame.event.get():
-                # 如果帮助对话框可见，优先让它处理键盘事件
+                # 新增：先处理TopBar事件
+                topbar_result = self.topbar.handle_event(event, mouse_pos)
+                if topbar_result == "open_settings":
+                    print("📱 Settings opened from TopBar")
+                elif topbar_result == "music_toggled":
+                    # 音乐状态已切换，刷新设置面板显示
+                    if self.settings_panel.visible:
+                        self.settings_panel.refresh_settings_from_config()
+                
+                # 新增：如果设置面板可见，优先处理设置面板事件
+                if self.settings_panel.visible:
+                    settings_result = self.settings_panel.handle_event(event, mouse_pos)
+                    if settings_result == "back_from_settings":
+                        self.settings_panel.hide()
+                        print("🔙 Settings panel closed")
+                    elif settings_result and settings_result.startswith("setting_changed"):
+                        print(f"⚙️ {settings_result}")
+                    # 设置面板处理了事件，跳过其他事件处理
+                    if settings_result is not None:
+                        continue
+                
+                # 新增：如果音乐面板可见，优先处理音乐面板事件
+                if self.music_panel.visible:
+                    music_result = self.music_panel.handle_event(event, mouse_pos)
+                    if music_result == "music_panel_closed":
+                        self.music_panel.hide()
+                        print("🔙 Music panel closed")
+                    elif music_result and music_result.startswith("music_selected"):
+                        print(f"🎵 {music_result}")
+                    # 音乐面板处理了事件，跳过其他事件处理
+                    if music_result is not None:
+                        continue
+                
+                # 原有的帮助对话框处理
                 if self.help_dialog.visible:
                     # 特别是方向键和选择键，要确保帮助对话框能接收到
                     if event.type == pygame.KEYDOWN:
@@ -338,6 +401,10 @@ class MainMenu:
                         self.showing_info = not self.showing_info
                     elif event.key == pygame.K_p:  # P键也打开性能
                         self.show_perf_overlay = not self.show_perf_overlay
+                    elif event.key == pygame.K_s:  # 新增：S键打开设置面板
+                        self.settings_panel.show()
+                    elif event.key == pygame.K_m:  # 新增：M键打开音乐面板
+                        self.music_panel.toggle_visibility()
     
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     # 检查帮助按钮
@@ -533,7 +600,7 @@ class MainMenu:
             
             if not available_games:
                 # Show loading or error state
-                info_panel = InfoPanel(SCREEN_WIDTH - 300 - 20, 80, 300, 120,
+                info_panel = InfoPanel(SCREEN_WIDTH - 300 - 20, 120, 300, 120,
                                      self.font_manager, "Information")
                 info_panel.add_content("Loading game information...", ACCENT_COLOR, 'small')
                 info_panel.draw(self.screen)
@@ -543,7 +610,7 @@ class MainMenu:
             panel_width = min(600, SCREEN_WIDTH - 40)
             panel_height = min(400, SCREEN_HEIGHT - 100)
             panel_x = SCREEN_WIDTH - panel_width - 20
-            panel_y = 80
+            panel_y = 120  # 调整位置，避免与TopBar重叠
             
             info_panel = InfoPanel(panel_x, panel_y, panel_width, panel_height, 
                                   self.font_manager, "Available Games")
@@ -556,9 +623,9 @@ class MainMenu:
             
             info_panel.draw(self.screen)
         except Exception as e:
-            log_ui_error(f"Error drawing info panel: {e}")
+            print(f"Error drawing info panel: {e}")
             # Fallback: show simple error panel
-            error_panel = InfoPanel(SCREEN_WIDTH - 300 - 20, 80, 300, 100,
+            error_panel = InfoPanel(SCREEN_WIDTH - 300 - 20, 120, 300, 100,
                                   self.font_manager, "Information")
             error_panel.add_content("Could not load game information", (255, 100, 100), 'small')
             error_panel.draw(self.screen)
@@ -576,7 +643,7 @@ class MainMenu:
             # Simple FPS counter
             fps_text = self.font_manager.small.render(f"FPS: {self.clock.get_fps():.1f}", 
                                                     True, (255, 255, 255))
-            self.screen.blit(fps_text, (SCREEN_WIDTH - 100, 10))
+            self.screen.blit(fps_text, (SCREEN_WIDTH - 100, 60))  # 调整位置，避免与TopBar重叠
     
     @handle_game_errors
     def draw_error_message(self):
@@ -621,6 +688,24 @@ class MainMenu:
         # Start draw profiling
         with PerformanceProfiler("menu_draw_main", performance_monitor):
             self.draw_background()
+            
+            # 新增：绘制TopBar
+            self.topbar.draw()
+            
+            # 新增：绘制设置面板（如果可见）
+            if self.settings_panel.visible:
+                self.settings_panel.draw()
+                # 设置面板绘制后，不需要绘制其他UI元素
+                pygame.display.flip()
+                return
+            
+            # 新增：绘制音乐面板（如果可见）
+            if self.music_panel.visible:
+                self.music_panel.draw()
+                # 音乐面板绘制后，不需要绘制其他UI元素
+                pygame.display.flip()
+                return
+            
             self.draw_title()
 
             # Draw buttons
@@ -655,7 +740,7 @@ class MainMenu:
             fps_info = f" | FPS: {self.clock.get_fps():.1f}" if self.show_perf_overlay else ""
 
             footer_text = self.font_manager.small.render(
-                f"© 2025 ICG Games - Interactive Card Games Collection | F1: Info | F2: Perf | H: Help{fps_info} | ESC: Quit", 
+                f"© 2025 ICG Games - Interactive Card Games Collection | F1: Info | F2: Perf | H: Help | S: Settings | M: Music{fps_info} | ESC: Quit", 
                 True, (150, 170, 190))
             self.screen.blit(footer_text, 
                             (SCREEN_WIDTH//2 - footer_text.get_width()//2, 
@@ -679,6 +764,8 @@ class MainMenu:
         print("   H/F4: Toggle help dialog")
         print("   I: Toggle info panel")
         print("   P: Toggle performance overlay")
+        print("   S: Open settings panel")
+        print("   M: Open music panel")
         print("   ESC: Exit")
         
         while self.running:

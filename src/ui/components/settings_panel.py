@@ -10,9 +10,10 @@ from utils.config_manager import config_manager
 class SettingsPanel:
     """Settings panel overlay for game configuration"""
     
-    def __init__(self, screen, font_manager):
+    def __init__(self, screen, font_manager, music_manager=None):  # 添加music_manager参数
         self.screen = screen
         self.font_manager = font_manager
+        self.music_manager = music_manager  # 保存music_manager引用
         self.visible = False
         
         self.config_manager = config_manager
@@ -112,11 +113,16 @@ class SettingsPanel:
     def toggle_visibility(self):
         """Toggle the visibility of the settings panel"""
         self.visible = not self.visible
+        if self.visible:
+            # 当显示面板时刷新设置状态
+            self.refresh_settings_from_config()
         return "settings" if self.visible else "back_from_settings"
     
     def show(self):
         """Show the settings panel"""
         self.visible = True
+        # 当显示面板时刷新设置状态
+        self.refresh_settings_from_config()
     
     def hide(self):
         """Hide the settings panel"""
@@ -144,27 +150,37 @@ class SettingsPanel:
                     button.toggle()
                     
                     # Update the setting value
-                    if i == 0:
+                    if i == 0:  # 背景音乐按钮
                         self.settings['background_music'] = button.is_on
-                        # 关键修改：立即保存到配置文件
+                        
+                        # 关键修改：立即调用music_manager开关音乐
+                        if self.music_manager:
+                            # 调用toggle_music方法切换音乐状态
+                            new_state = self.music_manager.toggle_music()
+                            # 确保按钮状态与music_manager同步
+                            button.set_state(new_state)
+                            print(f"Background music toggled via music_manager: {new_state}")
+                        
+                        # 同时保存到配置文件
                         try:
                             prefs = self.config_manager.get_user_preferences()
                             prefs.music_enabled = button.is_on
                             self.config_manager.update_user_preferences(prefs)
-                            print(f"Background music saved to config: {button.is_on}")  # 调试信息
+                            print(f"Background music saved to config: {button.is_on}")
                         except Exception as e:
                             print(f"Error saving background music to config: {e}")
+                    
                     elif i == 1:
                         self.settings['sound_effects'] = button.is_on
-                    elif i == 2:
+                    
+                    elif i == 2:  # Winning hints按钮
                         self.settings['winning_hints'] = button.is_on
-                        
-                        # 关键修改：立即保存到配置文件
+                        # 立即保存到配置文件
                         try:
                             prefs = self.config_manager.get_user_preferences()
                             prefs.winning_hints = button.is_on
                             self.config_manager.update_user_preferences(prefs)
-                            print(f"Winning hints saved to config: {button.is_on}")  # 调试信息
+                            print(f"Winning hints saved to config: {button.is_on}")
                         except Exception as e:
                             print(f"Error saving winning hints to config: {e}")
                     
@@ -341,11 +357,10 @@ class SettingsPanel:
     def save_settings_to_config(self):
         """保存设置到配置管理器"""
         try:
-            from utils.config_manager import config_manager
-            prefs = config_manager.get_user_preferences()
+            prefs = self.config_manager.get_user_preferences()
             prefs.music_enabled = self.settings.get('background_music', True)
             prefs.winning_hints = self.settings.get('winning_hints', False)
-            config_manager.update_user_preferences(prefs)
+            self.config_manager.update_user_preferences(prefs)
         except Exception as e:
             print(f"Error saving settings to config: {e}")
 
@@ -358,6 +373,14 @@ class SettingsPanel:
         self.settings.update(settings)
         
         # 关键修改：当从外部设置时，也更新配置文件
+        if 'background_music' in settings:
+            # 同时更新music_manager状态
+            if self.music_manager:
+                current_state = self.music_manager.is_music_enabled()
+                if current_state != settings['background_music']:
+                    # 状态不一致，调用toggle_music切换
+                    self.music_manager.toggle_music()
+        
         if 'winning_hints' in settings:
             try:
                 prefs = self.config_manager.get_user_preferences()
@@ -372,8 +395,15 @@ class SettingsPanel:
                 self.setting_buttons[i].set_state(value)
     
     def refresh_settings_from_config(self):
-        """从配置文件刷新设置"""
+        """从配置文件刷新设置，并同步music_manager状态"""
         self.settings = self._load_settings_from_config()
+        
+        # 确保按钮状态与实际音乐状态一致
+        if self.music_manager:
+            actual_music_state = self.music_manager.is_music_enabled()
+            self.settings['background_music'] = actual_music_state
+            print(f"Refreshed settings: music state from music_manager = {actual_music_state}")
+        
         self.set_settings(self.settings)
 
 
