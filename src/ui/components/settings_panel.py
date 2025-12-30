@@ -5,6 +5,7 @@ Settings Panel Component for Game Settings
 import pygame
 import webbrowser
 from utils.constants import *
+from utils.config_manager import config_manager
 
 class SettingsPanel:
     """Settings panel overlay for game configuration"""
@@ -13,6 +14,8 @@ class SettingsPanel:
         self.screen = screen
         self.font_manager = font_manager
         self.visible = False
+        
+        self.config_manager = config_manager
         
         # Panel dimensions
         self.panel_width = 600
@@ -39,12 +42,8 @@ class SettingsPanel:
             back_button_height
         )
         
-        # Settings options
-        self.settings = {
-            'background_music': True,  # 背景音乐
-            'sound_effects': True,     # 音效
-            'winning_hints': False,    # 胜负提示 (默认关闭) - 名称更改
-        }
+        # Settings options - 从配置文件初始化
+        self.settings = self._load_settings_from_config()
         
         # Sponsor URL
         self.sponsor_url = "https://github.com/JieteXue/ICG-Games"
@@ -52,6 +51,23 @@ class SettingsPanel:
         # Create setting buttons
         self.setting_buttons = []
         self.create_setting_buttons()
+    
+    def _load_settings_from_config(self):
+        """从配置文件加载设置"""
+        try:
+            prefs = self.config_manager.get_user_preferences()
+            return {
+                'background_music': True,  # 这个可能不在配置中
+                'sound_effects': True,     # 这个可能不在配置中
+                'winning_hints': prefs.winning_hints  # 从配置文件获取
+            }
+        except Exception as e:
+            print(f"Error loading settings from config: {e}")
+            return {
+                'background_music': True,
+                'sound_effects': True,
+                'winning_hints': False
+            }
     
     def create_setting_buttons(self):
         """Create toggle buttons for each setting"""
@@ -72,7 +88,7 @@ class SettingsPanel:
                 'name': 'winning_hints',
                 'label': 'Winning Hints',  
                 'description': 'A Tip from AI to gain advantage', 
-                'default_state': False  # 默认关闭
+                'default_state': self.settings['winning_hints']  # 使用从配置加载的值
             }
         ]
         
@@ -134,6 +150,15 @@ class SettingsPanel:
                         self.settings['sound_effects'] = button.is_on
                     elif i == 2:
                         self.settings['winning_hints'] = button.is_on
+                        
+                        # 关键修改：立即保存到配置文件
+                        try:
+                            prefs = self.config_manager.get_user_preferences()
+                            prefs.winning_hints = button.is_on
+                            self.config_manager.update_user_preferences(prefs)
+                            print(f"Winning hints saved to config: {button.is_on}")  # 调试信息
+                        except Exception as e:
+                            print(f"Error saving winning hints to config: {e}")
                     
                     return f"setting_changed_{button.label.lower().replace(' ', '_')}"
             
@@ -313,10 +338,24 @@ class SettingsPanel:
         """Update settings values"""
         self.settings.update(settings)
         
+        # 关键修改：当从外部设置时，也更新配置文件
+        if 'winning_hints' in settings:
+            try:
+                prefs = self.config_manager.get_user_preferences()
+                prefs.winning_hints = settings['winning_hints']
+                self.config_manager.update_user_preferences(prefs)
+            except Exception as e:
+                print(f"Error updating winning hints in config: {e}")
+        
         # Update toggle buttons
         for i, (key, value) in enumerate(self.settings.items()):
             if i < len(self.setting_buttons):
                 self.setting_buttons[i].set_state(value)
+    
+    def refresh_settings_from_config(self):
+        """从配置文件刷新设置"""
+        self.settings = self._load_settings_from_config()
+        self.set_settings(self.settings)
 
 
 class ToggleButton:

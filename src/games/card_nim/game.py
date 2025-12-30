@@ -17,6 +17,7 @@ class CardNimGame(GameManager):
         super().__init__(screen, font_manager)
 
         self.sidebar = Sidebar(screen, font_manager)
+        self.config_manager = config_manager
 
         # Create game-specific components
         self.logic = CardNimLogic()
@@ -100,8 +101,15 @@ Good luck and have fun!
                 self.should_return_to_menu = True
                 return
             
-            # 从配置管理器中获取winning_hints设置
-            winning_hints = config_manager.get_user_preferences().winning_hints
+            # 从配置管理器中获取最新的winning_hints设置
+            try:
+                # 确保总是从配置文件获取最新值
+                current_prefs = config_manager.get_user_preferences()
+                winning_hints = current_prefs.winning_hints
+                print(f"Initializing game with winning_hints from config: {winning_hints}")  # 调试信息
+            except Exception as e:
+                print(f"Error getting winning hints from config: {e}")
+                winning_hints = False  # 默认值
             
             if game_mode == "PVE":
                 difficulty = selector.get_difficulty()
@@ -114,8 +122,11 @@ Good luck and have fun!
                 
         except Exception as e:
             print(f"Error initializing game settings: {e}")
-            # 使用默认设置
-            winning_hints = config_manager.get_user_preferences().winning_hints
+            # 使用默认设置，但尝试从配置获取
+            try:
+                winning_hints = config_manager.get_user_preferences().winning_hints
+            except:
+                winning_hints = False
             self.logic.initialize_game("PVE", 2, winning_hints)
     
     def create_components(self):
@@ -513,6 +524,16 @@ Good luck and have fun!
                 self.ai_timer = 0
     def update_button_states(self):
         """Universal button states update"""
+        # 每次更新按钮状态时都从配置文件同步最新的Winning Hints设置
+        if self.logic and hasattr(self.logic, 'winning_hints_enabled'):
+            try:
+                # 从配置管理器获取最新的设置
+                current_prefs = self.config_manager.get_user_preferences()
+                # 同步到游戏逻辑中
+                self.logic.winning_hints_enabled = current_prefs.winning_hints
+            except Exception as e:
+                print(f"Error syncing winning hints from config: {e}")
+        
         # 无论游戏是否结束，都应该更新Hint按钮状态
         if self.logic.game_mode == "PVE":
             buttons_enabled = (self.logic.current_player == "Player 1")
