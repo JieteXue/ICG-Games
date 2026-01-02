@@ -6,7 +6,7 @@ import pygame
 from utils.constants import *
 from ui.components.settings_panel import SettingsPanel
 from ui.components.music_panel import MusicPanel
-from utils.music_manager import music_manager
+
 
 class Sidebar:
     """Expandable sidebar with toggle button only visible when collapsed"""
@@ -17,12 +17,16 @@ class Sidebar:
         self.expanded = False  # 默认不展开
         self.current_width = 0  # 默认宽度为0，完全隐藏
         self.target_width = 0
-        self.settings_panel = SettingsPanel(screen, font_manager)
-        self.music_panel = MusicPanel(screen, font_manager, music_manager)#新增音乐面板
+        # 使用全局音乐管理器
+        from utils.music_manager import music_manager
+        self.music_manager = music_manager
+        
+        # 确保设置面板使用同一个音乐管理器实例
+        self.settings_panel = SettingsPanel(screen, font_manager, self.music_manager)
+        self.music_panel = MusicPanel(screen, font_manager, self.music_manager)
         
         # 从设置面板获取初始设置
         self.settings = self.settings_panel.get_settings()
-        
         # Sidebar position - 初始宽度为0
         self.rect = pygame.Rect(0, 0, 0, SCREEN_HEIGHT)
 

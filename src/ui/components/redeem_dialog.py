@@ -1,5 +1,3 @@
-# [file name]: redeem_dialog.py
-# [file content begin]
 """
 Redeem CDKEY Dialog Component
 """
@@ -111,25 +109,21 @@ class RedeemDialog:
                     self.input_text += event.unicode
         
         return None
-    
     def _process_cdkey(self):
         """Process the CDKEY input"""
         cdkey = self.input_text.strip()
         
-        # Check if quantum is already unlocked
-        if self.music_manager.is_music_unlocked(3):
-            self.message = "CDKEY used!"
-            self.message_color = (255, 100, 100)
-            return
-        
-        # Check if CDKEY is correct
+        # 检查如果CDKEY正确
         if cdkey == "XLY303":
-            # Unlock quantum music
+            # 解锁音乐
             if self.music_manager.unlock_music(3):
                 self.message = "quantum unlocked!"
                 self.message_color = (100, 255, 100)
+                # 立即刷新音乐面板（如果可见）
+                if hasattr(self, 'parent_menu') and hasattr(self.parent_menu, 'music_panel'):
+                    self.parent_menu.music_panel.refresh_music_list()
             else:
-                self.message = "Error unlocking music"
+                self.message = "Music already unlocked!"
                 self.message_color = (255, 100, 100)
         else:
             self.message = "invalid key"

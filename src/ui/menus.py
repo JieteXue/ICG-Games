@@ -99,14 +99,25 @@ class MainMenu:
             print(f"❌ Could not import music_manager: {e}")
             self.music_manager = None
         
-        # 新增：初始化设置面板
+            # 先初始化音乐管理器
+        try:
+            from utils.music_manager import music_manager
+            self.music_manager = music_manager
+            print("✅ Music manager loaded in MainMenu")
+        except ImportError as e:
+            print(f"❌ Could not import music_manager: {e}")
+            self.music_manager = None
+        
+        # 再初始化设置面板，传递同一个音乐管理器
         self.settings_panel = SettingsPanel(self.screen, self.font_manager, self.music_manager)
         
-        # 新增：初始化音乐面板
+        # 初始化音乐面板
         self.music_panel = MusicPanel(self.screen, self.font_manager, self.music_manager)
         
-        # 新增：初始化兑换码对话框
+        # 初始化兑换码对话框
         self.redeem_dialog = RedeemDialog(self.screen, self.font_manager, self.music_manager)
+        # 将主菜单引用传递给兑换码对话框，以便刷新音乐面板
+        self.redeem_dialog.parent_menu = self
         
         # 初始化音乐（如果启用）
         if self.music_manager and self.music_manager.is_music_enabled():
@@ -139,7 +150,7 @@ class MainMenu:
         grid_width = 3 * button_size + 2 * button_spacing
         grid_height = 2 * button_size + button_spacing
         grid_start_x = (SCREEN_WIDTH - grid_width) // 2
-        grid_start_y = 200  # 调整位置，为顶部按钮留出空间
+        grid_start_y = 150  # 调整位置，为顶部按钮留出空间
 
         # Define button configurations
         button_configs = [
@@ -300,8 +311,8 @@ class MainMenu:
                 self.screen.blit(title_shadow, (SCREEN_WIDTH//2 - title.get_width()//2 + 3, 83))
                 self.screen.blit(subtitle_shadow, (SCREEN_WIDTH//2 - subtitle.get_width()//2 + 2, 143))
             
-            self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 80))
-            self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 140))
+            self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 70))
+            self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 110))
     
     @handle_game_errors
     def handle_events(self):
@@ -529,9 +540,9 @@ class MainMenu:
         self.screen.blit(title_shadow, (SCREEN_WIDTH//2 - title.get_width()//2 + 3, 103))
         self.screen.blit(subtitle_shadow, (SCREEN_WIDTH//2 - subtitle.get_width()//2 + 2, 153))
         
-        self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 100))
-        self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 150))
-    
+        self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 70))
+        self.screen.blit(subtitle, (SCREEN_WIDTH//2 - subtitle.get_width()//2, 110))
+
     def draw(self):
         """Draw the main menu with all components"""
         self.draw_background()

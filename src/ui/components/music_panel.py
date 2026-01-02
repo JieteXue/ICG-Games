@@ -23,16 +23,20 @@ class MusicPanel:
         self.panel_y = (SCREEN_HEIGHT - self.panel_height) // 2
         
         # Music list
-        self.music_list = [
-            {"id": 0, "name": "solari", "artist": "Ryuichi Sakamoto", "unlocked": True},
-            {"id": 1, "name": "reminisce", "artist": "Aqualina", "unlocked": True},
-            {"id": 2, "name": "music for airports", "artist": "Specialists", "unlocked": True},
-            {"id": 3, "name": "quantum", "artist": "bbrother", "unlocked": False}
-        ]
+        self.music_list = []
+        self.refresh_music_list()  # 新增方法
         
         self.selected_index = 0
         self.music_buttons = []
         self.create_music_buttons()
+    def refresh_music_list(self):
+        """Refresh the music list from the music manager"""
+        self.music_list = [
+            {"id": 0, "name": "solari", "artist": "Ryuichi Sakamoto", "unlocked": True},
+            {"id": 1, "name": "reminisce", "artist": "Aqualina", "unlocked": True},
+            {"id": 2, "name": "music for airports", "artist": "Specialists", "unlocked": True},
+            {"id": 3, "name": "quantum", "artist": "bbrother", "unlocked": self.music_manager.is_music_unlocked(3)}
+        ]
     
     def create_music_buttons(self):
         """Create music selection buttons"""
@@ -52,12 +56,15 @@ class MusicPanel:
                 i == self.selected_index
             )
             self.music_buttons.append(button)
-    
     def show(self):
         """Show the music panel"""
         self.visible = True
-        # 加载当前选择的音乐索引
+        # 每次显示时刷新解锁状态
+        self.refresh_music_list()
         self.selected_index = self.music_manager.get_current_music_index()
+        # 重新创建按钮以反映新的解锁状态
+        self.music_buttons = []
+        self.create_music_buttons()
         self.update_selection()
     
     def hide(self):
