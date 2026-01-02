@@ -1,7 +1,14 @@
 """
 Split Cards Game Logic
 """
-
+'''
+This game has an important bug:
+We make a game different from what we expected.
+So the algorithm are totally wrong.
+To make the smallest change,
+we are going to remain the origin structure and variables,
+but they have some different and strange meaning.
+'''
 import random
 from utils.constants import *  # Using relative imports
 
@@ -26,9 +33,9 @@ class SplitCardsLogic:
     
     def calculate_sg_value(self, n, k):
         """Calculate Sprague-Grundy value for a pile"""
-        if n % (2**k) == 0:
+        if n % (2**2) == 0:
             return n - 1
-        elif n % (2**k) == 2**k - 1:
+        elif n % (2**2) == 2**2 - 1:
             return n + 1
         else:
             return n
@@ -51,7 +58,8 @@ class SplitCardsLogic:
         # Take moves
         for i, pile in enumerate(self.card_piles):
             if pile > 0:
-                for take_count in range(1, min(self.max_take, pile) + 1):
+                # 修改：现在最大取牌数是当前牌堆的大小
+                for take_count in range(1, pile + 1):  # 移除了min(self.max_take, pile)
                     moves.append({
                         'type': 'take',
                         'pile_index': i,
@@ -97,6 +105,59 @@ class SplitCardsLogic:
         
         return None
     
+    def generate_initial_piles(self, target_total, difficulty):
+        """Generate initial piles with at least 2 piles"""
+        piles = []
+        remaining = target_total
+        
+        # 根据难度确定最小和最大堆数
+        if difficulty == 1:  # Easy: 2-3 piles
+            num_piles = random.randint(2, 3)
+        elif difficulty == 2:  # Normal: 2-4 piles
+            num_piles = random.randint(2, 4)
+        elif difficulty == 3:  # Hard: 3-5 piles
+            num_piles = random.randint(3, 5)
+        else:  # Insane: 3-6 piles
+            num_piles = random.randint(3, 6)
+        
+        # 生成前n-1堆
+        for i in range(num_piles - 1):
+            # 确保每堆至少有1张牌，且留下足够的牌给最后一堆
+            min_pile = 1
+            max_pile = remaining - (num_piles - i - 1)  # 确保后面每堆至少1张
+            
+            if max_pile <= min_pile:
+                pile_size = min_pile
+            else:
+                # 根据难度调整堆大小的分布
+                if difficulty <= 2:  # Easy/Normal: 堆大小相对均匀
+                    pile_size = random.randint(min_pile, max_pile)
+                else:  # Hard/Insane: 堆大小差异更大，增加挑战性
+                    # 30%概率生成较大的堆，70%概率生成较小的堆
+                    if random.random() < 0.3:
+                        pile_size = random.randint(max_pile // 2, max_pile)
+                    else:
+                        pile_size = random.randint(min_pile, max_pile // 2)
+            
+            piles.append(pile_size)
+            remaining -= pile_size
+        
+        # 最后一堆使用剩余的所有牌
+        piles.append(remaining)
+        
+        # 确保没有0或负数的堆
+        piles = [p for p in piles if p > 0]
+        
+        # 如果有堆是0，重新生成
+        if any(p <= 0 for p in piles) or len(piles) < 2:
+            # 递归调用直到生成有效的堆
+            return self.generate_initial_piles(target_total, difficulty)
+        
+        # 随机排序堆
+        random.shuffle(piles)
+        
+        return piles
+    
     def initialize_game(self, game_mode, difficulty=None, winning_hints=False):
         """Initialize a new game with winning hints support"""
         self.game_mode = game_mode
@@ -112,41 +173,51 @@ class SplitCardsLogic:
         self.winner = None
         self.current_player = "Player 1"
         
-        # Set parameters based on difficulty
+        # 根据游戏模式和难度确定总牌数
         if self.game_mode == "PVP":
-            # PvP mode: medium settings
-            self.max_take = random.randint(3, 6)
-            initial_pile = random.randint(15, 25)
-            self.card_piles = [initial_pile]
+            # PvP模式：中等设置
+            total_cards = random.randint(20, 35)
+            # PvP模式使用中等难度设置
+            temp_difficulty = 2
         else:
-            # PvE mode: difficulty-based settings
+            # PvE模式：难度基于设置
             difficulty_ranges = {
-                1: {'max_take': (2, 4), 'initial_pile': (10, 15)},  # Easy
-                2: {'max_take': (3, 6), 'initial_pile': (15, 20)},  # Normal
-                3: {'max_take': (4, 8), 'initial_pile': (20, 25)},  # Hard
-                4: {'max_take': (5, 10), 'initial_pile': (25, 50)}  # Insane
+                1: {'total_cards': (15, 25)},  # Easy
+                2: {'total_cards': (20, 30)},  # Normal
+                3: {'total_cards': (25, 40)},  # Hard
+                4: {'total_cards': (30, 50)}   # Insane
             }
             
             ranges = difficulty_ranges.get(self.difficulty, difficulty_ranges[2])
-            self.max_take = random.randint(ranges['max_take'][0], ranges['max_take'][1])
-            initial_pile = random.randint(ranges['initial_pile'][0], ranges['initial_pile'][1])
-            self.card_piles = [initial_pile]
+            total_cards = random.randint(ranges['total_cards'][0], ranges['total_cards'][1])
+            temp_difficulty = self.difficulty
         
-        # Ensure it's a winning position for first player in PvE
+        # 生成初始牌堆（至少2堆）
+        self.card_piles = self.generate_initial_piles(total_cards, temp_difficulty)
+        
+        # 设置最大取牌上限为所有堆中最大的堆的大小
+        self.max_take = max(self.card_piles)
+        
+        # 确保它是一个公平的起始局面
+        # 如果是PvE模式且不是必胜局面，可以稍微调整
         if self.game_mode == "PVE" and not self.is_winning_position():
-            # Adjust max_take to make it winning
-            while not self.is_winning_position() and self.max_take > 1:
-                self.max_take -= 1
+            # 尝试通过增加一张牌来使局面变成必胜
+            # 选择一个随机堆增加1张牌
+            if self.card_piles:
+                idx = random.randint(0, len(self.card_piles) - 1)
+                self.card_piles[idx] += 1
+                self.max_take = max(self.card_piles)  # 重新计算最大取牌数
         
         # Set up AI for PvE mode
         if self.game_mode == "PVE":
             self.auto_player = SplitCardsAI(self)
         
         # Set initial message
+        total_cards = sum(self.card_piles)
         if self.winning_hints_enabled:
-            self.message = f"Game Started! {initial_pile} cards in one pile. Max take: {self.max_take}. Winning Hints enabled. {self.current_player}'s turn."
+            self.message = f"Game Started! {len(self.card_piles)} piles with {total_cards} total cards. Max take: {self.max_take}. Winning Hints enabled. {self.current_player}'s turn."
         else:
-            self.message = f"Game Started! {initial_pile} cards in one pile. Max take: {self.max_take}. {self.current_player}'s turn."
+            self.message = f"Game Started! {len(self.card_piles)} piles with {total_cards} total cards. Max take: {self.max_take}. {self.current_player}'s turn."
     
     def make_move(self, move_info):
         """Execute a move"""
@@ -160,7 +231,7 @@ class SplitCardsLogic:
             count = move_info.get('count')
             
             if (0 <= pile_idx < len(self.card_piles) and 
-                1 <= count <= min(self.max_take, self.card_piles[pile_idx])):
+                1 <= count <= self.card_piles[pile_idx]):
                 
                 self.card_piles[pile_idx] -= count
                 self.message = f"{self.current_player} took {count} card(s) from pile {pile_idx + 1}."
@@ -185,6 +256,12 @@ class SplitCardsLogic:
         else:
             return False
         
+        # 移动后更新最大取牌上限
+        if self.card_piles:
+            self.max_take = max(self.card_piles)
+        else:
+            self.max_take = 0
+        
         # Check if game is over (no cards left)
         if not any(self.card_piles):
             self.game_over = True
@@ -202,21 +279,25 @@ class SplitCardsLogic:
             if self.current_player == "Player 1":
                 self.current_player = "AI"
                 if not self.game_over:
-                    self.message += f" AI's turn. {len(self.card_piles)} piles remaining."
+                    total_cards = sum(self.card_piles)
+                    self.message += f" AI's turn. {len(self.card_piles)} piles ({total_cards} cards) remaining."
             else:
                 self.current_player = "Player 1"
                 if not self.game_over:
-                    self.message += f" Your turn. {len(self.card_piles)} piles remaining."
+                    total_cards = sum(self.card_piles)
+                    self.message += f" Your turn. {len(self.card_piles)} piles ({total_cards} cards) remaining."
         else:
             # PvP mode
             if self.current_player == "Player 1":
                 self.current_player = "Player 2"
                 if not self.game_over:
-                    self.message += f" {self.current_player}'s turn. {len(self.card_piles)} piles remaining."
+                    total_cards = sum(self.card_piles)
+                    self.message += f" {self.current_player}'s turn. {len(self.card_piles)} piles ({total_cards} cards) remaining."
             else:
                 self.current_player = "Player 1"
                 if not self.game_over:
-                    self.message += f" {self.current_player}'s turn. {len(self.card_piles)} piles remaining."
+                    total_cards = sum(self.card_piles)
+                    self.message += f" {self.current_player}'s turn. {len(self.card_piles)} piles ({total_cards} cards) remaining."
     
     def ai_make_move(self):
         """Let AI make a move (only in PvE mode)"""
@@ -248,19 +329,19 @@ class SplitCardsLogic:
             winning_move = self.find_winning_move()
             if winning_move:
                 if winning_move['type'] == 'take':
-                    hint += f"ACTION: Take {winning_move['count']} card(s) from Pile {winning_move['pile_index'] + 1}\n\n"
+                    hint += f"ACTION: \n Take {winning_move['count']} card(s) \n from Pile {winning_move['pile_index'] + 1}\n\n"
                     hint += f"Steps:\n"
                     hint += f"1. Click on Pile {winning_move['pile_index'] + 1}\n"
                     hint += f"2. Click 'Take Cards' button\n"
-                    hint += f"3. Set number to {winning_move['count']} (use arrows or type directly)\n"
-                    hint += f"4. Click 'Confirm Move' or press ENTER\n"
+                    hint += f"3. Set number to {winning_move['count']} \n (use arrows or type directly)\n"
+                    hint += f"4. Click 'Confirm Move' \n or press ENTER\n"
                 else:  # split
-                    hint += f"ACTION: Split Pile {winning_move['pile_index'] + 1} into {winning_move['left_count']} and {winning_move['right_count']} cards\n\n"
+                    hint += f"ACTION: Split Pile {winning_move['pile_index'] + 1} \n into {winning_move['left_count']} and {winning_move['right_count']} cards\n\n"
                     hint += f"Steps:\n"
                     hint += f"1. Click on Pile {winning_move['pile_index'] + 1}\n"
                     hint += f"2. Click 'Split Pile' button\n"
-                    hint += f"3. Set split point to {winning_move['left_count']} (use arrows or type directly)\n"
-                    hint += f"4. Click 'Confirm Move' or press ENTER\n"
+                    hint += f"3. Set split point to {winning_move['left_count']} \n (use arrows or type directly)\n"
+                    hint += f"4. Click 'Confirm Move' \n or press ENTER\n"
                 
                 hint += f"\nReason: This move leaves opponent in a losing position."
             else:
@@ -307,7 +388,9 @@ class SplitCardsLogic:
                 hint += f"\nReason: This creates {max_complexity} piles, giving opponent more chances to make mistakes."
         
         # Add quick summary
-        hint += f"\n\nCurrent: Piles: {self.card_piles}, Max take: {self.max_take}"
+        total_cards = sum(self.card_piles)
+        hint += f"\n\nCurrent: {len(self.card_piles)} piles: {self.card_piles} (total: {total_cards} cards)"
+        hint += f"\nMax take: \n {self.max_take} cards from any pile"
         
         return hint
 
