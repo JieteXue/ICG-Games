@@ -4,6 +4,7 @@ Uses pygame to draw icons directly
 """
 
 import pygame
+import math
 
 class IconRenderer:
     """Renders simple icons using pygame drawing functions"""
@@ -125,6 +126,95 @@ class IconRenderer:
         return surface
     
     @staticmethod
+    def render_settings_icon(size=32, color=(255, 255, 255)):
+        """Render a settings/gear icon"""
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        
+        # Draw gear
+        center = (size // 2, size // 2)
+        radius = size // 3
+        
+        # Draw gear center circle
+        pygame.draw.circle(surface, color, center, radius // 2, 2)
+        
+        # Draw gear teeth
+        for i in range(8):
+            angle = i * math.pi / 4
+            # Outer points
+            outer_radius = radius
+            x1 = center[0] + outer_radius * math.cos(angle)
+            y1 = center[1] + outer_radius * math.sin(angle)
+            
+            # Inner points
+            inner_radius = radius * 0.7
+            x2 = center[0] + inner_radius * math.cos(angle)
+            y2 = center[1] + inner_radius * math.sin(angle)
+            
+            # Draw gear tooth as a small rectangle
+            tooth_width = size // 12
+            pygame.draw.polygon(surface, color, [
+                (x1 - tooth_width//2 * math.cos(angle + math.pi/2), 
+                 y1 - tooth_width//2 * math.sin(angle + math.pi/2)),
+                (x1 + tooth_width//2 * math.cos(angle + math.pi/2), 
+                 y1 + tooth_width//2 * math.sin(angle + math.pi/2)),
+                (x2 + tooth_width//2 * math.cos(angle + math.pi/2), 
+                 y2 + tooth_width//2 * math.sin(angle + math.pi/2)),
+                (x2 - tooth_width//2 * math.cos(angle + math.pi/2), 
+                 y2 - tooth_width//2 * math.sin(angle + math.pi/2))
+            ])
+        
+        return surface
+    
+    @staticmethod
+    def render_gift_icon(size=32, color=(255, 255, 255)):
+        """Render a gift/box icon"""
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        
+        # Draw gift box
+        box_width = size // 2
+        box_height = size // 2
+        box_x = (size - box_width) // 2
+        box_y = (size - box_height) // 2
+        
+        # Draw box
+        pygame.draw.rect(surface, color, 
+                        (box_x, box_y, box_width, box_height), 
+                        2, border_radius=size//16)
+        
+        # Draw ribbon
+        # Horizontal ribbon
+        pygame.draw.line(surface, color, 
+                        (box_x, box_y + box_height//2),
+                        (box_x + box_width, box_y + box_height//2), 3)
+        
+        # Vertical ribbon
+        pygame.draw.line(surface, color,
+                        (box_x + box_width//2, box_y),
+                        (box_x + box_width//2, box_y + box_height), 3)
+        
+        # Draw ribbon bow in center
+        center_x = box_x + box_width // 2
+        center_y = box_y + box_height // 2
+        bow_size = size // 8
+        
+        # Left bow loop
+        pygame.draw.ellipse(surface, color,
+                           (center_x - bow_size - bow_size//2, 
+                            center_y - bow_size//2,
+                            bow_size, bow_size))
+        
+        # Right bow loop
+        pygame.draw.ellipse(surface, color,
+                           (center_x + bow_size//2, 
+                            center_y - bow_size//2,
+                            bow_size, bow_size))
+        
+        # Center knot
+        pygame.draw.circle(surface, color, (center_x, center_y), bow_size//3)
+        
+        return surface
+    
+    @staticmethod
     def get_icon(icon_name, size=32, color=(255, 255, 255)):
         """Get icon by name"""
         icon_map = {
@@ -136,7 +226,10 @@ class IconRenderer:
             'game': IconRenderer.render_game_icon,
             'controls': IconRenderer.render_controls_icon,
             'game_small': lambda s, c: IconRenderer.render_game_icon(s*3//4, c),
-            'control_small': lambda s, c: IconRenderer.render_controls_icon(s*3//4, c)
+            'control_small': lambda s, c: IconRenderer.render_controls_icon(s*3//4, c),
+            # 新增图标映射
+            'settings': IconRenderer.render_settings_icon,
+            'gift': IconRenderer.render_gift_icon,
         }
         
         if icon_name in icon_map:
