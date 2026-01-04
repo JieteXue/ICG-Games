@@ -214,7 +214,7 @@ class TakeCoinsUI:
             self.screen.blit(empty_text, (x - empty_text.get_width()//2, base_y - 8))
             return
         
-        # 有硬币的位置
+        # position with coins
         if not is_valid:
             coin_color = (70, 70, 80)
             border_color = (50, 50, 60)
@@ -232,20 +232,20 @@ class TakeCoinsUI:
         for i in range(display_count):
             coin_y = base_y - i * coin_spacing
             
-            # 绘制硬币阴影
+            # draw shadow of coins
             shadow_rect = (x - coin_radius + 1, coin_y - coin_radius + 1, 
                          coin_radius * 2, coin_radius * 2)
             pygame.draw.ellipse(self.screen, (0, 0, 0, 100), shadow_rect)
             
-            # 绘制硬币
+            # draw coins
             pygame.draw.circle(self.screen, coin_color, (x, coin_y), coin_radius)
             pygame.draw.circle(self.screen, border_color, (x, coin_y), coin_radius, 2)
             
-            # 添加高光
+            # add high light
             highlight_pos = (x - coin_radius//2, coin_y - coin_radius//2)
             pygame.draw.circle(self.screen, highlight_color, highlight_pos, coin_radius//3)
         
-        # 如果硬币太多，显示数量
+        # if too much coin, display number
         if coin_count > max_display_coins:
             count_color = TEXT_COLOR if is_valid else (100, 100, 110)
             count_text = self.font_manager.small.render(f"+{coin_count - max_display_coins}", 
@@ -254,7 +254,7 @@ class TakeCoinsUI:
                            (x - count_text.get_width()//2, 
                             base_y - (display_count * coin_spacing) - 15))
         
-        # 高亮选中的位置
+        # high light chosen position
         if is_selected:
             highlight_height = 60 if coin_count == 0 else 50
             highlight_y = base_y - (display_count * coin_spacing) - 25
@@ -343,7 +343,7 @@ class TakeCoinsUI:
         buttons = []
         
         for i, coin_count in enumerate(coins):
-            # 创建一个简单的按钮对象用于绘制
+            # create simple button object
             button = type('PositionButton', (), {})()
             button.position_index = i
             button.enabled = (i in valid_positions)

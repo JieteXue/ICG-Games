@@ -14,18 +14,15 @@ class Sidebar:
     def __init__(self, screen, font_manager):
         self.screen = screen
         self.font_manager = font_manager
-        self.expanded = False  # 默认不展开
-        self.current_width = 0  # 默认宽度为0，完全隐藏
+        self.expanded = False  # unfold (default)
+        self.current_width = 0  # hide
         self.target_width = 0
-        # 使用全局音乐管理器
         from utils.music_manager import music_manager
         self.music_manager = music_manager
-        
-        # 确保设置面板使用同一个音乐管理器实例
         self.settings_panel = SettingsPanel(screen, font_manager, self.music_manager)
         self.music_panel = MusicPanel(screen, font_manager, self.music_manager)
         
-        # 从设置面板获取初始设置
+        # get initial setting form setting panel
         self.settings = self.settings_panel.get_settings()
         # Sidebar position - 初始宽度为0
         self.rect = pygame.Rect(0, 0, 0, SCREEN_HEIGHT)
@@ -116,27 +113,27 @@ class Sidebar:
                     self.toggle_button_rect.x = start_x + (end_x - start_x) * progress
             else:
                 # 折叠时按钮从右侧逐渐移到左侧
-                if SIDEBAR_EXPANDED_WIDTH > 0:  # 避免除以0
+                if SIDEBAR_EXPANDED_WIDTH > 0:
                     progress = (SIDEBAR_EXPANDED_WIDTH - self.current_width) / SIDEBAR_EXPANDED_WIDTH
-                    start_x = SIDEBAR_EXPANDED_WIDTH - 50  # 展开时的位置
+                    start_x = SIDEBAR_EXPANDED_WIDTH - 50
                     end_x = 10  # 折叠时的位置
                     self.toggle_button_rect.x = start_x + (end_x - start_x) * progress
         
         # Update button positions based on sidebar width
         for button in self.buttons:
-            # 只在展开且宽度足够时才显示按钮
+            # display buttons when unfold enough width
             button.set_visible(self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10)
             if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
                 button.update_position(self.current_width)
     
     def handle_event(self, event, mouse_pos):
         """Handle sidebar events"""
-        # 如果音乐面板可见，优先处理音乐面板事件
+        # handle with music panel if it is visible
         if self.music_panel.visible:
             result = self.music_panel.handle_event(event, mouse_pos)
             if result:
                 if result.startswith("music_selected_"):
-                    # 音乐被选中
+                    # chose music
                     music_id = int(result.replace("music_selected_", ""))
                     print(f"Music selected: {music_id}")
                 elif result == "music_locked":
@@ -145,39 +142,38 @@ class Sidebar:
                     self.music_panel.hide()
                 return result
             return None
-        # 如果设置面板可见，优先处理设置面板事件
+        # handel with setting panel first if it is visible
         if self.settings_panel.visible:
             result = self.settings_panel.handle_event(event, mouse_pos)
             if result:
                 if result.startswith("setting_changed_"):
-                    # 更新本地设置
+                    # update local settings
                     setting_name = result.replace("setting_changed_", "")
                     self.settings[setting_name] = self.settings_panel.settings.get(setting_name, False)
                     # 传递设置变化事件给游戏
                     return result
                 elif result == "back_from_settings":
-                    return "settings_closed"  # 返回特定事件表示设置面板已关闭
+                    return "settings_closed"
                 elif result == "sponsor_clicked":
                     return "sponsor_clicked"
                 elif result == "sponsor_error":
                     return "sponsor_error"
-            return None  # 设置面板可见时，不处理其他事件
+            return None
 
-        # 原有的键盘快捷键检查
         if event.type == pygame.KEYDOWN:
             if event.key in self.key_shortcuts:
                 action = self.key_shortcuts[event.key]
                 if action == "toggle":
                     return self.toggle()
                 elif action == "settings":
-                    # 按S键打开设置面板
+                    # "S" to open setting panel
                     self.settings_panel.show()
                     return "settings_opened"
-                elif action == "music":  # 新增：按M键打开音乐面板
+                elif action == "music":
                     self.music_panel.toggle_visibility()
                     return "music_panel_toggled"
                 return action
-            # ESC键处理
+            # ESC
             if event.key == pygame.K_ESCAPE:
                 if self.music_panel.visible:
                     self.music_panel.hide()
@@ -190,28 +186,24 @@ class Sidebar:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # 如果侧边栏展开，点击外部区域则收起侧边栏
             if self.expanded and not self.is_mouse_over(mouse_pos):
-                # 检查是否点击了其他UI元素（比如游戏区域）
-                # 这里可以根据需要添加额外检查
                 return self.toggle()  # 收起侧边栏
 
-            # 检查切换按钮
             if self.toggle_button_rect.collidepoint(mouse_pos):
                 return self.toggle()
 
-            # 检查侧边栏按钮（如果展开且可见）
             if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
                 for button in self.buttons:
                     if button.is_clicked(event):
                         if button.name == "settings":
-                            # 点击settings按钮时，显示设置面板
+                            # after click setting button
                             self.settings_panel.show()
                             return "settings_opened"
-                        elif button.name == "music":  # 新增：音乐按钮
+                        elif button.name == "music":
                             self.music_panel.toggle_visibility()
                             return "music_panel_toggled"
                         return button.name
 
-        # 处理悬停
+        # handle hover
         if event.type == pygame.MOUSEMOTION:
             for button in self.buttons:
                 button.update_hover(mouse_pos)
@@ -220,22 +212,20 @@ class Sidebar:
     
     def draw(self):
         """Draw the sidebar"""
-        # 如果音乐面板可见，先绘制音乐面板
+
         if self.music_panel.visible:
             self.music_panel.draw()
             return
-        # 如果设置面板可见，先绘制设置面板
+
         if self.settings_panel.visible:
             self.settings_panel.draw()
-            return  # 绘制设置面板后，不绘制侧边栏背景
+            return
         
-        # 只有在展开或动画过程中且宽度大于0时才绘制侧边栏背景
         if (self.expanded or self.is_animating) and self.current_width > 0:
-            # 绘制背景（宽度会动画变化）
+            # draw background（width change with animation）
             color = SIDEBAR_EXPANDED_COLOR if self.expanded else (SIDEBAR_EXPANDED_COLOR[0], SIDEBAR_EXPANDED_COLOR[1], SIDEBAR_EXPANDED_COLOR[2], 150)
             pygame.draw.rect(self.screen, color, self.rect)
-            
-            # 绘制边框
+        
             if self.expanded:
                 pygame.draw.rect(self.screen, ACCENT_COLOR, self.rect, 2)
             
@@ -246,17 +236,16 @@ class Sidebar:
                 
                 # Draw sidebar title
                 if self.current_width >= 120:
-                    title_font = pygame.font.SysFont('Arial', 18, bold=True)  # 增加了标题字体大小
+                    title_font = pygame.font.SysFont('Arial', 18, bold=True)
                     title_text = title_font.render("NAVIGATION", True, ACCENT_COLOR)
-                    title_rect = title_text.get_rect(center=(self.current_width // 2, 50))  # 调整了标题位置
+                    title_rect = title_text.get_rect(center=(self.current_width // 2, 50))
                     self.screen.blit(title_text, title_rect)
         
-        # 总是绘制切换按钮
         self._draw_toggle_button()
     
     def _draw_toggle_button(self):
         """Draw the toggle button"""
-        # Button background (总是显示)
+        # Button background (always display)
         mouse_pos = pygame.mouse.get_pos()
         is_hovered = self.toggle_button_rect.collidepoint(mouse_pos)
         
@@ -264,11 +253,11 @@ class Sidebar:
         if is_hovered:
             # Shadow for hover effect
             shadow_rect = self.toggle_button_rect.move(2, 2)
-            pygame.draw.rect(self.screen, (0, 0, 0, 100), shadow_rect, border_radius=8)  # 增加了圆角半径
+            pygame.draw.rect(self.screen, (0, 0, 0, 100), shadow_rect, border_radius=8)
         
         # Button background
         button_color = BUTTON_HOVER_COLOR if is_hovered else ACCENT_COLOR
-        pygame.draw.rect(self.screen, button_color, self.toggle_button_rect, border_radius=8)  # 增加了圆角半径
+        pygame.draw.rect(self.screen, button_color, self.toggle_button_rect, border_radius=8)
         
         # Hamburger or X icon
         center_x = self.toggle_button_rect.centerx
@@ -278,32 +267,32 @@ class Sidebar:
         
         if self.expanded:
             # Draw X icon when expanded
-            offset = 10  # 增加了X图标的大小
+            offset = 10
             pygame.draw.line(self.screen, icon_color, 
                            (center_x - offset, center_y - offset),
-                           (center_x + offset, center_y + offset), 4)  # 增加了线宽
+                           (center_x + offset, center_y + offset), 4)
             pygame.draw.line(self.screen, icon_color,
                            (center_x - offset, center_y + offset),
-                           (center_x + offset, center_y - offset), 4)  # 增加了线宽
+                           (center_x + offset, center_y - offset), 4)
         else:
-            # Draw hamburger icon when collapsed (三条横线)
-            bar_height = 3  # 增加了线条高度
-            bar_spacing = 5  # 增加了线条间距
+            # Draw hamburger icon when collapsed
+            bar_height = 3
+            bar_spacing = 5
             for i in range(-1, 2):
                 y = center_y + i * bar_spacing
                 pygame.draw.line(self.screen, icon_color,
-                               (center_x - 10, y),  # 增加了线条长度
-                               (center_x + 10, y), bar_height)  # 增加了线条长度
+                               (center_x - 10, y),
+                               (center_x + 10, y), bar_height)
     
     def is_mouse_over(self, mouse_pos):
         """Check if mouse is over sidebar area"""
-        # 检查侧边栏区域
+        # chech sidebar
         if self.current_width > 0 and self.rect.collidepoint(mouse_pos):
             return True
-        # 检查切换按钮（无论是否展开都检查）
+        # check switch button
         if self.toggle_button_rect.collidepoint(mouse_pos):
             return True
-        # 检查侧边栏按钮（如果展开且可见）
+        # check sidebar button (if visible)
         if self.expanded and self.current_width >= SIDEBAR_EXPANDED_WIDTH - 10:
             for button in self.buttons:
                 if button.rect.collidepoint(mouse_pos):
@@ -318,11 +307,11 @@ class Sidebar:
         return None
     
     def get_settings(self):
-        """获取当前设置"""
+        """get current settings"""
         return self.settings_panel.get_settings()
     
     def set_settings(self, settings):
-        """更新设置"""
+        """update settings"""
         self.settings_panel.set_settings(settings)
         self.settings = settings
 
@@ -366,11 +355,11 @@ class SidebarButton:
         
         # Button background
         color = BUTTON_HOVER_COLOR if self.hovered else BUTTON_COLOR
-        pygame.draw.rect(surface, color, self.rect, border_radius=10)  # 增加了圆角半径
+        pygame.draw.rect(surface, color, self.rect, border_radius=10)
         
         # Button border
         border_color = ACCENT_COLOR if self.hovered else (100, 140, 200)
-        pygame.draw.rect(surface, border_color, self.rect, 2, border_radius=10)  # 增加了圆角半径
+        pygame.draw.rect(surface, border_color, self.rect, 2, border_radius=10)
         
         # Draw text
         self._draw_text(surface)

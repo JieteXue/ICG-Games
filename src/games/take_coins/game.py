@@ -477,15 +477,15 @@ Good luck and have fun!
             self.initialize_game_settings()
             return True
         elif action == "home":
-            return False  # 返回主菜单
+            return False  # back to main menu
         elif action == "refresh":
-            # 重启游戏
+            # restart the game
             game_mode = getattr(self.logic, 'game_mode', "PVE")
             difficulty = getattr(self.logic, 'difficulty', 2)
             winning_hints = getattr(self.logic, 'winning_hints_enabled', False)
             self.logic.initialize_game(game_mode, difficulty, winning_hints=winning_hints)
             self.ui.scroll_offset = 0
-            # 关闭提示窗口
+            # close hint window
             if hasattr(self.ui, 'hint_window_visible'):
                 self.ui.close_hint_window()
             return True
@@ -493,11 +493,9 @@ Good luck and have fun!
             self.showing_instructions = True
             return True
         elif action.startswith("setting_changed_"):
-            # 处理设置变化
             setting_name = action.replace("setting_changed_", "")
             print(f"Setting changed: {setting_name}")
             
-            # 更新配置管理器中的设置
             if setting_name == "winning_hints":
                 if hasattr(self.sidebar, 'settings_panel'):
                     settings = self.sidebar.settings_panel.get_settings()
@@ -505,16 +503,12 @@ Good luck and have fun!
                     
                     print(f"Winning hints setting changed to: {winning_hints}")
                     
-                    # 更新配置管理器
                     try:
                         prefs = config_manager.get_user_preferences()
                         prefs.winning_hints = winning_hints
                         config_manager.update_user_preferences(prefs)
-                        
-                        # 更新游戏逻辑中的设置
                         self.logic.winning_hints_enabled = winning_hints
-                        
-                        # 显示反馈消息
+
                         if winning_hints:
                             self.logic.message = "Winning Hints enabled! Press H or click ? button for guidance."
                         else:
@@ -523,7 +517,7 @@ Good luck and have fun!
                     except Exception as e:
                         print(f"Error updating setting: {e}")
                         
-                    # 强制更新按钮状态
+                    # force update
                     self.update_button_states()
             return True
         elif action == "sponsor_clicked":
@@ -563,7 +557,6 @@ Good luck and have fun!
     def draw(self):
         """Draw the complete game interface with scrolling"""
         try:
-            # 如果显示说明，绘制说明页面
             if self.showing_instructions:
                 self.draw_instructions()
                 pygame.display.flip()
@@ -692,8 +685,7 @@ Good luck and have fun!
                 self.logic.winning_hints_enabled = current_prefs.winning_hints
             except Exception as e:
                 print(f"Error syncing winning hints from config: {e}")
-        
-        # 确定按钮是否可用
+
         if self.logic.game_mode == "PVE":
             buttons_enabled = (self.logic.current_player == "Player 1")
         else:

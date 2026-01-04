@@ -179,7 +179,7 @@ def check_font_support(font_manager):
                            ('medium', font_manager.medium),
                            ('large', font_manager.large)]:
         for char in test_chars:
-            # 尝试渲染字符
+            # try character
             try:
                 text_surface = font.render(char, True, (255, 255, 255))
                 width, height = text_surface.get_size()
@@ -245,18 +245,15 @@ def main():
         # Start main menu
         print("Starting main menu...")
         
-        # 初始化音乐 - 在导入 music_manager 之前先初始化 mixer
         pygame.mixer.init()
         
-        # 正确导入 music_manager（根据你的目录结构）
         try:
-            # 从 utils 模块导入 music_manager
+            # from utils import music_manager
             from utils.music_manager import music_manager
             print("✅ Music manager imported successfully")
             
-            # 从配置加载音乐设置并播放音乐
             if music_manager.is_music_enabled() and music_manager.get_current_music_index() >= 0:
-                # 播放当前选中的音乐
+                # play current music
                 music_manager.play_music(music_manager.get_current_music_index())
                 print(f"🎵 Playing music: {music_manager.get_current_music_index()}")
             else:
@@ -265,7 +262,7 @@ def main():
         except ImportError as e:
             print(f"❌ Could not import music_manager: {e}")
             print("Please make sure utils/music_manager.py exists.")
-            # 创建一个简单的模拟对象以避免错误
+
             class DummyMusicManager:
                 def is_music_enabled(self):
                     return False
